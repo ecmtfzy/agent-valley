@@ -28,7 +28,7 @@ open "$(brew --prefix)/opt/agent-valley/AgentValley.app"
 
 The panel opens once to show where it lives. After that, point at the notch to open it.
 
-To update: `brew upgrade agent-valley`, then quit the app and open it again.
+To update: `brew upgrade morsechimwai/tap/agent-valley`, then quit the app and open it again.
 
 To remove: if you installed the plugin, run `claude plugin uninstall notch-answers@agent-valley && claude plugin marketplace remove agent-valley` first. Then `brew uninstall agent-valley`. Your History stays in `~/Library/Application Support/AgentValley` until you delete that folder.
 
