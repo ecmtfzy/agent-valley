@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 — 2026-10-16
+
+- Open at login keeps working after `brew upgrade`. macOS remembers the app by its folder, and Homebrew gives each version a new one; the app now tells macOS where it is when it opens from a new folder. If you turned Open at login on in 0.1.0, quit the app and open it again after upgrading.
+
 ## 0.1.0 — 2026-10-16
 
 The first public release.

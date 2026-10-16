@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.$sessions
             .sink { [answers] sessions in answers.reconcile(with: sessions) }
             .store(in: &watches)
+        LoginItem.follow(settings)
         store.start()
         notch = NotchWindowController(store: store, settings: settings, limits: limits, answers: answers, sound: SoundPlayer(settings: settings), usage: usage)
     }

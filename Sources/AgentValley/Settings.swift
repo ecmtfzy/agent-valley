@@ -144,6 +144,13 @@ final class Settings: ObservableObject {
         defaults.set(true, forKey: Key.launched)
     }
 
+    /// Where the app stood when it last asked macOS to open it at login: macOS keeps the item
+    /// by that path.
+    var loginItemPath: String? {
+        get { defaults.string(forKey: Key.loginItemPath) }
+        set { defaults.set(newValue, forKey: Key.loginItemPath) }
+    }
+
     /// Anything the store holds that this version does not understand reads as the default.
     /// Plan limits starts off: it reads the Keychain and uses the network, so it is opted into.
     init(defaults: UserDefaults = .standard) {
@@ -194,5 +201,6 @@ final class Settings: ObservableObject {
         static let goToTab = "goToTab"
         static let grouping = "grouping"
         static let tokenUse = "tokenUse"
+        static let loginItemPath = "loginItemPath"
     }
 }

@@ -221,6 +221,7 @@ struct SettingsView: View {
         } catch {
             failure = error
         }
+        if on, failure == nil { settings.loginItemPath = Bundle.main.bundlePath }
         let status = SMAppService.mainApp.status
         loginError = LoginItem.message(wanted: on, status: status, error: failure, appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String)
         openAtLogin = status == .enabled
@@ -228,6 +229,15 @@ struct SettingsView: View {
 }
 
 enum LoginItem {
+    /// macOS keeps a login item by the app's path, and Homebrew gives each version a folder of
+    /// its own and deletes the one before: after an upgrade the item names an app that is gone.
+    /// Opened from a new place, the app registers again, from there.
+    static func follow(_ settings: Settings, to path: String = Bundle.main.bundlePath) {
+        guard SMAppService.mainApp.status == .enabled, settings.loginItemPath != path else { return }
+        try? SMAppService.mainApp.unregister()
+        if (try? SMAppService.mainApp.register()) != nil { settings.loginItemPath = path }
+    }
+
     /// What to say under the switch after trying to set it, or nil when it simply worked.
     static func message(wanted: Bool, status: SMAppService.Status, error: Error?, appName: String? = nil) -> String? {
         if let error {
