@@ -1,0 +1,30 @@
+name: Bug report
+description: Something in AgentValley does not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw. A screenshot helps.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: AgentValley version
+      description: "From `brew info agent-valley`, or the commit if you built it yourself."
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac
+      placeholder: macOS 15.6, MacBook Pro 14-inch
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal app and Claude Code version
+      placeholder: Ghostty 1.2, Claude Code 2.1

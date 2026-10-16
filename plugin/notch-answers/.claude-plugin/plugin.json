@@ -1,0 +1,6 @@
+{
+  "name": "notch-answers",
+  "version": "0.1.0",
+  "description": "Answer Claude Code's permission prompts and multiple-choice questions from the AgentValley notch panel.",
+  "author": { "name": "AgentValley" }
+}

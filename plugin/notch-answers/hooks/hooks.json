@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/ask.sh", "timeout": 600 }
+        ]
+      }
+    ]
+  }
+}

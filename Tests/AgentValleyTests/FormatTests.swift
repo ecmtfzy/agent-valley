@@ -1,0 +1,673 @@
+import AppKit
+import SwiftUI
+import XCTest
+@testable import AgentValley
+
+final class FormatTests: XCTestCase {
+    func testElapsed() {
+        XCTAssertEqual(Format.elapsed(0), "0s")
+        XCTAssertEqual(Format.elapsed(45.9), "45s")
+        XCTAssertEqual(Format.elapsed(130), "2m 10s")
+        XCTAssertEqual(Format.elapsed(599), "9m 59s")
+        // Past ten minutes the seconds say nothing, and ticked on every row.
+        XCTAssertEqual(Format.elapsed(600), "10m")
+        XCTAssertEqual(Format.elapsed(1899), "31m")
+        XCTAssertEqual(Format.elapsed(3900), "1h 05m")
+    }
+
+    func testTokens() {
+        XCTAssertEqual(Format.tokens(0), "0")
+        XCTAssertEqual(Format.tokens(950), "950")
+        XCTAssertEqual(Format.tokens(12_300), "12.3k")
+        XCTAssertEqual(Format.tokens(236_600), "236.6k")
+        XCTAssertEqual(Format.tokens(1_200_000), "1.2M")
+    }
+
+    func testStepLineIsOmittedBeforeTheFirstToolCall() {
+        XCTAssertNil(Format.stepLine(""))
+        XCTAssertEqual(Format.stepLine("Read login.ts"), "> Read login.ts")
+    }
+
+    // The interface is English only. Reading the sources keeps a stray Thai label from slipping in.
+    func testAppSourcesContainNoThaiText() throws {
+        let sources = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/AgentValley")
+        let files = try FileManager.default.contentsOfDirectory(at: sources, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "swift" }
+        XCTAssertFalse(files.isEmpty)
+        for file in files {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            let thai = text.unicodeScalars.first { (0x0E00...0x0E7F).contains($0.value) }
+            XCTAssertNil(thai, "\(file.lastPathComponent) contains Thai text")
+        }
+    }
+
+    func testStepCountIsSingularForOneStep() {
+        XCTAssertEqual(Format.steps(1), "1 step")
+        XCTAssertEqual(Format.steps(22), "22 steps")
+    }
+
+    func testHeaderCounts() {
+        XCTAssertEqual(Format.working(0), "0 working")
+        XCTAssertEqual(Format.working(4), "4 working")
+        XCTAssertEqual(Format.idle(3), "3 idle")
+    }
+
+    // The task is what tells agents apart, so it leads. The type leads only when there is no task.
+    func testRowTitleAndSubtitle() {
+        XCTAssertEqual(Format.rowTitle(task: "Find auth files", type: "Explore"), "Find auth files")
+        XCTAssertEqual(Format.rowTitle(task: "", type: "Explore"), "Explore")
+        XCTAssertEqual(Format.rowSubtitle(task: "Find auth files", type: "Explore"), "Explore")
+        XCTAssertNil(Format.rowSubtitle(task: "", type: "Explore"))
+    }
+
+    // "general-purpose" is the default, and the round mascot already says so. A plugin's prefix says
+    // whose agent it is, not what it does. Both took room from the step.
+    func testRowSubtitleLeavesOutWhatSaysNothing() {
+        XCTAssertNil(Format.rowSubtitle(task: "Fix the pay button", type: "general-purpose"))
+        XCTAssertEqual(Format.rowSubtitle(task: "Review the diff", type: "acme:code-reviewer"), "code-reviewer")
+        XCTAssertNil(Format.rowSubtitle(task: "Review the diff", type: ""))
+        // With no task the type is the row's only name, so it stays whole.
+        XCTAssertEqual(Format.rowTitle(task: "", type: "acme:code-reviewer"), "acme:code-reviewer")
+    }
+
+    // A row Claude Code calls busy stays "working" through any silence. Past two minutes the step
+    // says how long ago the transcript last moved, so a hung command does not pass for progress.
+    func testAWorkingRowSaysWhenItLastMoved() {
+        XCTAssertNil(Format.lastMoved(.working, silentFor: 119))
+        XCTAssertEqual(Format.lastMoved(.working, silentFor: 14 * 60 + 20), "14m ago")
+        // It stands where the row's time stands, in the same place on every row: at the end of
+        // the step it sat somewhere else on each, and had to be read for.
+        XCTAssertEqual(Format.rowTime(.working, elapsed: 400, quietFor: 14 * 60 + 20), "14m ago")
+        XCTAssertEqual(Format.rowTime(.working, elapsed: 400, quietFor: 20), "6m 40s")
+        XCTAssertEqual(Format.rowTime(.quiet, elapsed: 400, quietFor: 300), "quiet 5m")
+        XCTAssertEqual(Format.rowTime(.needsYou, elapsed: 400, quietFor: 70), "needs you 1m")
+        XCTAssertEqual(Format.rowTime(.done, elapsed: 400, quietFor: 0), "done")
+        XCTAssertEqual(Format.lastMoved(.working, silentFor: 3700), "1h 01m ago")
+        // Quiet and asking rows already say for how long, beside their name.
+        XCTAssertNil(Format.lastMoved(.quiet, silentFor: 900))
+        XCTAssertNil(Format.lastMoved(.needsYou, silentFor: 900))
+        XCTAssertNil(Format.lastMoved(.done, silentFor: 900))
+    }
+
+    // The main agent can end its turn while agents it started run on. "idle" over working rows
+    // read as a finished session.
+    func testACardWhoseMainAgentEndedSaysHowManyStillWork() {
+        func card(main: AgentStatus, agents: [AgentStatus]) -> SessionCard {
+            func row(_ id: String, _ status: AgentStatus) -> AgentRow { AgentRow(id: id, info: AgentInfo(), status: status, elapsed: 0, quietFor: 200) }
+            return SessionCard(id: "s", project: "p", branch: "", main: row("m", main),
+                               agents: agents.enumerated().map { row("a\($0.offset)", $0.element) }, startedAt: Date(timeIntervalSince1970: 0))
+        }
+        XCTAssertEqual(Format.cardStatus(card(main: .done, agents: [.working, .done, .working])), "2 working")
+        XCTAssertEqual(Format.cardStatus(card(main: .done, agents: [.done])), "idle")
+        // A quiet agent is not known to be at work: its own row says what it is.
+        XCTAssertEqual(Format.cardStatus(card(main: .done, agents: [.quiet])), "idle")
+        // At work and silent for three minutes: since when, where its time would stand.
+        XCTAssertEqual(Format.cardStatus(card(main: .working, agents: [.working])), "3m ago")
+        XCTAssertEqual(Format.cardStatus(card(main: .needsYou, agents: [.working])), "needs you 3m")
+    }
+
+    func testQuitLabelNamesTheApp() {
+        XCTAssertEqual(Format.quit(appName: "AgentValley"), "Quit AgentValley")
+        XCTAssertEqual(Format.quit(appName: nil), "Quit")
+    }
+
+    // An empty panel says what to do next, not only that it is empty.
+    func testEmptyStatesSayWhatToDo() {
+        XCTAssertEqual(Format.emptyState(loaded: true, rootMissing: false, isEmpty: true), "No agents running. Start Claude Code in a terminal and they appear here.")
+        XCTAssertEqual(Format.emptyState(loaded: true, rootMissing: true, isEmpty: true), "Can't find ~/.claude/projects. Run Claude Code once and agents appear here.")
+        XCTAssertNil(Format.emptyState(loaded: true, rootMissing: false, isEmpty: false))
+    }
+
+    // At launch the list is empty because nothing has been read yet. Saying "No agents running"
+    // for that moment tells a person with ten agents to go and start one.
+    func testNothingIsClaimedBeforeTheFirstScan() {
+        XCTAssertNil(Format.emptyState(loaded: false, rootMissing: false, isEmpty: true))
+        XCTAssertNil(Format.emptyState(loaded: false, rootMissing: true, isEmpty: true))
+    }
+
+    // A Mac without a notch still gets the bar, so the first-launch line must not send people to a notch.
+    func testTheIntroPointsAtSomethingEveryMacShows() {
+        XCTAssertFalse(Format.intro(shortcut: .a).lowercased().contains("notch"))
+        XCTAssertTrue(Format.intro(shortcut: .a).contains("mascot"))
+        // And the way in that needs no pointer, while there is one: not when the shortcut is
+        // switched off or another app holds it.
+        XCTAssertTrue(Format.intro(shortcut: .n).contains("⌃ ⌥ ⌘ N"))
+        XCTAssertFalse(Format.intro(shortcut: nil).contains("⌘"))
+        // And where the marks are explained, in place of a page of them.
+        XCTAssertTrue(Format.intro(shortcut: nil).contains("The ? above explains the symbols."))
+        XCTAssertTrue(Format.intro(shortcut: nil).contains("mascot"))
+    }
+
+    // At first launch the panel opens by itself and stays until the pointer has been in it.
+    // "It closes when you move away" stood on it meanwhile: four of thirteen testers watched
+    // it not close. The line says what the panel does this once, then how to open it again.
+    func testTheIntroSaysWhyThePanelIsStillOpen() {
+        XCTAssertEqual(Format.intro(shortcut: nil), "This panel shows what your Claude Code agents are doing, and when one needs you. It opened by itself this once: point at it, then move away, and it closes. To open it again, point at the mascot at the top of the screen. The ? above explains the symbols.")
+        // What the app is for comes first. It used to be said only on the last page of the
+        // settings: five of thirteen testers went through the pages to find out.
+        XCTAssertTrue(Format.intro(shortcut: .a).hasPrefix("This panel shows what your Claude Code agents are doing, and when one needs you."))
+        XCTAssertTrue(Format.intro(shortcut: .a).contains("point at the mascot at the top of the screen, or press ⌃ ⌥ ⌘ A."))
+        XCTAssertFalse(Format.intro(shortcut: .a).contains("It closes when you move away."))
+    }
+
+    func testLimitsNoticeNamesTheSettingWhenThereAreNoNumbers() {
+        let some = PlanLimits(fiveHour: PlanLimit(usedPercent: 40, resetsAt: nil), week: nil)
+        // Switched off is a choice, not news: nothing is said of it in every glance.
+        XCTAssertNil(Format.limitsNotice(.off))
+        XCTAssertEqual(Format.limitsNotice(.unavailable(.offline)), "Plan limits unavailable")
+        XCTAssertNil(Format.limitsNotice(.loading))
+        XCTAssertNil(Format.limitsNotice(.limits(some, asOf: Date())))
+    }
+
+    // Each reason says what the person can do, and none carries anything from the login or the reply.
+    func testLimitsReasonsSayWhatToDo() {
+        XCTAssertEqual(Format.limitsReason(.noLogin), "No Claude Code login in Keychain. Sign in with Claude Code first.")
+        XCTAssertEqual(Format.limitsReason(.loginExpired), "The Claude Code login has expired. Use Claude Code once to renew it.")
+        XCTAssertEqual(Format.limitsReason(.offline), "No connection to api.anthropic.com. It tries again every 5 minutes.")
+        XCTAssertEqual(Format.limitsReason(.refused(529)), "api.anthropic.com answered with error 529. It tries again every 5 minutes.")
+        XCTAssertEqual(Format.limitsReason(.unreadable), "api.anthropic.com sent an answer this version does not understand. A newer version of the app may.")
+        XCTAssertEqual(Format.limitsReason(.noAnswer), "No answer after a minute. It will try again.")
+        XCTAssertEqual(Format.limitsLoading, "Checking limits…")
+    }
+
+    // Old numbers say how old they are; dimming them only made them hard to read.
+    func testOldLimitsSayTheirAge() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertEqual(Format.limitsAge(asOf: now.addingTimeInterval(-720), now: now), "12m old")
+        XCTAssertEqual(Format.limitsAge(asOf: now.addingTimeInterval(-20), now: now), "1m old")
+        // And, to the pointer, why they are old and what happens next.
+        XCTAssertEqual(Format.limitsAgeHelp, "The last check failed, so these are the numbers from before. It tries again every 5 minutes.")
+    }
+
+    // The ring on the bar has no room for a word: read out, it says which limit and how much,
+    // and that the number is an old one when it is.
+    func testTheRingOnTheBarSaysItsLimitInWords() {
+        let limit = PlanLimit(usedPercent: 61.6, resetsAt: nil)
+        XCTAssertEqual(Format.ringLabel(LimitRing(limit: limit, stale: false)), "5-hour limit 62% used")
+        XCTAssertEqual(Format.ringLabel(LimitRing(limit: limit, stale: true)), "5-hour limit 62% used, from before the last check failed")
+    }
+
+    // "5h" and "7d" are short for the row's sake. Resting the pointer on one says it in words.
+    func testALimitSaysItselfInWords() {
+        XCTAssertEqual(Format.limitHelp(spoken: "5-hour limit", percent: "42%", reset: "2h 09m"), "5-hour limit: 42% used, resets in 2h 09m")
+        XCTAssertEqual(Format.limitHelp(spoken: "Weekly limit", percent: "8%", reset: nil), "Weekly limit: 8% used")
+    }
+
+    // Finished agents fold into one line per card, so live work is not pushed off the panel.
+    func testFinishedAgentsFoldIntoOneLine() {
+        XCTAssertEqual(Format.done(1), "1 done")
+        XCTAssertEqual(Format.done(3), "3 done")
+    }
+
+    // "More below" is not enough: say how much, and whether any of it may need the person.
+    func testTheEdgeOfTheListSaysWhatIsBelowIt() {
+        XCTAssertNil(Format.below(sessions: 0, quiet: 0, needsYou: 0))
+        XCTAssertEqual(Format.below(sessions: 1, quiet: 0, needsYou: 0), "+1 session")
+        XCTAssertEqual(Format.below(sessions: 3, quiet: 0, needsYou: 0), "+3 sessions")
+        XCTAssertEqual(Format.below(sessions: 3, quiet: 1, needsYou: 0), "+3 sessions · 1 quiet")
+        XCTAssertEqual(Format.below(sessions: 2, quiet: 1, needsYou: 2), "+2 sessions · 2 need you · 1 quiet")
+        // A row that waits can be past the edge inside a card that starts above it.
+        XCTAssertEqual(Format.below(sessions: 0, quiet: 0, needsYou: 1), "1 needs you")
+    }
+
+    func testSummaryNamesQuietAgentsOnlyWhenThereAreSome() {
+        XCTAssertEqual(Format.summary(working: 2, quiet: 1), "2 working · 1 quiet")
+        XCTAssertEqual(Format.summary(working: 2, quiet: 0), "2 working")
+        // "0 working" is said only when it is all there is to say.
+        XCTAssertEqual(Format.summary(working: 0, quiet: 3), "3 quiet")
+        XCTAssertEqual(Format.summary(working: 0, quiet: 0, needsYou: 5), "5 need you")
+        XCTAssertEqual(Format.summary(working: 0, quiet: 0), "0 working")
+        // Whoever needs the person leads: it is the one thing on the row to act on.
+        XCTAssertEqual(Format.summary(working: 5, quiet: 1, needsYou: 1), "1 needs you · 5 working · 1 quiet")
+        XCTAssertEqual(Format.summary(working: 2, quiet: 0, needsYou: 3), "3 need you · 2 working")
+    }
+
+    // A button read aloud must say what it answers and for whom, not just "Allow". The app's
+    // words and the request's are read apart: a tool's name or a title inside the app's own
+    // sentence could put words in its mouth.
+    func testAnswerButtonsSayWhatTheyAnswer() {
+        XCTAssertEqual(Format.answerLabel(.allow), "Allow once")
+        XCTAssertEqual(Format.answerLabel(.deny), "Deny")
+        XCTAssertEqual(Format.answerLabel(.option("Red")), "Answer")
+        XCTAssertEqual(Format.answerLabel(.skip), "Skip")
+        XCTAssertEqual(Format.answerValue(.allow, tool: "Bash", title: "Add a receipt email"), "Bash, Add a receipt email")
+        XCTAssertEqual(Format.answerValue(.deny, tool: "Bash", title: "Add a receipt email"), "Bash, Add a receipt email")
+        XCTAssertEqual(Format.answerValue(.option("Red"), tool: "AskUserQuestion", title: "Add a receipt email"), "Red, Add a receipt email")
+        // An option's description is drawn on its row, so it is read with its label.
+        XCTAssertEqual(Format.answerValue(.option("Red"), tool: "AskUserQuestion", title: "Add a receipt email", detail: "The brand color"), "Red, The brand color, Add a receipt email")
+        XCTAssertEqual(Format.terminalOnly, "Answer in the terminal.")
+        // The app's own sentence carries no text from the request.
+        XCTAssertEqual(Format.cannotShow, "Can't show all of this here. Deny it, or answer in the terminal.")
+        XCTAssertEqual(Format.notShown, "not shown")
+        // "quiet" on its own explains nothing to someone who has not read the code.
+    }
+
+    func testInstallCommandsUseTheAppsOwnPath() {
+        // One command to copy: leaving the panel to paste closes it, and a second trip was easy to forget.
+        XCTAssertEqual(Format.installCommand(resources: URL(fileURLWithPath: "/Applications/My App.app/Contents/Resources")),
+                       "claude plugin marketplace add '/Applications/My App.app/Contents/Resources/claude-plugin' && claude plugin install notch-answers@agent-valley")
+        // Pasted into a shell: nothing in the app's own path may be read as shell syntax.
+        XCTAssertTrue(Format.installCommand(resources: URL(fileURLWithPath: "/Apps/It's $(x) `y`/R"))
+            .hasPrefix("claude plugin marketplace add '/Apps/It'\\''s $(x) `y`/R/claude-plugin' && "))
+        // Installed by Homebrew: the path that outlives `brew upgrade`, not this version's folder.
+        XCTAssertTrue(Format.installCommand(resources: URL(fileURLWithPath: "/opt/homebrew/Cellar/agent-valley/0.1.0/AgentValley.app/Contents/Resources"))
+            .hasPrefix("claude plugin marketplace add '/opt/homebrew/opt/agent-valley/AgentValley.app/Contents/Resources/claude-plugin' && "))
+        XCTAssertTrue(Format.installCommand(resources: URL(fileURLWithPath: "/Users/me/Cellar/wine/AgentValley.app/Contents/Resources"))
+            .hasPrefix("claude plugin marketplace add '/Users/me/Cellar/wine/AgentValley.app/Contents/Resources/claude-plugin' && "))
+    }
+
+    func testAnswersStatusLine() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertNil(Format.answersStatus(.off, now: now))
+        // Where it listens: for the plugin, and on this Mac. "Listening." alone left that open.
+        XCTAssertEqual(Format.answersStatus(.listening(lastRequest: nil), now: now), "Listening for the plugin, on this Mac only. Nothing has arrived yet. Only sessions that you start after installing the plugin send their prompts here.")
+        XCTAssertEqual(Format.answersStatus(.listening(lastRequest: now.addingTimeInterval(-130)), now: now), "Listening. Last request 2m ago.")
+        XCTAssertEqual(Format.answersStatus(.listening(lastRequest: now.addingTimeInterval(-20)), now: now), "Listening. Last request just now.")
+        XCTAssertEqual(Format.answersStatus(.failed("its folder is open to other accounts"), now: now), "Could not listen: its folder is open to other accounts. Switch it off and on to try again.")
+    }
+
+    func testNeedsYouLabelSaysForHowLong() {
+        XCTAssertEqual(Format.statusLabel(.needsYou, isMain: false, quietFor: 20), "needs you")
+        XCTAssertEqual(Format.statusLabel(.needsYou, isMain: true, quietFor: 200), "needs you 3m")
+    }
+
+    // "quiet" alone does not say whether it has been two minutes or forty.
+    func testQuietLabelSaysForHowLong() {
+        XCTAssertEqual(Format.statusLabel(.quiet, isMain: false, quietFor: 130), "quiet 2m")
+        XCTAssertEqual(Format.statusLabel(.quiet, isMain: true, quietFor: 12 * 60 + 40), "quiet 12m")
+        XCTAssertEqual(Format.statusLabel(.quiet, isMain: false, quietFor: 3700), "quiet 1h 01m")
+        XCTAssertEqual(Format.statusLabel(.done, isMain: false, quietFor: 3700), "done")
+    }
+
+    // A request used to vanish on a click, the same as when the terminal won.
+    func testASettledRequestSaysHowItEnded() {
+        XCTAssertEqual(Format.settled(.answered(.allow)), "Allowed once")
+        XCTAssertEqual(Format.settled(.answered(.deny)), "Denied")
+        // The option's label is the request's text: beside the app's word, never inside it.
+        XCTAssertEqual(Format.settled(.answered(.option("Red"))), "Answered")
+        XCTAssertEqual(Format.settledDetail(.answered(.option("Red")), tool: "AskUserQuestion"), "Red")
+        // A skipped question says so in the app's word alone: the tool's name adds nothing.
+        // And that Claude Code heard of it: Hide, beside it, tells Claude Code nothing.
+        XCTAssertEqual(Format.settled(.answered(.skip)), "Skipped. Claude Code was told.")
+        XCTAssertNil(Format.settledDetail(.answered(.skip), tool: "AskUserQuestion"))
+        // What was allowed or denied: the tool's name, the request's own word, beside the app's.
+        XCTAssertEqual(Format.settledDetail(.answered(.allow), tool: "Bash"), "Bash")
+        XCTAssertEqual(Format.settledDetail(.answered(.deny), tool: "Edit"), "Edit")
+        XCTAssertEqual(Format.settledDetail(.notTaken, tool: "Bash"), "Bash")
+        XCTAssertNil(Format.settledDetail(.inTerminal, tool: ""))
+        // A click that did not count says why.
+        XCTAssertEqual(Format.notCounted(cut: false), "Too soon. Click again.")
+        XCTAssertEqual(Format.notCounted(cut: true), "Not all in view. Click again.")
+        // After a key, in a key's words.
+        XCTAssertEqual(Format.notCounted(cut: false, key: true), "Too soon. Press again.")
+        XCTAssertEqual(Format.notCounted(cut: true, key: true), "Not all in view. Press again.")
+        // Each fits the room beside the two buttons with their chords on them, some thirty
+        // columns: the longer words they had ended in "agai…" on the one card that showed them.
+        for cut in [false, true] {
+            for key in [false, true] { XCTAssertLessThanOrEqual(Format.notCounted(cut: cut, key: key).count, 29) }
+        }
+        // The chord that answers, drawn on the button it fires.
+        XCTAssertEqual(Format.chord(.allow), "⌘↩")
+        XCTAssertEqual(Format.chord(.deny), "⌘⌫")
+        XCTAssertEqual(Format.chord(.option(2)), "⌘2")
+        XCTAssertNil(Format.chord(.go))
+        XCTAssertEqual(Format.settled(.inTerminal), "Answered in the terminal")
+        XCTAssertEqual(Format.settled(.notTaken), "Not delivered. Answer in the terminal.")
+        XCTAssertEqual(Format.goTo(app: "Superset"), "Go to Superset")
+    }
+
+    func testHiddenRowAndIdleRowNameSessionsByTitle() {
+        XCTAssertEqual(Format.hidden(1), "1 hidden")
+        XCTAssertEqual(Format.hidden(3), "3 hidden")
+        func card(_ project: String, title: String = "") -> SessionCard {
+            SessionCard(id: project, project: project, branch: "", main: nil, agents: [], startedAt: Date(timeIntervalSince1970: 0), title: title)
+        }
+        // Two sessions in one folder are told apart by title, in the fold as on the cards.
+        XCTAssertEqual(Format.names([card("web-app", title: "Fix rounding"), card("web-app", title: "Add receipts"), card("api")]), "Fix rounding · Add receipts · api")
+    }
+
+    // A working session says how long this turn has run, where a sub-agent says how long it has.
+    func testAWorkingCardSaysHowLongTheTurnHasRun() {
+        func card(_ status: AgentStatus, elapsed: TimeInterval) -> SessionCard {
+            SessionCard(id: "s", project: "p", branch: "", main: AgentRow(id: "m", info: AgentInfo(), status: status, elapsed: elapsed), agents: [], startedAt: Date(timeIntervalSince1970: 0))
+        }
+        XCTAssertEqual(Format.cardStatus(card(.working, elapsed: 192)), "3m 12s")
+        XCTAssertNil(Format.cardStatus(card(.working, elapsed: 0)))
+        XCTAssertEqual(Format.cardStatus(card(.done, elapsed: 192)), "idle")
+    }
+
+    // What a row can do without: its type. It stands at the end of the second line and is the
+    // first to go, so the step is the last thing cut. The tokens a sub-agent held stood there too
+    // until 2026-10-15: they decided nothing, and the History page says what was used.
+    func testARowsExtraIsItsType() {
+        XCTAssertEqual(Format.rowExtras(task: "Find auth files", type: "Explore"), "Explore")
+        XCTAssertEqual(Format.rowExtras(task: "Fix the pay button", type: "general-purpose"), "")
+        XCTAssertEqual(Format.rowExtras(task: "Review the diff", type: "acme:code-reviewer"), "code-reviewer")
+        // The type already led as the title.
+        XCTAssertEqual(Format.rowExtras(task: "", type: "Explore"), "")
+        XCTAssertEqual(Format.extrasHelp, "The agent's type")
+    }
+
+    // A button with a picture on it says what a click will do, whichever way it is set.
+    func testPinAndGearSayWhatAClickWillDo() {
+        XCTAssertEqual(Format.pinHelp(pinned: false), "Keep the panel open")
+        XCTAssertEqual(Format.pinHelp(pinned: true), "Let the panel close again")
+        XCTAssertEqual(Format.gearHelp(showingSettings: false), "Settings")
+        XCTAssertEqual(Format.gearHelp(showingSettings: true), "Back to agents")
+    }
+
+    func testTheSpeakerSaysWhatAClickWillDo() {
+        XCTAssertEqual(Format.soundHelp(on: false, quietUntil: nil), "Turn sounds on")
+        XCTAssertEqual(Format.soundHelp(on: true, quietUntil: nil), "Turn sounds off")
+        XCTAssertEqual(Format.soundHelp(on: true, quietUntil: 8), "Quiet hours until 08:00")
+        // Off is off, whatever the hour.
+        XCTAssertEqual(Format.soundHelp(on: false, quietUntil: 8), "Turn sounds on")
+        XCTAssertEqual(Format.soundSymbol(on: false, quiet: true), "speaker.slash")
+        XCTAssertEqual(Format.soundSymbol(on: true, quiet: false), "speaker.wave.2")
+        XCTAssertEqual(Format.soundSymbol(on: true, quiet: true), "speaker.zzz")
+    }
+
+    func testHoursReadOnATwentyFourHourClock() {
+        XCTAssertEqual(Format.hour(0), "00:00")
+        XCTAssertEqual(Format.hour(8), "08:00")
+        XCTAssertEqual(Format.hour(22), "22:00")
+        XCTAssertEqual(Format.finishedCaption, "Only when the session had been working for 30 seconds or more.")
+    }
+
+    // A symbol's name the system does not know draws nothing, and says nothing.
+    func testTheSpeakerAndStepperSymbolsExist() {
+        for name in ["speaker.slash", "speaker.wave.2", "speaker.zzz", "minus", "plus"] {
+            XCTAssertNotNil(NSImage(systemSymbolName: name, accessibilityDescription: nil), name)
+        }
+    }
+
+    // The switch says which apps are told what to do, that macOS will ask, and where to undo it.
+    func testTheTabSwitchSaysWhatItAsksOfWhom() {
+        XCTAssertEqual(Format.tabCaption, "Asks Terminal, iTerm2 or Ghostty to show the session's own tab. macOS asks you to allow this once for each. To change your answer: System Settings > Privacy & Security > Automation.")
+    }
+
+    // Without this line in the bundle macOS refuses the request and asks the person nothing.
+    func testTheAppBundleSaysWhyItTellsATerminalWhatToDo() throws {
+        let script = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build-app.sh")
+        let text = try String(contentsOf: script, encoding: .utf8)
+        XCTAssertTrue(text.contains("<key>NSAppleEventsUsageDescription</key>\n\t<string>Shows the tab of the session you clicked, in your terminal.</string>"))
+    }
+
+    // The app can be given leave to tell a terminal what to do. Signed with the hardened
+    // runtime, no other code can be loaded into its process to borrow that leave.
+    func testTheAppIsSignedSoThatItsLeaveCannotBeBorrowed() throws {
+        let script = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build-app.sh")
+        let text = try String(contentsOf: script, encoding: .utf8)
+        XCTAssertTrue(text.contains("codesign --force --options runtime --entitlements"))
+        XCTAssertTrue(text.contains("<key>com.apple.security.automation.apple-events</key>\n\t<true/>"))
+        XCTAssertFalse(text.contains("codesign --force --sign -"))
+    }
+
+    // A card is drawn again every second: its app's icon is asked of the system once.
+    func testAnAppsIconIsAskedForOnce() {
+        let finder = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
+        XCTAssertTrue(AppIcons.icon(of: finder) === AppIcons.icon(of: finder))
+    }
+
+    // The line under the notch counts agents. A group's line counts sessions, and says so.
+    func testAGroupsLineCountsSessionsInWords() {
+        XCTAssertEqual(Format.groupHeader(GroupHeader(group: .needsYou, count: 2)), "Needs you · 2 sessions")
+        XCTAssertEqual(Format.groupHeader(GroupHeader(group: .working, count: 1)), "Working · 1 session")
+        XCTAssertEqual(Format.groupHeader(GroupHeader(group: .quiet, count: 3)), "Quiet · 3 sessions")
+        XCTAssertEqual(Format.groupHeader(GroupHeader(group: .idle, count: 1)), "Idle · 1 session")
+    }
+
+    // "3 working" under the notch over "Working · 1 session" in the list: nine of thirteen
+    // testers read the two as disagreeing. Where a session holds more than one such agent the
+    // line gives both numbers, each with its word.
+    func testAGroupsLineAlsoCountsAgentsWhereTheyOutnumberSessions() {
+        XCTAssertEqual(Format.groupHeader(GroupHeader(group: .working, count: 1, agents: 3)), "Working · 1 session, 3 agents")
+        XCTAssertEqual(Format.groupHeader(GroupHeader(group: .needsYou, count: 2, agents: 3)), "Needs you · 2 sessions, 3 agents")
+        // One agent to a session: the one number says it.
+        XCTAssertEqual(Format.groupHeader(GroupHeader(group: .quiet, count: 2, agents: 2)), "Quiet · 2 sessions")
+        XCTAssertEqual(Format.groupHeader(GroupHeader(group: .idle, count: 2, agents: 0)), "Idle · 2 sessions")
+        XCTAssertEqual(Format.countsHelp, "These count agents, sub-agents too. One session can run several.")
+    }
+
+    func testTheTabsSayWhatTheyDo() {
+        XCTAssertEqual(Format.groupingHelp(.all), "Sessions by when they started")
+        XCTAssertEqual(Format.groupingHelp(.status), "Sessions grouped by status")
+    }
+
+    // The tabs stand in the room the open panel has to the left of the bar. Past it they
+    // would run under the mascot, and then under the notch. Measured for a notch of 220
+    // points: about what a 14-inch MacBook's is at its smallest text, "More Space".
+    @MainActor func testTheTabsFitBesideTheNotch() {
+        let room = (NotchGeometry.expandedWidth - 220 - NotchGeometry.wing * 2) / 2 - 8
+        let tabs = NSHostingView(rootView: GroupingTabs(selection: .constant(.status)))
+        XCTAssertGreaterThan(tabs.fittingSize.width, 40)
+        XCTAssertLessThanOrEqual(tabs.fittingSize.width, room)
+        XCTAssertLessThanOrEqual(tabs.fittingSize.height, 26)
+    }
+
+    // The red count stands beside the mascot on one wing of the bar, and what runs past the wing
+    // is under the notch, where nothing shows. Five points of margin, the mascot's eighteen and
+    // a gap of three leave it eighteen, also for a count of two digits.
+    @MainActor func testTheRedCountFitsBesideTheMascot() {
+        let room = NotchGeometry.wing - 5 - 18 - 3
+        for count in [1, 9, 10, 99] {
+            let badge = NSHostingView(rootView: BarBadge(count: count).font(.system(size: 12, design: .monospaced)))
+            XCTAssertGreaterThanOrEqual(badge.fittingSize.width, 16, "\(count)")
+            XCTAssertLessThanOrEqual(badge.fittingSize.width, room - 1, "\(count)")
+            XCTAssertEqual(badge.fittingSize.height, 16, "\(count)")
+        }
+    }
+
+    func testSettingsSayWhichAppThisIsAndHowToTakeThePluginOut() {
+        XCTAssertEqual(Format.about(name: "AgentValley", version: "0.1.0"), "AgentValley 0.1.0")
+        XCTAssertEqual(Format.about(name: "AgentValley", version: nil), "AgentValley")
+        XCTAssertEqual(Format.about(name: nil, version: "0.1.0"), "AgentValley 0.1.0")
+        XCTAssertEqual(Format.uninstallCommand, "claude plugin uninstall notch-answers@agent-valley && claude plugin marketplace remove agent-valley")
+    }
+
+    // A session can wait on a question it wrote down, or on a prompt in its terminal that leaves
+    // no trace. Only the first has words to show; the second says where to look, and its last
+    // step is not dressed up as the question.
+    func testAWaitingRowSaysWhatItWaitsFor() {
+        func row(_ status: AgentStatus, asking: Bool) -> AgentRow {
+            var info = AgentInfo()
+            info.asking = asking
+            info.lastStep = "Read flow.ts"
+            return AgentRow(id: "r", info: info, status: status, elapsed: 0)
+        }
+        XCTAssertTrue(row(.needsYou, asking: true).asksInWords)
+        XCTAssertFalse(row(.needsYou, asking: false).asksInWords)
+        XCTAssertFalse(row(.working, asking: true).asksInWords)
+    }
+
+    // A card that waits on the person says where to answer once: the button to its app when the
+    // app is known, words when it is not. "Waiting for you in its terminal." stood above the
+    // button until 2026-10-15, beside "needs you" in red: three ways of saying one thing.
+    // Past eight sub-agents in the list each takes one line, so that the other sessions stay in
+    // sight. There was a switch to have that sooner until 2026-10-15; the panel does it alone now.
+    func testRowsTakeOneLinePastEightSubAgents() {
+        XCTAssertFalse(Format.oneLineRows(liveAgents: 0))
+        XCTAssertFalse(Format.oneLineRows(liveAgents: 8))
+        XCTAssertTrue(Format.oneLineRows(liveAgents: 9))
+    }
+
+    func testAWaitSaysWhereToAnswerOnce() {
+        XCTAssertNil(WayToAnswer.words(appKnown: true))
+        XCTAssertEqual(WayToAnswer.words(appKnown: false), "Answer in the terminal.")
+    }
+
+    // What the line under a card's name says when the pointer rests on it: where the session runs.
+    func testACardsPlaceIsItsFolderItsBranchAndWhetherThatIsAWorktree() {
+        func card(branch: String) -> SessionCard {
+            SessionCard(id: "s", project: "web-app", branch: branch, main: nil, agents: [], startedAt: Date(timeIntervalSince1970: 0), title: "Fix checkout rounding")
+        }
+        XCTAssertEqual(Format.place(card(branch: "main")), "web-app main")
+        XCTAssertEqual(Format.place(card(branch: "")), "web-app")
+        // The mark for a worktree is a picture: resting the pointer on the line says it in a word.
+        var apart = card(branch: "feat/dashboard")
+        apart.worktree = true
+        XCTAssertEqual(Format.place(apart), "web-app feat/dashboard (worktree)")
+    }
+
+    // The app asks the person to run a command it will not run itself: it never writes into
+    // ~/.claude. Nine of thirteen testers stopped at the bare command. Before it now stands
+    // what the plugin does, and around it the two things to do, in order.
+    func testTheInstallCommandComesWithWhatItDoesAndWhatToDo() {
+        XCTAssertEqual(Format.pluginWhat, "The plugin is inside this app, and the command points Claude Code at it. It adds one hook to Claude Code: each permission prompt and question is handed to this app, on this Mac only. With the app closed or this switch off, Claude Code asks in the terminal as before.")
+        XCTAssertEqual(Format.installSteps.run, "1. Copy this and run it in a terminal: the Terminal app, or wherever you start Claude Code.")
+        XCTAssertEqual(Format.installSteps.restart, "2. Start Claude Code again. Sessions that were already open do not have the plugin.")
+        XCTAssertEqual(Format.marketplaceNote, "In the command, \u{201C}marketplace\u{201D} is Claude Code's word for a list of plugins. Nothing is bought.")
+        // Before the switch is on, the caption says there is something to read behind it.
+        XCTAssertTrue(Format.answersCaption(on: false).hasSuffix(" Needs a plugin that comes with this app: switch on to read what it does and how to install it."))
+        XCTAssertFalse(Format.answersCaption(on: true).contains("Needs a plugin"))
+        // The way out reads as a way out, not as word that a plugin is already in.
+        XCTAssertEqual(Format.removePlugin, "How to remove the plugin")
+    }
+
+    // What that sentence says of the plugin is what the plugin's own files do.
+    func testWhatIsSaidOfThePluginIsWhatItDoes() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("plugin/notch-answers")
+        let hooks = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("hooks/hooks.json"))) as? [String: Any])
+        // One hook, on permission requests, and it runs the one script.
+        let events = try XCTUnwrap(hooks["hooks"] as? [String: Any])
+        XCTAssertEqual(Array(events.keys), ["PermissionRequest"])
+        let script = try String(contentsOf: root.appendingPathComponent("ask.sh"), encoding: .utf8)
+        // To this app's own socket on this Mac, and to no address on a network.
+        XCTAssertTrue(script.contains(#"SOCK="$HOME/Library/Application Support/AgentValley/answers.sock""#))
+        XCTAssertTrue(script.contains(#"--unix-socket "$SOCK""#))
+        XCTAssertEqual(script.components(separatedBy: "http").count - 1, 1, "one address, the one spoken over the socket")
+        // With no socket there, as when the app is closed or the switch is off, it says nothing.
+        XCTAssertTrue(script.contains(#"[ -S "$SOCK" ] || exit 0"#))
+    }
+
+    // Six of thirteen testers had to guess at the app's own words, and one for whom English is
+    // a second language listed which: an idiom, a phrasal verb, a "once" that could mean one
+    // time, an "It" with nothing to point at. Each is said plainly here. What the words mean
+    // has not changed, and the terms that are Claude Code's own are left as they are.
+    func testTheAppsOwnWordsArePlainOnes() {
+        // "marks" was taken for scores.
+        XCTAssertEqual(Format.legendTitle, "What the symbols mean")
+        XCTAssertEqual(Format.legendHelp(showing: false), "What the symbols mean")
+        XCTAssertEqual(Format.legendHelp(showing: true), "Hide what the symbols mean")
+        // "turn": how long it has worked, since when. Cut to what a reader needs on 2026-10-15.
+        XCTAssertEqual(Format.timeCaption, "The time on a row is how long it has worked on its last task, or how long it has been quiet or waiting.")
+        XCTAssertEqual(Format.timeHelp, "How long it has been working since it was last given something to do, or how long it has been quiet or waiting")
+        // "Used anyway once more than eight are listed."
+        // "It allows only what it can show in full": who allows, and how much is in full.
+        XCTAssertEqual(Format.answersCaption(on: true), "Shows Claude Code's permission prompts and questions here, with buttons to answer. The terminal still asks too. You can allow a request here only when the panel can show all of it, such as a short command.")
+        // "Put this away": a phrasal verb.
+        XCTAssertEqual(Format.hideRequestHelp, "Removes this from the panel without answering it. It still waits in the terminal.")
+        // "once the shortcut has opened the panel" read as "one time".
+        XCTAssertEqual(Format.keysCaption, "Keys that work after the shortcut has opened the panel:")
+        // "unfold", "this", and "deny, or skip" with no word on which of the two.
+        let keys = Dictionary(uniqueKeysWithValues: Format.keys.map { ($0.key, $0.does) })
+        XCTAssertEqual(keys["d"], "expand done agents")
+        XCTAssertEqual(keys["i"], "expand idle sessions")
+        XCTAssertEqual(keys["?"], "this list of keys")
+        XCTAssertEqual(keys["⌘⌫"], "deny (skip a question)")
+        XCTAssertEqual(keys["t"], "open History")
+        // "most worth a look", "else", "at work", "with none waiting", "yellow from", "waits on you".
+        // One sentence each since 2026-10-15: the order of the mascot's choice and when each
+        // colour takes over were more than a reader needs.
+        XCTAssertEqual(Format.barMascotCaption, "The mascot on the bar is the agent to look at first.")
+        XCTAssertEqual(Format.barCaption, "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet.")
+        XCTAssertEqual(Format.ringCaption, "The ring shows how much of your 5-hour limit is used. It turns yellow at 80%. It is shown only when Plan limits is on.")
+        XCTAssertEqual(Format.beatCaption, "While an agent waits for you, the bar glows red every few seconds, until you open the panel.")
+        // A label that was half a sentence, and "your login", which could have been a password.
+        XCTAssertEqual(Format.keepTitle, "Keep idle and done listed for")
+        XCTAssertEqual(Format.limitsCaption, "Reads the access token of your Claude Code login from Keychain, and sends it to api.anthropic.com to ask for your usage. It is never stored and never sent anywhere else.")
+    }
+
+    // The ring the arrow keys move was a picture and nothing else. A tester on a screen reader
+    // allowed a command by its key without knowing which session it was for. The ring's arrival
+    // is read out, and the ring says what it is: the session's name, then how it is doing.
+    func testTheSessionTheKeysAreOnIsSaid() {
+        var card = SessionCard(id: "/r/p/s1", project: "api", branch: "main",
+                               main: AgentRow(id: "/r/p/s1.jsonl", info: AgentInfo(), status: .needsYou, elapsed: 0, quietFor: 250),
+                               agents: [], startedAt: Date(timeIntervalSince1970: 0))
+        XCTAssertEqual(Format.chosen(card), "api, needs you 4m")
+        card.title = "Fix flaky login test"
+        XCTAssertEqual(Format.chosen(card), "Fix flaky login test, needs you 4m")
+        XCTAssertEqual(Format.chosenLabel, "The arrow keys are on this session")
+    }
+
+    // "Nothing written for a while" did not say how long: seconds or minutes. The legend gave
+    // both numbers the panel goes by until 2026-10-15; "a few minutes" answers the question
+    // without the rule behind it. The numbers themselves are the rules', tested here.
+    func testTheLegendSaysHowLongQuietIs() {
+        XCTAssertEqual(Format.quietCaption, "Quiet: nothing written for a few minutes. It may be waiting for you in its terminal, or stuck.")
+        let info = AgentInfo()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        // No word from Claude Code: quiet at two minutes.
+        XCTAssertEqual(TranscriptReader.status(of: info, lastActivity: now.addingTimeInterval(-119), now: now), .working)
+        XCTAssertEqual(TranscriptReader.status(of: info, lastActivity: now.addingTimeInterval(-120), now: now), .quiet)
+        // Called busy: at work until ten minutes of silence, then shown as quiet.
+        func shown(silentFor: TimeInterval) -> AgentStatus? {
+            let row = AgentRow(id: "/r/p/s1.jsonl", info: info, status: TranscriptReader.status(of: info, lastActivity: now.addingTimeInterval(-silentFor), now: now, session: .busy),
+                               elapsed: 0, quietFor: silentFor)
+            return SessionCard(id: "/r/p/s1", project: "p", branch: "", main: row, agents: [], startedAt: now).asShown.main?.status
+        }
+        XCTAssertEqual(shown(silentFor: 599), .working)
+        XCTAssertEqual(shown(silentFor: 600), .quiet)
+    }
+
+    // "Changes nothing." stood under a switch that answers Claude Code's prompts and another
+    // that reads the Keychain and goes online: six of thirteen testers caught it, one nearly
+    // left over it. The promise now holds with every switch on, and names what is behind one.
+    func testThePromiseHoldsWithEverySwitchOn() {
+        XCTAssertEqual(Format.readOnly, "Reads Claude Code's files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does.")
+        XCTAssertFalse(Format.readOnly.contains("Changes nothing"))
+        // Each of those switches does say what it adds.
+        XCTAssertTrue(Format.answersCaption(on: false).contains("buttons to answer"))
+        XCTAssertTrue(Format.tabCaption.hasPrefix("Asks Terminal, iTerm2 or Ghostty to show the session's own tab."))
+    }
+
+    func testAnAnswerButtonSaysItTakesAClick() {
+        XCTAssertEqual(Format.answerHint(.option("Red")), "By a click, or by its key after the shortcut has opened the panel.")
+    }
+
+    // Seven of thirteen testers could not tell what a press would send: Skip tells Claude Code
+    // the question was refused, and the button said one word. Said to the pointer and read out.
+    func testAnAnswerButtonSaysWhatClaudeCodeIsTold() {
+        XCTAssertEqual(Format.answerHelp(.allow), "Lets Claude Code do this, this one time.")
+        XCTAssertEqual(Format.answerHelp(.deny), "Refuses this. Claude Code is told it was denied from the notch.")
+        XCTAssertEqual(Format.answerHelp(.skip), "Leaves the question unanswered. Claude Code is told you chose not to answer.")
+        // An option's row says what it answers in the request's own words.
+        XCTAssertNil(Format.answerHelp(.option("Red")))
+        XCTAssertEqual(Format.answerHint(.skip), "Leaves the question unanswered. Claude Code is told you chose not to answer. By a click, or by its key after the shortcut has opened the panel.")
+    }
+
+    func testTheShortcutAndItsKeysAreSpelledOut() {
+        // A space between the keys: set tight in the panel's type they ran into one mark.
+        XCTAssertEqual(Format.shortcut(.a), "⌃ ⌥ ⌘ A")
+        // Another app can hold a chord already, so there is more than one to pick from.
+        XCTAssertEqual(ShortcutKey.allCases.map(Format.shortcut), ["⌃ ⌥ ⌘ A", "⌃ ⌥ ⌘ N", "⌃ ⌥ ⌘ K"])
+        XCTAssertEqual(ShortcutKey.allCases.map(\.keyCode), [0, 45, 40])
+        // Return is promised only where it leads somewhere: to the app of the chosen session.
+        XCTAssertEqual(Format.keysHint(app: "Superset"), "↑ ↓ move · return goes to Superset · ? keys · esc closes")
+        XCTAssertEqual(Format.keysHint(app: nil), "↑ ↓ move · ? keys · esc closes")
+        // Under a quiet row: what is known of it, and no more.
+        XCTAssertEqual(Format.quietHint(main: true, calledBusy: false), "No activity. It may be waiting for you in its terminal.")
+        XCTAssertEqual(Format.quietHint(main: true, calledBusy: true), "Claude Code says it is busy, but nothing has been written. It may be stuck.")
+        XCTAssertEqual(Format.quietHint(main: false, calledBusy: false), "No activity. It may be waiting, or stuck.")
+    }
+
+    func testStatusLabel() {
+        XCTAssertNil(Format.statusLabel(.working, isMain: false))
+        XCTAssertEqual(Format.statusLabel(.quiet, isMain: false), "quiet")
+        XCTAssertEqual(Format.statusLabel(.done, isMain: false), "done")
+        XCTAssertEqual(Format.statusLabel(.done, isMain: true), "idle")
+    }
+
+    // The band under a page that runs past the edge names Quit only on the page that has it.
+    func testTheBandUnderTheSettingsNamesQuitOnlyWhereItIs() {
+        XCTAssertEqual(Format.settingsBelow(.general), "More and Quit below")
+        XCTAssertEqual(Format.settingsBelow(.actions), "More settings below")
+    }
+}

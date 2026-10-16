@@ -1,0 +1,12 @@
+{
+  "name": "agent-valley",
+  "description": "Plugins that connect Claude Code to the AgentValley notch app.",
+  "owner": { "name": "AgentValley" },
+  "plugins": [
+    {
+      "name": "notch-answers",
+      "source": "./notch-answers",
+      "description": "Answer Claude Code's permission prompts and multiple-choice questions from the AgentValley notch panel."
+    }
+  ]
+}

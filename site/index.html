@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>AgentValley — Every Claude Code agent in your notch</title>
+<meta name="description" content="A free, open-source Mac app that shows every Claude Code agent, sub-agents too, in your notch. See who is working, on which model, and who needs you.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://morsechimwai.github.io/agent-valley/">
+<meta property="og:title" content="AgentValley — Every Claude Code agent in your notch">
+<meta property="og:description" content="A free, open-source Mac app that shows every Claude Code agent, sub-agents too, in your notch. See who is working, on which model, and who needs you.">
+<meta property="og:image" content="https://morsechimwai.github.io/agent-valley/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="mark.svg">
+<style>
+@font-face{font-family:"Plex Mono";src:url(fonts/IBMPlexMono-Regular.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url(fonts/IBMPlexMono-SemiBold.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Plex Sans";src:url(fonts/IBMPlexSans-Regular.woff2) format("woff2");font-weight:400;font-display:swap}
+:root{
+  /* A cream page, as the manuals and machines of 1969 were. Black is kept for the app's own parts:
+     the panel, the bar, a row, a terminal. --accent is the orange that reads on cream; --amber is
+     for fills and for text drawn on black. */
+  color-scheme:light;
+  --bg:#f1e8d4;--card:#e7dcc4;--line:#d4c5a6;
+  /* Text colours reach 7:1 on the cream (WCAG AAA); --fg and --muted on its cards too. */
+  --fg:#23190f;--muted:#4d4439;--accent:#723a00;--amber:#ffb000;
+  /* --red fills the count and the dot under black text; --red-text is the same red lifted to 7:1 on black. */
+  --red:#ff6359;--red-text:#ff8a80;
+  --paper:#f4ecd9;--greenbar:#e3ecd4;--type:#2a2118;
+  /* The app's own colours, for the parts drawn as the app draws them. */
+  --ink:#000;--app-fg:#fff;--app-card:#121212;--app-fill:#1c1c1e;--app-dim:#a8a8ad;--pick:#e07b39;
+  --app-soft:rgba(255,255,255,.6);--app-seg:#bbb;--app-tab:#ddd;--app-rule:#222;--app-key:#2a2a2a;--ring-track:rgba(255,255,255,.2);
+  --h-bar:rgba(255,255,255,.7);--h-bar-dim:rgba(255,255,255,.35);--h-bar-later:rgba(255,255,255,.1);
+  /* History's split: the costliest part, the next, and the rest. */
+  --part1:#e0a030;--part2:#f2ead8;--part3:#8c8378;
+  /* The hero's Mac: its wallpaper, its menu bar drawn in the wallpaper's cream, the camera, the notch's edge. */
+  --wall:#1b110a;--menu:255,236,210;--lens:#1d2733;--lens-rim:#2c3a48;--notch-edge:#5a5a5e;
+  /* A terminal of the time: warm black, a header a step lighter, one waiting in red. */
+  --term-bg:#16120f;--term-head:#221c17;--term-edge:#3a322b;--term-fg:#d9d2c3;--term-dim:#bab2a2;--term-dot:#4a4038;--term-wait:#5a2a26;
+  /* The page's own small parts: text on amber, amber pressed, the lamp off, a line in amber, the prompt, the scrollbar. */
+  --on-amber:#1c1300;--amber-hi:#ffc233;--lamp:#b8a685;--amber-line:rgba(255,176,0,.5);--prompt:#69450e;--scroll:#c9b998;
+  /* The crew's photo: the print, the studio grey, the camera's date, the lens's dark corners. */
+  --print:#fbf7ee;--studio:#6f7477;--stamp:#ff8a1f;--vignette:rgba(30,15,5,.5);
+  /* The valley's horizon: the 1970s wallpaper of the hero's Mac, and the ground the crew stands on. */
+  --hz1:#e5a03a;--hz2:#d9772e;--hz3:#b4501f;--hz4:#7a3417;--hz5:#3d1f10;
+  --horizon:linear-gradient(180deg,var(--hz1) 0 20%,var(--hz2) 20% 40%,var(--hz3) 40% 60%,var(--hz4) 60% 80%,var(--hz5) 80%);
+  --mono:"Plex Mono",ui-monospace,Menlo,monospace;
+  --sans:"Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --app:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scrollbar-color:var(--scroll) var(--bg)}
+body{margin:0;overflow-x:clip;background:var(--bg);color:var(--fg);font:400 1.0625rem/1.6 var(--sans);-webkit-font-smoothing:antialiased;caret-color:var(--accent)}
+::selection{background:var(--amber);color:var(--on-amber)}
+h1,h2,h3,p,ul,ol,dl,dd,figure{margin:0}
+ul{padding:0;list-style:none}
+h1,h2,h3{font-family:var(--mono);font-weight:600;line-height:1.12;letter-spacing:-.015em;text-wrap:balance}
+h1{font-size:clamp(2.25rem,4.4vw,3.4rem)}
+h2{font-size:clamp(1.6rem,3.4vw,2.4rem)}
+a{color:var(--accent);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.wrap{max-width:1140px;margin-inline:auto;padding-inline:16px}
+@media (min-width:768px){.wrap{padding-inline:28px}}
+.small{max-width:36em;margin-top:12px;color:var(--muted);font-size:.9375rem}
+.code-link a{display:inline-flex;align-items:center;min-height:44px}
+.nw{white-space:nowrap}
+.lb{display:none}
+@media (min-width:960px){.lb{display:inline}}
+
+/* Top bar */
+.nav{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding-block:20px}
+.brand{display:flex;align-items:center;min-height:44px}
+.brand img{image-rendering:pixelated}
+.wordmark{fill:var(--fg)}
+/* The shade's dots light up in a wave every few seconds, as the lamps did on the front panel of a
+   1969 computer. */
+.wordmark .d{fill:var(--lamp);animation:lamp 3s calc(var(--x) * 20ms) infinite}
+@keyframes lamp{0%,22%,100%{fill:var(--lamp)}5%,12%{fill:var(--amber)}}
+.motto{display:none;color:var(--muted);font:400 .875rem/1.5 var(--mono)}
+@media (min-width:1200px){.motto{display:block}}
+.nav nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin-left:auto;font:400 .9375rem/1.5 var(--mono)}
+.nav nav a{display:inline-flex;align-items:center;min-height:44px;color:var(--fg);text-decoration:none}
+.nav nav a:hover{color:var(--accent)}
+.nav .to-install{padding:0 14px;border:1px solid var(--line);border-radius:8px}
+
+/* Hero */
+.hero{display:grid;gap:48px;padding-block:32px clamp(64px,12vw,112px)}
+@media (min-width:960px){.hero{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"head head" "copy screen";align-items:center;gap:40px 56px;padding-top:56px}.hero-head{grid-area:head}.hero-copy{grid-area:copy;align-self:start;padding-top:8px}.hero-pic{grid-area:screen}}
+.for{margin-top:18px;color:var(--accent);font:600 1.0625rem/1.4 var(--mono)}
+.lede{max-width:34em;font-size:1.1875rem}
+/* Stacked, the heading and the copy below it are one block; the picture keeps its distance. */
+@media (max-width:959px){.hero{row-gap:18px}.hero-pic{margin-top:30px}}
+.install{margin-top:30px}
+.facts{margin-top:14px;color:var(--fg);font:400 .9375rem/1.5 var(--mono)}
+.facts strong{color:var(--accent);font-weight:600}
+.on-phone{display:none;margin-top:16px;color:var(--accent);font:600 .9375rem/1.5 var(--mono)}
+@media (hover:none) and (pointer:coarse){.on-phone{display:block}}
+
+/* The command, and the one button that matters */
+.command{display:flex;align-items:center;gap:12px;max-width:540px;padding:10px 10px 10px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);font:400 .875rem/1.5 var(--mono)}
+.command code{flex:1;min-width:0;font:inherit;user-select:all}
+.command code::before{content:"$ ";content:"$ "/"";color:var(--muted)}
+.copy{flex:none;min-width:88px;min-height:44px;padding:0 16px;border:1px solid transparent;border-radius:8px;background:var(--amber);color:var(--on-amber);font:600 .875rem var(--mono);cursor:pointer;transition:background-color .15s,transform .15s}
+.copy:hover{background:var(--amber-hi)}
+.copy:active{transform:translateY(1px)}
+.copy.done{background:var(--fg);color:var(--bg)}
+.copy[hidden]{display:none}
+
+/* The top of a MacBook screen: menu bar, the notch with the bar beside it, the panel under it,
+   and the crew standing in the valley below. The panel stands open from the first paint; the bar
+   is a button that shuts and opens it, by click, tap or keyboard. Shut, the bar calls as the
+   app's does. */
+.screen{--bar:clamp(30px,9cqw,46px);--sh:calc(var(--bar) * .2);position:relative;color:var(--app-fg);container-type:inline-size;width:100%;max-width:560px;margin-inline:auto;aspect-ratio:20/21;overflow:hidden;border:1px solid var(--line);border-radius:14px;
+  background:linear-gradient(180deg,var(--wall) 0 calc(100% - 36px),var(--hz1) 0 calc(100% - 30px),var(--hz2) 0 calc(100% - 24px),var(--hz3) 0 calc(100% - 18px),var(--hz4) 0 calc(100% - 12px),var(--hz5) 0)}
+.menubar{position:absolute;inset:0 0 auto;display:flex;align-items:center;justify-content:space-between;height:var(--bar);padding:0 3cqw;background:rgba(var(--menu),.09)}
+.menubar .menus,.menubar .status{display:flex;align-items:center;gap:2.4cqw}
+.menubar .menus i{width:5.5cqw;height:1.3cqw;border-radius:1cqw;background:rgba(var(--menu),.32)}
+.menubar .menus i:first-child{width:2.4cqw;height:2.4cqw;border-radius:50%}
+.menubar .battery{width:5cqw;height:2.4cqw;padding:1px;border:1px solid rgba(var(--menu),.6);border-radius:.6cqw;background:linear-gradient(90deg,rgba(var(--menu),.6) 70%,transparent 70%) content-box}
+.menubar .clock{color:rgba(var(--menu),.8);font:400 clamp(9px,2.5cqw,13px) var(--app)}
+.bar{position:absolute;z-index:3;top:0;left:24cqw;display:grid;grid-template-columns:13cqw 26cqw 13cqw;width:52cqw;height:var(--bar)}
+/* The wings carry their own black and fade when the panel opens, as the app's header takes the
+   room beside the notch; the notch itself stays. */
+.bar .wing{display:flex;align-items:center;justify-content:center;gap:1cqw;background:var(--ink);transition:opacity .2s}
+.bar .wing:first-child{border-radius:0 0 0 2.2cqw}
+.bar .wing:last-child{border-radius:0 0 2.2cqw 0}
+.bar .lens{background:var(--ink)}
+/* Open, the notch is black on the panel's black: a faint edge keeps it findable for the note above. */
+.screen[data-state=open] .bar .lens{border-radius:0 0 1.6cqw 1.6cqw;box-shadow:0 0 0 1px var(--notch-edge)}
+.bar .lens{position:relative}
+.bar .lens::after{content:"";position:absolute;top:34%;left:50%;width:min(1.6cqw,7px);aspect-ratio:1;transform:translateX(-50%);border-radius:50%;background:var(--lens);box-shadow:inset 0 0 0 1px var(--lens-rim)}
+.bar .m{--s:calc(var(--bar) * .62);animation:hop 3s infinite}
+.count{min-width:calc(var(--bar) * .5);height:calc(var(--bar) * .5);padding:0 .3em;border-radius:99px;background:var(--red);color:var(--ink);font:700 calc(var(--bar) * .36)/calc(var(--bar) * .5) var(--app);text-align:center}
+.bar .count{animation:swell 3s infinite}
+.ring{width:calc(var(--bar) * .5);height:calc(var(--bar) * .5);border-radius:50%;background:conic-gradient(var(--app-fg) 0 42%,var(--ring-track) 42%);-webkit-mask:radial-gradient(circle,transparent 52%,#000 54%);mask:radial-gradient(circle,transparent 52%,#000 54%)}
+/* Every three seconds while someone waits: the mascot hops and the count swells, as on the app's bar. */
+@keyframes hop{0%,30%,100%{transform:none}5%,15%,25%{transform:translateY(-22%)}10%,20%{transform:none}}
+@keyframes swell{0%,30%,100%{transform:none}5%,15%,25%{transform:scale(1.2)}10%,20%{transform:none}}
+.screen[data-state=open] .bar .wing{opacity:0}
+.screen[data-state=open] .bar *{animation-play-state:paused}
+.panel{position:absolute;z-index:2;top:0;left:3cqw;width:94cqw;padding:calc(var(--bar) + 1.8cqw) 2.4cqw 2.4cqw;background:var(--ink);border-radius:0 0 3cqw 3cqw;
+  color:var(--app-fg);font:400 clamp(10.5px,2.6cqw,13px)/1.5 var(--app);
+  clip-path:inset(0 calc(var(--sh) * -1) 0 calc(var(--sh) * -1) round 0 0 3cqw 3cqw);transition:clip-path .55s cubic-bezier(.3,1.2,.5,1)}
+/* Where the island meets the top of the screen it flares out into a shoulder that curves in, as
+   the app's does, open or shut: never a square corner. */
+.panel::before,.panel::after,.bar::before,.bar::after{content:"";position:absolute;top:0;width:var(--sh);height:var(--sh);pointer-events:none}
+.panel::before,.bar::before{right:100%;background:radial-gradient(circle at 0 100%,transparent calc(var(--sh) - .5px),var(--ink) var(--sh))}
+.panel::after,.bar::after{left:100%;background:radial-gradient(circle at 100% 100%,transparent calc(var(--sh) - .5px),var(--ink) var(--sh))}
+.screen[data-state=shut] .panel{clip-path:inset(0 22.34% calc(100% - var(--bar)) 22.34% round 0 0 2.2cqw 2.2cqw);transition:clip-path .3s cubic-bezier(.4,0,.2,1)}
+.valley{position:absolute;z-index:1;left:0;right:0;bottom:30px;display:flex;justify-content:center;gap:2cqw}
+.valley .m{--s:clamp(30px,8.5cqw,44px)}
+/* The button over the bar: at least 44 points tall, as wide as the bar, ringed in amber on the dark. */
+.bar-hit{position:absolute;z-index:4;top:0;left:24cqw;width:52cqw;height:max(44px,var(--bar));padding:0;border:0;border-radius:0 0 2.2cqw 2.2cqw;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.bar-hit:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
+.bar-hit[hidden]{display:none}
+/* Above the picture, a line down to the notch: the bar is the thing to press. */
+.notch-note{margin:0 0 6px;color:var(--accent);font:400 .8125rem/1.5 var(--mono);text-align:center}
+.notch-note::after{content:"";display:block;width:1px;height:16px;margin:6px auto 0;background:var(--accent)}
+.screen>[role=img]{position:absolute;inset:0;pointer-events:none}
+/* A phone keeps the sub-agent rows, the point of the app: the screen grows taller to hold both cards. */
+@media (max-width:599px){.screen{aspect-ratio:4/5}.panel .extra{display:none}}
+/* Narrower still, a row's figures drop under its task rather than cut it short. */
+@media (max-width:399px){.screen{aspect-ratio:3/5}.screen .p-line{flex-wrap:wrap;column-gap:1em}.screen .p-line>span:last-child{margin-left:auto}}
+
+/* The panel's own parts, drawn as the app draws them */
+.p-top{position:absolute;inset:0 2.4cqw auto;display:flex;align-items:center;justify-content:space-between;height:var(--bar);font-size:.86em}
+.p-left{display:flex;align-items:center;gap:.6em}
+.seg{display:flex;align-items:center;gap:.35em;padding:.2em .45em .2em .2em;border-radius:.55em;background:var(--app-fill);color:var(--app-seg);font-weight:600}
+.seg b{padding:.1em .45em;border-radius:.4em;background:var(--app-fg);color:var(--ink)}
+.faces3{display:flex}
+.faces3 img{width:1.6em;height:1.6em;margin-right:-.35em;image-rendering:pixelated}
+.p-icons{display:flex;gap:1em;color:var(--app-dim);font-size:1.1em}
+.p-head{margin-bottom:.8em;padding:0 .4em .7em;border-bottom:1px solid var(--app-rule);color:var(--app-fg)}
+.t{font-size:1.07em}
+.i{width:1em;height:1em;vertical-align:-.14em;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.p-dim .i{margin-right:.3em}
+.p-dim .i+span{margin-right:1em}
+.defs{position:absolute;width:0;height:0;overflow:hidden}
+.draw{display:contents}
+.panel em,.ask em,.anatomy em{font-style:normal;font-weight:600;color:var(--red-text)}
+.p-card{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:.9em .7em;margin-top:.7em;padding:.9em;border-radius:1em;background:var(--app-card)}
+.p-line{display:flex;justify-content:space-between;gap:1em}
+.p-line b{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.p-line span{flex:none;white-space:nowrap}
+.p-dim,.model{color:var(--app-dim)}
+.p-go{display:inline-block;margin-top:.6em;padding:.25em .7em;border-radius:.4em;background:var(--app-fg);color:var(--ink)}
+.panel .m,.ask .m,.anatomy .m{--s:2.2em}
+
+/* A mascot: the pose, and over it the pose it moves to. Timed as the app's: a tick of 0.4 s. */
+.m{--hop:max(-2px,calc(var(--s,20px) / -12));position:relative;display:inline-block;flex:none;width:var(--s,20px);height:var(--s,20px)}
+.m img{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.m img+img{opacity:0}
+.work{animation:bob .8s steps(1) infinite}
+.work img+img{animation:blink 3.2s steps(1) infinite}
+/* Neighbours out of step: alternate bobs, blinks a third of a cycle apart, waves half a beat apart. */
+.work:nth-of-type(even){animation-delay:-.4s}
+.work:nth-of-type(3n+2) img+img{animation-delay:-1.2s}
+.work:nth-of-type(3n) img+img{animation-delay:-2.4s}
+.wave:nth-of-type(even) img{animation-delay:-.4s}
+.wave img:first-child,.steam img:first-child{animation:first .8s steps(1) infinite}
+.wave img+img,.steam img+img{animation:second .8s steps(1) infinite}
+.steam img:first-child,.steam img+img{animation-duration:1.6s}
+@keyframes bob{0%{transform:translateY(var(--hop))}50%{transform:none}}
+@keyframes blink{0%{opacity:1}12.5%{opacity:0}}
+@keyframes first{0%{opacity:1}50%{opacity:0}}
+@keyframes second{0%{opacity:0}50%{opacity:1}}
+.dot{position:absolute;top:-12%;right:-25%;width:40%;height:40%;border-radius:50%;background:var(--red);box-shadow:0 0 0 .1em var(--ink)}
+/* Off the screen nobody is watching, and anyone may stop them for good: the loops rest. */
+.idle .m,.idle .m img,.idle .bar *,.idle .wordmark .d,.still .m,.still .m img,.still .bar *,.still .wordmark .d{animation-play-state:paused}
+.still .panel,.still .screen[data-state=shut] .panel,.still .bar .wing{transition:none}
+
+/* Sections */
+.section{padding-block:clamp(64px,12vw,104px);border-top:1px solid var(--line)}
+.split{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;align-items:center}
+@media (min-width:900px){.split{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:64px}.split.flip{grid-template-columns:minmax(0,6fr) minmax(0,5fr)}.split.flip>:first-child{order:2}}
+.split p,.stack>*+*{margin-top:16px}
+.split h2+p{margin-top:20px}
+.lead{font-size:1.1875rem;max-width:30em}
+.quiet{color:var(--muted)}
+.ticks{max-width:36em}
+.ticks li{position:relative;padding-left:1.4em}
+.ticks li+li{margin-top:14px}
+.ticks li::before{content:"";position:absolute;left:.15em;top:.62em;width:.5em;height:.5em;background:var(--accent)}
+.problem{padding-block:clamp(72px,14vw,128px) clamp(64px,12vw,112px)}
+
+/* Five terminals, stacked; the one waiting for an answer is at the back. */
+.terms{position:relative;height:clamp(250px,34vw,360px)}
+.term{position:absolute;top:calc(var(--i) * 13%);left:calc(var(--i) * 5.5%);width:78%;overflow:hidden;border:1px solid var(--term-edge);border-radius:10px;background:var(--term-bg);box-shadow:0 22px 40px -18px rgba(0,0,0,.4);color:var(--term-fg);font:400 clamp(.75rem,1.4vw,.8125rem)/1.55 var(--app)}
+.term header{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--term-head);color:var(--term-dim);font-size:.92em}
+.term header i{width:.62em;height:.62em;border-radius:50%;background:var(--term-dot)}
+.term header span{margin-left:8px}
+.term header b{margin-left:auto;color:var(--red-text);font-weight:600}
+.term pre{margin:0;padding:10px 12px;font:inherit;white-space:pre-wrap}
+.term.wait{border-color:var(--term-wait)}
+
+/* One row, taken out of the panel and labelled part by part */
+.anatomy{padding:clamp(20px,4vw,40px);border-radius:18px;background:var(--ink);color:var(--app-fg);font:400 clamp(.82rem,1.7vw,1.02rem)/1.5 var(--app)}
+.anatomy .row{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:.7em}
+/* Enlarged, the row may wrap rather than cut its words: here they are the point. */
+.anatomy .p-line{flex-wrap:wrap;column-gap:1em}
+.anatomy .p-line b{white-space:normal}
+.anatomy .p-line>span:last-child{margin-left:auto}
+.callouts{display:flex;justify-content:space-between;gap:1em;margin-left:2.9em;color:var(--amber);font:400 .78em/1.2 var(--mono)}
+.callouts span{padding:0 0 .5em;border-left:1px solid var(--amber-line);padding-left:.5em}
+.callouts span:last-child{border-left:0;border-right:1px solid var(--amber-line);padding:0 .5em .5em 0;text-align:right}
+.callouts.below span{padding-top:.5em;padding-bottom:0}
+.callouts.below span:last-child{padding:.5em .5em 0 0}
+/* Too narrow for pointers: each part on its own line, its label above it. */
+@media (max-width:559px){
+  .anatomy .callouts{display:none}
+  .anatomy .p-line,.anatomy .p-line>span{display:block;margin:0;white-space:normal}
+  .anatomy [data-part]{display:block;margin-top:.7em}
+  .anatomy .p-line:first-child [data-part]:first-child{margin-top:0}
+  .anatomy [data-part]::before{content:attr(data-part);display:block;color:var(--amber);font:400 .78em/1.4 var(--mono)}
+}
+
+/* The bar as it looks most of the day, and a request it opens to */
+.ask{display:grid;gap:18px;justify-items:center;font:400 clamp(.82rem,1.6vw,.95rem)/1.5 var(--app);color:var(--app-fg)}
+.strip{--bar:46px;display:flex;align-items:center;height:46px;padding:0 14px;border-radius:0 0 18px 18px;background:var(--ink);gap:10px}
+.strip .m{--s:28px}
+.strip .count{min-width:24px;height:24px;font-size:15px;line-height:24px}
+.strip .gap{position:relative;width:150px;height:100%}
+.strip .gap::after{content:"";position:absolute;top:30%;left:50%;width:8px;height:8px;transform:translateX(-50%);border-radius:50%;background:var(--lens);box-shadow:inset 0 0 0 1px var(--lens-rim)}
+.strip .ring{width:22px;height:22px}
+.ask .p-card{width:min(100%,460px);margin:0}
+.ask .p-line{flex-wrap:wrap;column-gap:1em}
+.ask .p-line b{white-space:normal}
+.answer{display:flex;gap:8px;margin-top:.8em}
+.answer span{padding:.35em .9em;border-radius:.45em;background:var(--app-fg);color:var(--ink)}
+.answer span+span{background:var(--app-key);color:var(--app-fg)}
+
+/* History as the app draws it, with made-up numbers on the reader's own calendar to click through */
+.costs{align-items:start}
+.costs figure{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:12px}
+.costs figure[hidden]{display:none}
+.costs figcaption{color:var(--muted);font:400 .875rem/1.5 var(--mono)}
+/* .split p spaces the copy; the panel keeps its own. */
+.costs .hist p{margin-top:0}
+.hist{display:grid;grid-template-columns:minmax(0,1fr);gap:.75em;padding:1.1em;border-radius:18px;background:var(--ink);color:var(--app-fg);font:400 .875rem/1.5 var(--app)}
+:where(.hist) button{all:unset;box-sizing:border-box;cursor:pointer}
+.hist button:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
+.hist button:disabled{cursor:default}
+.h-top,.h-stretch,.h-back{display:flex;align-items:center;gap:.4em}
+.h-top{flex-wrap:wrap}
+.h-back{min-height:44px;border:1px solid transparent}
+.h-stretch{align-items:flex-start;gap:.25em}
+.h-seg{display:flex;gap:4px;margin-left:auto;padding:.15em;border-radius:.55em;background:var(--app-fill)}
+.h-seg button{display:inline-grid;place-items:center;min-width:44px;min-height:44px;padding:0 .75em;border:1px solid transparent;border-radius:.4em;color:var(--app-tab)}
+.h-seg button[aria-pressed=true]{background:var(--app-fg);color:var(--ink)}
+.h-step{display:grid;flex:none;place-items:center;width:44px;height:44px;border:1px solid transparent;opacity:.8}
+.h-step:disabled{opacity:.25}
+.h-title{min-width:0;font-weight:700;line-height:1.4}
+.h-total{display:grid;flex:none;justify-items:end;margin-left:auto}
+.h-total b{font-size:1.23em;line-height:1.2}
+.h-small,.h-split span{color:var(--app-soft);font-size:.86em}
+.h-bars{display:flex;align-items:flex-end;gap:2px;height:5em}
+.h-bars.hours{height:2.6em}
+.h-bars>*{display:flex;flex:1;align-items:flex-end;height:100%}
+.h-bars [data-a]{cursor:pointer}
+.h-bars i{display:block;width:100%;border-radius:2px;background:var(--h-bar)}
+.h-bars.picking i{background:var(--h-bar-dim)}
+.h-bars .on i{background:var(--pick)}
+.h-bars .future i{background:var(--h-bar-later)}
+.h-axis{display:flex;justify-content:space-between;margin-top:-.5em;color:var(--app-soft);font-size:.8em}
+/* The bars are small, so each choice they offer is also in a list at least 44 points tall. */
+.h-sel{position:relative;display:flex}
+.h-sel select{flex:1;min-width:0;min-height:44px;padding:0 2.4em 0 .8em;border:1px solid transparent;border-radius:.55em;background:var(--app-fill);color:var(--app-fg);font:inherit;text-overflow:ellipsis;cursor:pointer;appearance:none}
+.h-sel select:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.h-sel::after{content:"";position:absolute;top:50%;right:1em;width:.45em;height:.45em;border:solid var(--app-dim);border-width:0 1.5px 1.5px 0;transform:translateY(-70%) rotate(45deg);pointer-events:none}
+/* A phone zooms into a list whose letters are under 16 points. */
+@media (pointer:coarse){.h-sel select{font-size:16px}}
+.h-split{display:grid;gap:.25em}
+.h-split p{display:flex;gap:1px;height:.46em;overflow:hidden;border-radius:.23em}
+.h-head{margin-top:.3em;color:var(--app-soft);font:600 .86em/1.5 var(--app);letter-spacing:0}
+.h-list{display:grid;grid-template-columns:minmax(0,1fr)}
+.h-list>*{display:flex;align-items:center;gap:.45em;margin:0 -.45em;padding:.3em .45em;border-radius:.4em}
+.h-list button{min-height:44px;border:1px solid transparent}
+.h-list button:hover{background:var(--app-fill)}
+.h-list b{min-width:0;font-weight:400}
+.h-list .v{flex:none;margin-left:auto;padding-left:.6em}
+.h-list .i{flex:none;align-self:center;width:.7em;opacity:.5}
+.h-name{font-weight:700}
+.h-quiet{color:var(--app-soft)}
+.h-foot{margin-top:.3em;color:var(--app-soft);font-size:.86em}
+
+/* What it reads, printed on continuous-form paper */
+.trust{align-items:start}
+.paper{position:relative;max-width:calc(76ch + 88px);padding:28px 44px;border-radius:4px;box-shadow:0 0 0 1px var(--line),0 16px 32px -20px rgba(0,0,0,.3);color:var(--type);font:400 .9375rem/1.6 var(--mono);
+  background:radial-gradient(circle at 16px 18px,var(--bg) 5px,transparent 5.5px) 0 0/100% 36px repeat-y,radial-gradient(circle at calc(100% - 16px) 18px,var(--bg) 5px,transparent 5.5px) 0 0/100% 36px repeat-y,repeating-linear-gradient(180deg,var(--greenbar) 0 72px,var(--paper) 72px 144px)}
+.paper li{position:relative;padding-left:1.3em;overflow-wrap:break-word}
+.paper li+li{margin-top:14px}
+.paper li::before{content:">";content:">"/"";position:absolute;left:0;color:var(--prompt)}
+
+/* The crew, standing in the valley */
+.crew{padding-block:clamp(72px,14vw,128px) clamp(64px,12vw,112px)}
+.intro{max-width:34em;margin-top:18px;font-size:1.1875rem}
+.types{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));row-gap:28px;margin-top:48px}
+.types li{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:18px;font:600 .9375rem/1.5 var(--mono);background:var(--horizon) 0 104px/100% 30px no-repeat}
+.types img{width:104px;height:104px;image-rendering:pixelated}
+/* A session's own agent is one of four people; the other types have one face each. */
+.types .faces4{display:grid;grid-template-columns:repeat(2,52px)}
+.types .faces4 img{width:52px;height:52px}
+/* On a wide screen the crew stands on one horizon running the full width of the window. */
+@media (min-width:760px){
+  .types{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .types li{background:none}
+  .types::before{content:"";position:absolute;z-index:-1;top:104px;left:50%;width:100vw;height:30px;transform:translateX(-50%);background:var(--horizon)}
+}
+.states{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 16px;margin-top:64px}
+@media (min-width:760px){.states{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.states li{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;font:400 .9375rem/1.5 var(--mono)}
+.states .m{--s:112px}
+.coffee{display:flex;align-items:center;gap:18px;margin-top:64px;color:var(--muted);font:400 1rem/1.5 var(--mono)}
+.coffee .tile{display:inline-grid;flex:none;place-items:center;width:76px;height:76px;border-radius:14px;background:var(--ink)}
+.coffee .m{--s:56px}
+
+/* Also in the panel: a spec sheet, not a row of cards */
+.more{padding-block:clamp(56px,10vw,88px)}
+.more h2{margin-bottom:28px}
+.sheet{display:grid;border-top:1px solid var(--line)}
+@media (min-width:760px){.sheet{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:56px}}
+.sheet div{display:grid;align-content:start;gap:6px;padding:22px 0;border-bottom:1px solid var(--line)}
+.sheet dt{font:600 1rem/1.5 var(--mono)}
+.sheet dd{max-width:36em;color:var(--muted);font-size:.9375rem}
+/* A word explained in Words on this page: dotted, in the text's own colour, so a sentence keeps its look. */
+a.w{color:inherit;text-decoration:underline dotted 1px;text-underline-offset:3px}
+a.w:hover{text-decoration-style:solid}
+.words div{scroll-margin-top:24px}
+/* Twenty-seven words: tighter than the panel sheet, three across on a wide screen. */
+.words .sheet div{padding:14px 0}
+@media (min-width:1100px){.words .sheet{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:40px}}
+.words div:target dt{color:var(--accent)}
+.small code{font:400 .9em/1.5 var(--mono);color:var(--fg)}
+
+/* The end: the whole crew waiting, and the install */
+.final{text-align:center}
+.lineup{--s:clamp(36px,10vw,48px);display:flex;justify-content:center;gap:clamp(3px,1vw,6px);padding:10px 0 16px;margin-bottom:36px;background:var(--horizon) 0 calc(var(--s) + 2px)/100% 24px no-repeat}
+.lineup img,.lineup .m{width:var(--s);height:var(--s);image-rendering:pixelated}
+.final .command{margin:30px auto 0;text-align:left}
+.final .small{margin-inline:auto}
+.next{max-width:540px;margin:56px auto 0;text-align:left}
+.next h3{font:600 1.3125rem/1.3 var(--mono)}
+.next ol{margin:18px 0 0;padding:0;list-style:none;counter-reset:step}
+.next li{position:relative;padding-left:2.4em;counter-increment:step}
+.next li+li{margin-top:18px}
+.next li::before{content:counter(step);position:absolute;left:0;top:.05em;width:1.7em;height:1.7em;border:1px solid var(--accent);border-radius:50%;color:var(--accent);font:600 .8125rem/1.7em var(--mono);text-align:center}
+.next .command{margin:10px 0 0}
+/* Credits: the crew's group photo, an old print with the camera's orange date stamp. The date is
+   Apollo 11's landing, the crew's own era. */
+.credits{display:grid;justify-items:center;padding-block:8px clamp(64px,12vw,104px)}
+.photo{width:min(100%,560px);padding:14px 14px 18px;border-radius:3px;background:var(--print);color:var(--type);transform:rotate(-2.5deg);box-shadow:0 22px 40px -16px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.2)}
+.snap{position:relative;aspect-ratio:4/3;overflow:hidden;background:var(--studio);filter:sepia(.18) saturate(.92)}
+.snap img{display:block;width:100%;height:100%;object-fit:cover}
+.snap::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 55%,var(--vignette))}
+/* Three staggered rows, each head between the two behind it, as team photos of the time stood. */
+.stamp{position:absolute;z-index:1;right:5%;bottom:4%;color:var(--stamp);font:600 clamp(.75rem,3.2vw,.95rem) var(--mono);letter-spacing:.08em;opacity:.9}
+.photo figcaption{display:grid;gap:2px;margin-top:14px;padding:0 4px;font:400 .9375rem/1.5 var(--mono)}
+.photo figcaption h2{font:600 .9375rem/1.5 var(--mono);letter-spacing:0}
+.foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;padding-block:36px 56px;border-top:1px solid var(--line);color:var(--muted);font-size:.875rem}
+/* Signed off as Claude Code opens: the crew, then the name and two grey lines. */
+.sign{display:flex;align-items:center;gap:16px;font:400 .875rem/1.5 var(--mono)}
+.sign img{flex:none;image-rendering:pixelated}
+.sign b{display:block;color:var(--fg);font-weight:600}
+.still-toggle{display:inline-flex;align-items:center;justify-content:center;gap:.5em;min-width:44px;min-height:44px;padding:0 8px;border:1px solid transparent;border-radius:8px;background:none;color:var(--muted);font:400 .9375rem/1.5 var(--mono);cursor:pointer}
+/* A phone keeps the switch on the top bar as its icon alone; its words stay for screen readers. */
+@media (max-width:599px){.still-toggle span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
+.still-toggle:hover{color:var(--fg)}
+.still-toggle[hidden]{display:none}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.still-toggle{display:none}}
+/* A contrast theme repaints every colour; the bars, the span picked and the logo are drawn in its own. */
+@media (forced-colors:active){
+  .wordmark{fill:CanvasText}
+  .wordmark .d{fill:GrayText;animation:none}
+  .h-bars i,.h-bars.picking i,.h-bars .future i{forced-color-adjust:none;background:CanvasText}
+  .h-bars .on i{background:Highlight}
+  .h-seg button[aria-pressed=true]{forced-color-adjust:none;background:Highlight;color:HighlightText}
+}
+</style>
+</head>
+<body>
+<svg class="defs" aria-hidden="true">
+  <symbol id="i-folder" viewBox="0 0 16 16"><path d="M1.5 4.5v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H8L6.5 3.5h-4a1 1 0 0 0-1 1z"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 16 16"><path d="M4 2.5v3.5l4 3 4-3V2.5M8 9v4.5"/></symbol>
+  <symbol id="i-out" viewBox="0 0 16 16"><path d="M5 11l6-6M6.5 5H11v4.5"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 16 16"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/><path d="M2.5 13.5l11-11"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 16 16"><path d="M3 6h2.5L9 3v10L5.5 10H3zM2 2l12 12"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 16 16"><path d="M6 2h4l-.5 4 2 2.5h-7l2-2.5zM8 8.5v6"/></symbol>
+  <symbol id="i-help" viewBox="0 0 16 16" stroke-width="2"><path d="M5.6 5.8a2.4 2.4 0 1 1 3.4 2.2c-.7.4-1 .9-1 1.6v.4"/><path d="M8 13v.1"/></symbol>
+  <symbol id="i-left" viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></symbol>
+  <symbol id="i-right" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 16 16" stroke-width="2"><path d="M5.5 3.5v9M10.5 3.5v9"/></symbol>
+  <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5l7.5 4.5L5 12.5z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 16 16"><path d="M13.5 8h-11M6.5 4l-4 4 4 4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2"/><path d="M6.09 3.38L6.74 1.52H9.26L9.91 3.38L11.69 2.53L13.47 4.31L12.62 6.09L14.48 6.74V9.26L12.62 9.91L13.47 11.69L11.69 13.47L9.91 12.62L9.26 14.48H6.74L6.09 12.62L4.31 13.47L2.53 11.69L3.38 9.91L1.52 9.26V6.74L3.38 6.09L2.53 4.31L4.31 2.53z"/></symbol>
+</svg>
+<header class="wrap nav">
+  <!-- logo.svg, written into the page so its dots can light up -->
+  <a class="brand" href="./"><svg class="wordmark" viewBox="0 0 88 12" width="220" height="30" shape-rendering="crispEdges" role="img" aria-label="AgentValley"><rect class="d" style="--x:0" x="0" y="0" width="1" height="1"/><rect x="2" y="0" width="6" height="1"/><rect class="d" style="--x:8" x="8" y="0" width="1" height="1"/><rect x="10" y="0" width="6" height="1"/><rect class="d" style="--x:16" x="16" y="0" width="1" height="1"/><rect x="18" y="0" width="6" height="1"/><rect class="d" style="--x:24" x="24" y="0" width="1" height="1"/><rect x="26" y="0" width="6" height="1"/><rect class="d" style="--x:32" x="32" y="0" width="1" height="1"/><rect x="34" y="0" width="6" height="1"/><rect class="d" style="--x:40" x="40" y="0" width="1" height="1"/><rect x="42" y="0" width="2" height="1"/><rect class="d" style="--x:44" x="44" y="0" width="1" height="1"/><rect x="46" y="0" width="2" height="1"/><rect class="d" style="--x:48" x="48" y="0" width="1" height="1"/><rect x="50" y="0" width="6" height="1"/><rect class="d" style="--x:56" x="56" y="0" width="1" height="1"/><rect x="58" y="0" width="2" height="1"/><rect class="d" style="--x:60" x="60" y="0" width="1" height="1"/><rect class="d" style="--x:62" x="62" y="0" width="1" height="1"/><rect class="d" style="--x:64" x="64" y="0" width="1" height="1"/><rect x="66" y="0" width="2" height="1"/><rect class="d" style="--x:68" x="68" y="0" width="1" height="1"/><rect class="d" style="--x:70" x="70" y="0" width="1" height="1"/><rect class="d" style="--x:72" x="72" y="0" width="1" height="1"/><rect x="74" y="0" width="6" height="1"/><rect class="d" style="--x:80" x="80" y="0" width="1" height="1"/><rect x="82" y="0" width="2" height="1"/><rect class="d" style="--x:84" x="84" y="0" width="1" height="1"/><rect x="86" y="0" width="2" height="1"/><rect x="2" y="1" width="6" height="1"/><rect x="10" y="1" width="6" height="1"/><rect x="18" y="1" width="6" height="1"/><rect x="26" y="1" width="6" height="1"/><rect x="34" y="1" width="6" height="1"/><rect x="42" y="1" width="2" height="1"/><rect x="46" y="1" width="2" height="1"/><rect x="50" y="1" width="6" height="1"/><rect x="58" y="1" width="2" height="1"/><rect x="66" y="1" width="2" height="1"/><rect x="74" y="1" width="6" height="1"/><rect x="82" y="1" width="2" height="1"/><rect x="86" y="1" width="2" height="1"/><rect class="d" style="--x:1" x="1" y="2" width="1" height="1"/><rect x="2" y="2" width="2" height="1"/><rect x="6" y="2" width="2" height="1"/><rect class="d" style="--x:9" x="9" y="2" width="1" height="1"/><rect x="10" y="2" width="2" height="1"/><rect class="d" style="--x:17" x="17" y="2" width="1" height="1"/><rect x="18" y="2" width="2" height="1"/><rect class="d" style="--x:25" x="25" y="2" width="1" height="1"/><rect x="26" y="2" width="2" height="1"/><rect x="30" y="2" width="2" height="1"/><rect class="d" style="--x:33" x="33" y="2" width="1" height="1"/><rect x="36" y="2" width="2" height="1"/><rect class="d" style="--x:41" x="41" y="2" width="1" height="1"/><rect x="42" y="2" width="2" height="1"/><rect class="d" style="--x:45" x="45" y="2" width="1" height="1"/><rect x="46" y="2" width="2" height="1"/><rect class="d" style="--x:49" x="49" y="2" width="1" height="1"/><rect x="50" y="2" width="2" height="1"/><rect x="54" y="2" width="2" height="1"/><rect class="d" style="--x:57" x="57" y="2" width="1" height="1"/><rect x="58" y="2" width="2" height="1"/><rect class="d" style="--x:61" x="61" y="2" width="1" height="1"/><rect class="d" style="--x:63" x="63" y="2" width="1" height="1"/><rect class="d" style="--x:65" x="65" y="2" width="1" height="1"/><rect x="66" y="2" width="2" height="1"/><rect class="d" style="--x:69" x="69" y="2" width="1" height="1"/><rect class="d" style="--x:71" x="71" y="2" width="1" height="1"/><rect class="d" style="--x:73" x="73" y="2" width="1" height="1"/><rect x="74" y="2" width="2" height="1"/><rect class="d" style="--x:81" x="81" y="2" width="1" height="1"/><rect x="82" y="2" width="2" height="1"/><rect class="d" style="--x:85" x="85" y="2" width="1" height="1"/><rect x="86" y="2" width="2" height="1"/><rect x="2" y="3" width="2" height="1"/><rect x="6" y="3" width="2" height="1"/><rect x="10" y="3" width="2" height="1"/><rect x="18" y="3" width="2" height="1"/><rect x="26" y="3" width="2" height="1"/><rect x="30" y="3" width="2" height="1"/><rect x="36" y="3" width="2" height="1"/><rect x="42" y="3" width="2" height="1"/><rect x="46" y="3" width="2" height="1"/><rect x="50" y="3" width="2" height="1"/><rect x="54" y="3" width="2" height="1"/><rect x="58" y="3" width="2" height="1"/><rect x="66" y="3" width="2" height="1"/><rect x="74" y="3" width="2" height="1"/><rect x="82" y="3" width="2" height="1"/><rect x="86" y="3" width="2" height="1"/><rect class="d" style="--x:0" x="0" y="4" width="1" height="1"/><rect x="2" y="4" width="6" height="1"/><rect class="d" style="--x:8" x="8" y="4" width="1" height="1"/><rect x="10" y="4" width="2" height="1"/><rect class="d" style="--x:12" x="12" y="4" width="1" height="1"/><rect x="14" y="4" width="2" height="1"/><rect class="d" style="--x:16" x="16" y="4" width="1" height="1"/><rect x="18" y="4" width="6" height="1"/><rect class="d" style="--x:24" x="24" y="4" width="1" height="1"/><rect x="26" y="4" width="2" height="1"/><rect class="d" style="--x:28" x="28" y="4" width="1" height="1"/><rect x="30" y="4" width="2" height="1"/><rect class="d" style="--x:32" x="32" y="4" width="1" height="1"/><rect class="d" style="--x:34" x="34" y="4" width="1" height="1"/><rect x="36" y="4" width="2" height="1"/><rect class="d" style="--x:38" x="38" y="4" width="1" height="1"/><rect class="d" style="--x:40" x="40" y="4" width="1" height="1"/><rect x="43" y="4" width="4" height="1"/><rect class="d" style="--x:48" x="48" y="4" width="1" height="1"/><rect x="50" y="4" width="6" height="1"/><rect class="d" style="--x:56" x="56" y="4" width="1" height="1"/><rect x="58" y="4" width="2" height="1"/><rect class="d" style="--x:60" x="60" y="4" width="1" height="1"/><rect class="d" style="--x:62" x="62" y="4" width="1" height="1"/><rect class="d" style="--x:64" x="64" y="4" width="1" height="1"/><rect x="66" y="4" width="2" height="1"/><rect class="d" style="--x:68" x="68" y="4" width="1" height="1"/><rect class="d" style="--x:70" x="70" y="4" width="1" height="1"/><rect class="d" style="--x:72" x="72" y="4" width="1" height="1"/><rect x="74" y="4" width="6" height="1"/><rect class="d" style="--x:80" x="80" y="4" width="1" height="1"/><rect class="d" style="--x:82" x="82" y="4" width="1" height="1"/><rect x="84" y="4" width="2" height="1"/><rect class="d" style="--x:86" x="86" y="4" width="1" height="1"/><rect x="2" y="5" width="6" height="1"/><rect x="10" y="5" width="2" height="1"/><rect x="14" y="5" width="2" height="1"/><rect x="18" y="5" width="6" height="1"/><rect x="26" y="5" width="2" height="1"/><rect x="30" y="5" width="2" height="1"/><rect x="36" y="5" width="2" height="1"/><rect x="43" y="5" width="4" height="1"/><rect x="50" y="5" width="6" height="1"/><rect x="58" y="5" width="2" height="1"/><rect x="66" y="5" width="2" height="1"/><rect x="74" y="5" width="6" height="1"/><rect x="84" y="5" width="2" height="1"/><rect class="d" style="--x:1" x="1" y="6" width="1" height="1"/><rect x="2" y="6" width="2" height="1"/><rect x="6" y="6" width="2" height="1"/><rect class="d" style="--x:9" x="9" y="6" width="1" height="1"/><rect x="10" y="6" width="2" height="1"/><rect class="d" style="--x:13" x="13" y="6" width="1" height="1"/><rect x="14" y="6" width="2" height="1"/><rect class="d" style="--x:17" x="17" y="6" width="1" height="1"/><rect x="18" y="6" width="2" height="1"/><rect class="d" style="--x:25" x="25" y="6" width="1" height="1"/><rect x="26" y="6" width="2" height="1"/><rect class="d" style="--x:29" x="29" y="6" width="1" height="1"/><rect x="30" y="6" width="2" height="1"/><rect class="d" style="--x:33" x="33" y="6" width="1" height="1"/><rect class="d" style="--x:35" x="35" y="6" width="1" height="1"/><rect x="36" y="6" width="2" height="1"/><rect class="d" style="--x:39" x="39" y="6" width="1" height="1"/><rect class="d" style="--x:41" x="41" y="6" width="1" height="1"/><rect x="43" y="6" width="4" height="1"/><rect class="d" style="--x:49" x="49" y="6" width="1" height="1"/><rect x="50" y="6" width="2" height="1"/><rect x="54" y="6" width="2" height="1"/><rect class="d" style="--x:57" x="57" y="6" width="1" height="1"/><rect x="58" y="6" width="2" height="1"/><rect class="d" style="--x:61" x="61" y="6" width="1" height="1"/><rect class="d" style="--x:63" x="63" y="6" width="1" height="1"/><rect class="d" style="--x:65" x="65" y="6" width="1" height="1"/><rect x="66" y="6" width="2" height="1"/><rect class="d" style="--x:69" x="69" y="6" width="1" height="1"/><rect class="d" style="--x:71" x="71" y="6" width="1" height="1"/><rect class="d" style="--x:73" x="73" y="6" width="1" height="1"/><rect x="74" y="6" width="2" height="1"/><rect class="d" style="--x:81" x="81" y="6" width="1" height="1"/><rect class="d" style="--x:83" x="83" y="6" width="1" height="1"/><rect x="84" y="6" width="2" height="1"/><rect class="d" style="--x:87" x="87" y="6" width="1" height="1"/><rect x="2" y="7" width="2" height="1"/><rect x="6" y="7" width="2" height="1"/><rect x="10" y="7" width="2" height="1"/><rect x="14" y="7" width="2" height="1"/><rect x="18" y="7" width="2" height="1"/><rect x="26" y="7" width="2" height="1"/><rect x="30" y="7" width="2" height="1"/><rect x="36" y="7" width="2" height="1"/><rect x="43" y="7" width="4" height="1"/><rect x="50" y="7" width="2" height="1"/><rect x="54" y="7" width="2" height="1"/><rect x="58" y="7" width="2" height="1"/><rect x="66" y="7" width="2" height="1"/><rect x="74" y="7" width="2" height="1"/><rect x="84" y="7" width="2" height="1"/><rect class="d" style="--x:0" x="0" y="8" width="1" height="1"/><rect x="2" y="8" width="2" height="1"/><rect class="d" style="--x:4" x="4" y="8" width="1" height="1"/><rect x="6" y="8" width="2" height="1"/><rect class="d" style="--x:8" x="8" y="8" width="1" height="1"/><rect x="10" y="8" width="6" height="1"/><rect class="d" style="--x:16" x="16" y="8" width="1" height="1"/><rect x="18" y="8" width="6" height="1"/><rect class="d" style="--x:24" x="24" y="8" width="1" height="1"/><rect x="26" y="8" width="2" height="1"/><rect class="d" style="--x:28" x="28" y="8" width="1" height="1"/><rect x="30" y="8" width="2" height="1"/><rect class="d" style="--x:32" x="32" y="8" width="1" height="1"/><rect class="d" style="--x:34" x="34" y="8" width="1" height="1"/><rect x="36" y="8" width="2" height="1"/><rect class="d" style="--x:38" x="38" y="8" width="1" height="1"/><rect class="d" style="--x:40" x="40" y="8" width="1" height="1"/><rect class="d" style="--x:42" x="42" y="8" width="1" height="1"/><rect x="44" y="8" width="2" height="1"/><rect class="d" style="--x:46" x="46" y="8" width="1" height="1"/><rect class="d" style="--x:48" x="48" y="8" width="1" height="1"/><rect x="50" y="8" width="2" height="1"/><rect class="d" style="--x:52" x="52" y="8" width="1" height="1"/><rect x="54" y="8" width="2" height="1"/><rect class="d" style="--x:56" x="56" y="8" width="1" height="1"/><rect x="58" y="8" width="6" height="1"/><rect class="d" style="--x:64" x="64" y="8" width="1" height="1"/><rect x="66" y="8" width="6" height="1"/><rect class="d" style="--x:72" x="72" y="8" width="1" height="1"/><rect x="74" y="8" width="6" height="1"/><rect class="d" style="--x:80" x="80" y="8" width="1" height="1"/><rect class="d" style="--x:82" x="82" y="8" width="1" height="1"/><rect x="84" y="8" width="2" height="1"/><rect class="d" style="--x:86" x="86" y="8" width="1" height="1"/><rect x="2" y="9" width="2" height="1"/><rect x="6" y="9" width="2" height="1"/><rect x="10" y="9" width="6" height="1"/><rect x="18" y="9" width="6" height="1"/><rect x="26" y="9" width="2" height="1"/><rect x="30" y="9" width="2" height="1"/><rect x="36" y="9" width="2" height="1"/><rect x="44" y="9" width="2" height="1"/><rect x="50" y="9" width="2" height="1"/><rect x="54" y="9" width="2" height="1"/><rect x="58" y="9" width="6" height="1"/><rect x="66" y="9" width="6" height="1"/><rect x="74" y="9" width="6" height="1"/><rect x="84" y="9" width="2" height="1"/><rect class="d" style="--x:1" x="1" y="10" width="1" height="1"/><rect class="d" style="--x:5" x="5" y="10" width="1" height="1"/><rect class="d" style="--x:9" x="9" y="10" width="1" height="1"/><rect class="d" style="--x:17" x="17" y="10" width="1" height="1"/><rect class="d" style="--x:25" x="25" y="10" width="1" height="1"/><rect class="d" style="--x:29" x="29" y="10" width="1" height="1"/><rect class="d" style="--x:33" x="33" y="10" width="1" height="1"/><rect class="d" style="--x:35" x="35" y="10" width="1" height="1"/><rect class="d" style="--x:39" x="39" y="10" width="1" height="1"/><rect class="d" style="--x:41" x="41" y="10" width="1" height="1"/><rect class="d" style="--x:43" x="43" y="10" width="1" height="1"/><rect class="d" style="--x:47" x="47" y="10" width="1" height="1"/><rect class="d" style="--x:49" x="49" y="10" width="1" height="1"/><rect class="d" style="--x:53" x="53" y="10" width="1" height="1"/><rect class="d" style="--x:57" x="57" y="10" width="1" height="1"/><rect class="d" style="--x:65" x="65" y="10" width="1" height="1"/><rect class="d" style="--x:73" x="73" y="10" width="1" height="1"/><rect class="d" style="--x:81" x="81" y="10" width="1" height="1"/><rect class="d" style="--x:83" x="83" y="10" width="1" height="1"/><rect class="d" style="--x:87" x="87" y="10" width="1" height="1"/></svg></a>
+  <p class="motto">A small valley of programmers in your notch.</p>
+  <nav aria-label="Main">
+    <a href="#words" aria-label="Words on this page">Words</a>
+    <a href="https://github.com/morsechimwai/agent-valley" aria-label="AgentValley on GitHub">GitHub</a>
+    <a class="to-install" href="#install">Install</a>
+    <button class="still-toggle" type="button" hidden><svg class="i" aria-hidden="true"><use href="#i-pause"/></svg><span>Stop the animations</span></button>
+  </nav>
+</header>
+
+<main>
+<section class="wrap hero">
+  <div class="hero-head">
+    <h1>Every agent, at a glance,<br class="lb"> right in your notch.</h1>
+    <p class="for">For Claude Code on Mac</p>
+  </div>
+  <div class="hero-copy">
+    <p class="lede">Each agent, sub-agents too, gets its own row and its own little programmer. See who is working, on which model, and who needs you, without leaving your app.</p>
+    <div class="install">
+      <div class="command"><code>brew install morsechimwai/<wbr>tap/<wbr><span class="nw">agent-valley</span></code><button class="copy" type="button" hidden>Copy</button></div>
+      <p class="on-phone">Reading this on a phone? Run the command on your Mac.</p>
+      <p class="facts"><strong>Free</strong> · Open source · macOS 15 or later · For MacBooks with a notch</p>
+      <p class="small">Homebrew builds it on your Mac from the source. No Homebrew yet? Get it at <a href="https://brew.sh" aria-label="Get Homebrew at brew.sh">brew.sh</a>.</p>
+      <p class="small code-link"><a href="https://github.com/morsechimwai/agent-valley">View the code on GitHub</a></p>
+    </div>
+  </div>
+  <div class="hero-pic">
+  <p class="notch-note" aria-hidden="true">The notch. Press it to open or close the panel. On your Mac, point at it.</p>
+  <figure class="screen" data-state="open">
+    <span role="img" aria-label="The top of a MacBook screen. The AgentValley panel is open under the notch: one session needs you, another is working with two sub-agents. Below, the crew stands in the valley." data-shut="The top of a MacBook screen. Beside the notch, a waving programmer and a red 1: an agent needs you. Below, the crew stands in the valley."></span>
+    <div aria-hidden="true">
+      <div class="menubar"><span class="menus"><i></i><i></i><i></i></span><span class="status"><i class="battery"></i><span class="clock">Thu 9:41</span></span></div>
+      <div class="panel">
+        <div class="p-top"><span class="p-left"><span class="seg"><b>ALL</b>STATUS</span><span class="faces3"><img src="mascots/guru-working.svg" alt=""><img src="mascots/walrus-working.svg" alt=""><img src="mascots/afro-working.svg" alt=""></span></span><span class="p-icons"><svg class="i"><use href="#i-mute"/></svg><svg class="i"><use href="#i-pin"/></svg><svg class="i"><use href="#i-help"/></svg><svg class="i"><use href="#i-gear"/></svg></span></div>
+        <div class="p-head"><em>1 needs you</em><span class="extra"> · 3 working</span></div>
+        <div class="p-card">
+          <span class="m wave"><img src="mascots/guru-wave0.svg" alt=""><img src="mascots/guru-wave1.svg" alt=""><i class="dot"></i></span>
+          <div>
+            <p class="p-line"><b class="t">Deploy preview build <svg class="i"><use href="#i-out"/></svg></b><span><em>needs you</em> <span class="model">Sonnet 5.5</span> <svg class="i model"><use href="#i-eyeoff"/></svg></span></p>
+            <p class="p-dim"><svg class="i"><use href="#i-folder"/></svg><span>shop-web</span><svg class="i"><use href="#i-branch"/></svg>preview</p>
+            <p>&gt; Bash git push origin preview</p>
+            <span class="p-go">Go to Terminal</span>
+          </div>
+        </div>
+        <div class="p-card">
+          <span class="m work"><img src="mascots/walrus-working.svg" alt=""><img src="mascots/walrus-blink.svg" alt=""></span>
+          <div>
+            <p class="p-line"><b class="t">Refactor checkout flow <svg class="i"><use href="#i-out"/></svg></b><span>3m 16s <span class="model">Opus 5.5</span></span></p>
+            <p class="p-dim"><svg class="i"><use href="#i-folder"/></svg><span>shop-web</span><svg class="i"><use href="#i-branch"/></svg>checkout-refactor</p>
+            <p>&gt; Read index.tsx</p>
+          </div>
+          <span class="m work"><img src="mascots/afro-working.svg" alt=""><img src="mascots/afro-blink.svg" alt=""></span>
+          <div>
+            <p class="p-line"><b>Map payment call sites</b><span>2m 56s <span class="model">Haiku 5.5</span></span></p>
+            <p class="p-line p-dim"><span>&gt; Grep PaymentIntent · 1 step</span><span>Explore</span></p>
+          </div>
+          <span class="m work"><img src="mascots/beatnik-working.svg" alt=""><img src="mascots/beatnik-blink.svg" alt=""></span>
+          <div>
+            <p class="p-line"><b>Write cart total tests</b><span>1m 08s <span class="model">Sonnet 5.5</span></span></p>
+            <p class="p-dim">&gt; Edit cart.test.ts · 4 steps</p>
+          </div>
+        </div>
+      </div>
+      <div class="bar">
+        <span class="wing"><span class="m wave"><img src="mascots/guru-wave0.svg" alt=""><img src="mascots/guru-wave1.svg" alt=""></span><span class="count">1</span></span>
+        <span class="lens"></span>
+        <span class="wing"><span class="ring"></span></span>
+      </div>
+      <div class="valley">
+        <span class="m wave"><img src="mascots/guru-wave0.svg" alt=""><img src="mascots/guru-wave1.svg" alt=""></span>
+        <span class="m work"><img src="mascots/walrus-working.svg" alt=""><img src="mascots/walrus-blink.svg" alt=""></span>
+        <span class="m work"><img src="mascots/afro-working.svg" alt=""><img src="mascots/afro-blink.svg" alt=""></span>
+        <span class="m work"><img src="mascots/beatnik-working.svg" alt=""><img src="mascots/beatnik-blink.svg" alt=""></span>
+      </div>
+    </div>
+    <button class="bar-hit" type="button" aria-expanded="true" aria-label="The notch: the AgentValley panel" hidden></button>
+  </figure>
+  </div>
+</section>
+
+<section class="wrap section split problem">
+  <div>
+    <h2>Five agents running. Which one is waiting for you?</h2>
+    <p class="lead">Each <a class="w" href="#w-agent">agent<span class="sr"> (meaning)</span></a> reports in its own <a class="w" href="#w-terminal">terminal<span class="sr"> (meaning)</span></a>, line by line. Run a few <a class="w" href="#w-session">sessions<span class="sr"> (meaning)</span></a> at once and you <a class="w" href="#w-end-up">end up<span class="sr"> (meaning)</span></a> switching windows just to <a class="w" href="#w-check-on">check on<span class="sr"> (meaning)</span></a> them.</p>
+  </div>
+  <div class="terms" role="img" aria-label="Five terminal windows stacked on top of one another. The one waiting for an answer is buried at the back.">
+    <div class="draw" aria-hidden="true">
+    <div class="term wait" style="--i:0"><header><i></i><i></i><i></i><span>api</span><b>waiting</b></header><pre>Allow this command?
+git push origin main
+1. Yes   2. No</pre></div>
+    <div class="term" style="--i:1"><header><i></i><i></i><i></i><span>docs</span></header><pre>&gt; Write docs/api.md
+  Writing section 3 of 5</pre></div>
+    <div class="term" style="--i:2"><header><i></i><i></i><i></i><span>checkout</span></header><pre>&gt; Read index.tsx
+&gt; Grep PaymentIntent</pre></div>
+    <div class="term" style="--i:3"><header><i></i><i></i><i></i><span>cart-tests</span></header><pre>&gt; Edit cart.test.ts
+  4 tests added</pre></div>
+    <div class="term" style="--i:4"><header><i></i><i></i><i></i><span>shop-web</span></header><pre>&gt; Bash npm test
+  112 passed
+&gt; Edit src/cart/total.ts</pre></div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap section split flip">
+  <div class="stack">
+    <h2>Every agent gets a row.</h2>
+    <p class="lead">Sessions get a <a class="w" href="#w-panel">card<span class="sr"> (meaning)</span></a>. <a class="w" href="#w-sub-agent">Sub-agents<span class="sr"> (meaning)</span></a> get rows under it. Each row shows the task, the <a class="w" href="#w-model">model<span class="sr"> (meaning)</span></a> and the latest <a class="w" href="#w-step">step<span class="sr"> (meaning)</span></a>. Sub-agent rows count their steps too.</p>
+    <p>Every session in one list, whichever terminal it runs in.</p>
+    <p class="quiet">No guessed progress bars. If an agent goes <a class="w" href="#w-quiet">quiet<span class="sr"> (meaning)</span></a>, AgentValley says so.</p>
+  </div>
+  <figure class="anatomy" role="img" aria-label="One sub-agent row, enlarged and labelled: the task, the time and model, the latest step with the step count, and the agent's type.">
+    <div class="draw" aria-hidden="true">
+    <p class="callouts"><span>task</span><span>time · model</span></p>
+    <div class="row">
+      <span class="m work"><img src="mascots/afro-working.svg" alt=""><img src="mascots/afro-blink.svg" alt=""></span>
+      <div>
+        <p class="p-line"><b data-part="task">Map payment call sites</b><span data-part="time · model">2m 56s <span class="model">Haiku 5.5</span></span></p>
+        <p class="p-line p-dim"><span data-part="latest step · steps so far">&gt; Grep PaymentIntent · 1 step</span><span data-part="type">Explore</span></p>
+      </div>
+    </div>
+    <p class="callouts below"><span>latest step · steps so far</span><span>type</span></p>
+    </div>
+  </figure>
+</section>
+
+<section class="wrap section split">
+  <div class="stack">
+    <h2>Know the moment one needs you.</h2>
+    <p class="lead">When an agent asks a question or waits for permission, a red count appears beside the <a class="w" href="#w-notch">notch<span class="sr"> (meaning)</span></a>. Open the panel to read the question or the command.</p>
+    <ul class="ticks" role="list">
+      <li><a class="w" href="#w-jump">Jump<span class="sr"> (meaning)</span></a> to its app in one click. Turn on Go to the session's tab, and Terminal and iTerm2 open the exact tab. Ghostty does too, unless two sessions run in the same folder.</li>
+      <li>Answer Claude Code from the notch with Allow once or Deny, using a <a class="w" href="#w-plugin">plugin<span class="sr"> (meaning)</span></a> you install yourself.</li>
+      <li>Sounds stay off until you turn them on.</li>
+    </ul>
+  </div>
+  <figure class="ask" role="img" aria-label="The bar beside the notch: a waving programmer and a red 1. Below it, the request in the panel, the command, with Allow once and Deny.">
+    <div class="draw" aria-hidden="true">
+    <div class="strip">
+      <span class="m wave"><img src="mascots/guru-wave0.svg" alt=""><img src="mascots/guru-wave1.svg" alt=""></span>
+      <span class="count">1</span>
+      <span class="gap"></span>
+      <span class="ring"></span>
+    </div>
+    <div class="p-card">
+      <span class="m wave"><img src="mascots/guru-wave0.svg" alt=""><img src="mascots/guru-wave1.svg" alt=""><i class="dot"></i></span>
+      <div>
+        <p class="p-line"><b>Deploy preview build</b><span><em>needs you</em> <span class="model">Sonnet 5.5</span></span></p>
+        <p>&gt; Bash git push origin preview</p>
+        <p class="answer"><span>Allow once</span><span>Deny</span></p>
+      </div>
+    </div>
+    </div>
+  </figure>
+</section>
+
+<section class="wrap section split flip costs">
+  <div class="stack">
+    <h2>See what each project cost.</h2>
+    <p class="lead">Pick a day, a week or a month, then go back to any earlier one. Choose a day for its hours, or a project for its sessions.</p>
+    <p class="quiet">At <a class="w" href="#w-api"><abbr title="application programming interface">API</abbr> prices<span class="sr"> (meaning)</span></a>. Kept on your Mac, even after Claude Code clears its old files.</p>
+  </div>
+  <figure hidden><div class="hist" role="group" aria-label="The History page" tabindex="-1"></div><figcaption>Click around. The numbers are made up.</figcaption></figure>
+</section>
+
+<section class="wrap section split trust">
+  <h2>It reads. It doesn't touch.</h2>
+  <ul class="paper" role="list">
+    <li>Reads ~/.claude/<wbr>projects and ~/.claude/<wbr>sessions, the files Claude Code writes as it works.</li>
+    <li>Looks at Claude Code's <a class="w" href="#w-process">processes<span class="sr"> (meaning)</span></a> and each project's <a class="w" href="#w-git">.git<span class="sr"> (meaning)</span></a> to show which app and branch a session is in.</li>
+    <li>Reads your Claude Code login from the <a class="w" href="#w-keychain">Keychain<span class="sr"> (meaning)</span></a> only when you turn on <a class="w" href="#w-limits">Plan limits<span class="sr"> (meaning)</span></a>, and sends it only to api.anthropic.com.</li>
+    <li>Besides its own settings, it writes only in one folder: ~/Library/<wbr>Application Support/<wbr>AgentValley. Nothing in ~/.claude changes.</li>
+    <li>The only <a class="w" href="#w-hook">hook<span class="sr"> (meaning)</span></a> is the plugin that brings Allow and Deny to the notch, and you install it yourself.</li>
+    <li>Never answers for you. Allow happens only when you choose it.</li>
+    <li><a class="w" href="#w-open">Open source<span class="sr"> (meaning)</span></a>. Read every line on GitHub.</li>
+  </ul>
+</section>
+
+<section class="wrap section crew">
+  <h2>Meet the crew.</h2>
+  <p class="intro">Every agent is a programmer from the early days of computing. The face tells you the type. The pose tells you the state.</p>
+  <h3 class="sr">Types</h3>
+  <ul class="types" role="list">
+    <li><span class="faces4"><img src="mascots/guru-working.svg" alt=""><img src="mascots/walrus-working.svg" alt=""><img src="mascots/engineer-working.svg" alt=""><img src="mascots/pearls-working.svg" alt=""></span>Session</li>
+    <li><img src="mascots/coder-working.svg" alt="">Plan</li>
+    <li><img src="mascots/afro-working.svg" alt="">Explore</li>
+    <li><img src="mascots/beatnik-working.svg" alt="">General-purpose</li>
+  </ul>
+  <h3 class="sr">States</h3>
+  <ul class="states" role="list">
+    <li><span class="m work"><img src="mascots/guru-working.svg" alt=""><img src="mascots/guru-blink.svg" alt=""></span>Working — <a class="w" href="#w-bob">bobs<span class="sr"> (meaning)</span></a> and blinks</li>
+    <li><span class="m wave"><img src="mascots/guru-wave0.svg" alt=""><img src="mascots/guru-wave1.svg" alt=""></span>Needs you — waves</li>
+    <li><span class="m"><img src="mascots/guru-quiet.svg" alt=""></span>Quiet — looks away</li>
+    <li><span class="m"><img src="mascots/guru-done.svg" alt=""></span>Done — eyes closed</li>
+  </ul>
+  <p class="coffee"><span class="tile"><span class="m steam"><img src="mascots/mug-0.svg" alt=""><img src="mascots/mug-1.svg" alt=""></span></span>Nothing running? Just a cup of coffee.</p>
+</section>
+
+<section class="wrap section more">
+  <h2>Also in the panel.</h2>
+  <dl class="sheet">
+    <div><dt>Plan limits</dt><dd>Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on.</dd></div>
+    <div><dt>Token use</dt><dd><a class="w" href="#w-tokens">Tokens<span class="sr"> (meaning)</span></a> for the last 5 hours and today, with a 12-hour chart.</dd></div>
+    <div><dt>Keyboard</dt><dd>Press <abbr title="Control-Option-Command-A">⌃⌥⌘A</abbr> from any app. Arrows to pick, Return to jump.</dd></div>
+  </dl>
+</section>
+
+<section class="wrap section final" id="install">
+  <div class="lineup" aria-hidden="true">
+    <img src="mascots/walrus-working.svg" alt=""><img src="mascots/coder-working.svg" alt=""><img src="mascots/engineer-working.svg" alt="">
+    <span class="m wave"><img src="mascots/guru-wave0.svg" alt=""><img src="mascots/guru-wave1.svg" alt=""></span>
+    <img src="mascots/pearls-working.svg" alt=""><img src="mascots/afro-working.svg" alt=""><img src="mascots/beatnik-working.svg" alt="">
+  </div>
+  <h2>Put the valley in your notch.</h2>
+  <div class="command"><code>brew install morsechimwai/<wbr>tap/<wbr><span class="nw">agent-valley</span></code><button class="copy" type="button" hidden>Copy</button></div>
+  <p class="small">Needs macOS 15 or later, <a class="w" href="#w-homebrew">Homebrew<span class="sr"> (meaning)</span></a>, and Claude Code. Made for MacBooks with a notch.</p>
+  <p class="small">No Homebrew yet? Get it at <a href="https://brew.sh" aria-label="Get Homebrew at brew.sh">brew.sh</a>.</p>
+  <div class="next">
+    <h3>After you paste it</h3>
+    <ol role="list">
+      <li>Homebrew <a class="w" href="#w-build">builds<span class="sr"> (meaning)</span></a> the app on your Mac. It takes <a class="w" href="#w-minute">a minute or so<span class="sr"> (meaning)</span></a>.</li>
+      <li>Open it:<div class="command"><code>open <span class="nw">"$(brew --prefix)</span>/<wbr>opt/<wbr><span class="nw">agent-valley</span>/<wbr>AgentValley.app"</code><button class="copy" type="button" hidden>Copy</button></div></li>
+      <li>The panel opens once to show where it lives. After that, point at the notch to open it.</li>
+    </ol>
+    <p class="small">To update: <code>brew upgrade <span class="nw">agent-valley</span></code>, then quit the app and open it again.</p>
+    <p class="small">To remove: if you installed the plugin, run <code>claude plugin uninstall <span class="nw">notch-answers@agent-valley</span> &amp;&amp; claude plugin marketplace remove <span class="nw">agent-valley</span></code> first. Then <code>brew uninstall <span class="nw">agent-valley</span></code>. Your <a class="w" href="#w-history">History<span class="sr"> (meaning)</span></a> stays in ~/Library/<wbr>Application Support/<wbr>AgentValley until you delete that folder.</p>
+    <p class="small">Stuck? <a href="https://github.com/morsechimwai/agent-valley/issues">Ask on GitHub</a>.</p>
+    <p class="on-phone">Reading this on a phone? Run the command on your Mac.</p>
+  </div>
+</section>
+
+<!-- The words a reader may not know, explained at the back as a 1969 manual did; the crew's photo still ends the page -->
+<section class="wrap section more words" id="words">
+  <h2>Words on this page.</h2>
+  <dl class="sheet">
+    <div id="w-notch"><dt>notch</dt><dd>The black cutout at the top of a MacBook screen, around the camera.</dd></div>
+    <div id="w-panel"><dt>panel, card, row</dt><dd>The panel is the black box that opens under the notch. Each session is a card in it, and each agent is a row on a card.</dd></div>
+    <div id="w-session"><dt>session</dt><dd>One conversation with Claude Code in a terminal.</dd></div>
+    <div id="w-agent"><dt>agent</dt><dd>Claude at work on a task. Each session has one, and it can start more.</dd></div>
+    <div id="w-sub-agent"><dt>sub-agent</dt><dd>An agent that a session starts for one task, such as Explore or Plan.</dd></div>
+    <div id="w-main"><dt>main</dt><dd>In History, a session's own agent, apart from its sub-agents.</dd></div>
+    <div id="w-types"><dt>Explore, Plan, General-purpose</dt><dd>The types of sub-agent that come with Claude Code.</dd></div>
+    <div id="w-model"><dt>model: Opus, Sonnet, Haiku</dt><dd>The versions of Claude that do the work, from the most capable to the quickest.</dd></div>
+    <div id="w-step"><dt>step</dt><dd>One thing an agent does, such as reading a file or running a command.</dd></div>
+    <div id="w-quiet"><dt>quiet</dt><dd>An agent that has written nothing for two minutes. It may be waiting for you in its terminal, or stuck.</dd></div>
+    <div id="w-crew"><dt>crew</dt><dd>The little programmers, one for each agent.</dd></div>
+    <div id="w-bob"><dt>bob</dt><dd>To move up and down a little.</dd></div>
+    <div id="w-valley"><dt>valley</dt><dd>The ground the crew stands on. "Put the valley in your notch" means install AgentValley.</dd></div>
+    <div id="w-terminal"><dt>terminal</dt><dd>The app where you type commands and where Claude Code runs. Terminal, iTerm2 and Ghostty are three.</dd></div>
+    <div id="w-process"><dt>process</dt><dd>A program while it is running.</dd></div>
+    <div id="w-git"><dt>.git, branch</dt><dd>A project's .git folder holds its history. A branch is one line of work in it.</dd></div>
+    <div id="w-jump"><dt>jump, Return</dt><dd>Jump: bring the agent's app to the front, at its window or tab. Return: the Return key, also called Enter.</dd></div>
+    <div id="w-tokens"><dt>tokens</dt><dd>The small pieces of text a model reads and writes. Use and cost are counted in them.</dd></div>
+    <div id="w-api"><dt>API prices</dt><dd>What Anthropic charges for each token you use without a Claude plan. API stands for application programming interface.</dd></div>
+    <div id="w-history"><dt>History</dt><dd>The panel's page of past costs, and the record of them it keeps on your Mac.</dd></div>
+    <div id="w-limits"><dt>Plan limits</dt><dd>How much of your Claude plan you may use in 5 hours and in a week.</dd></div>
+    <div id="w-homebrew"><dt>Homebrew</dt><dd>A free tool that installs apps on a Mac from the terminal. Its command is brew.</dd></div>
+    <div id="w-build"><dt>build, the source</dt><dd>To build is to make an app from its code, the source. Homebrew does it on your Mac.</dd></div>
+    <div id="w-open"><dt>open source</dt><dd>The code is public. Anyone may read it, change it and share it.</dd></div>
+    <div id="w-keychain"><dt>Keychain</dt><dd>Where your Mac keeps passwords and logins, locked.</dd></div>
+    <div id="w-hook"><dt>hook</dt><dd>A small program that Claude Code runs at set moments, such as before it uses a tool.</dd></div>
+    <div id="w-plugin"><dt>plugin</dt><dd>An add-on for Claude Code that you install yourself.</dd></div>
+    <div id="w-glance"><dt>at a glance</dt><dd>With one quick look.</dd></div>
+    <div id="w-end-up"><dt>end up</dt><dd>To find in the end that you are doing something.</dd></div>
+    <div id="w-check-on"><dt>check on</dt><dd>To look at how something is going.</dd></div>
+    <div id="w-minute"><dt>a minute or so</dt><dd>About one minute, maybe a little more.</dd></div>
+  </dl>
+</section>
+
+<section class="wrap credits">
+  <figure class="photo">
+    <div class="snap">
+      <img src="crew-photo.webp" srcset="crew-photo-640.webp 640w, crew-photo.webp 1200w" sizes="(max-width:600px) calc(100vw - 60px), 532px" width="1200" height="896" loading="lazy" alt="The crew as a 1970s team photo in detailed pixel art, three rows deep. In the middle the bearded one in orange tie-dye waves at the camera; the one in the yellow vest has blinked.">
+      <span class="stamp" aria-hidden="true">'69 7 20</span>
+    </div>
+    <figcaption><h2>The AgentValley crew</h2><span>Go take a break.</span><span>We'll call you when we need you.</span></figcaption>
+  </figure>
+</section>
+
+</main>
+
+<footer class="wrap foot">
+  <div class="sign">
+    <img src="mark.svg" alt="" width="64" height="52">
+    <div>
+      <b>AgentValley</b>
+      <p>A small valley of programmers in your notch.</p>
+      <p><a href="https://github.com/morsechimwai/agent-valley" aria-label="AgentValley on GitHub">GitHub</a> · <a href="https://github.com/sponsors/morsechimwai">Sponsor the crew</a> · Made by morsechimwai · Not affiliated with Anthropic.</p>
+    </div>
+  </div>
+</footer>
+<p class="sr" aria-live="polite" id="said"></p>
+<script>
+(() => {
+  const said = document.getElementById('said');
+  // Copy: says Copied only once the clipboard took it. Otherwise the command is selected, to copy by hand.
+  document.querySelectorAll('.command').forEach((box, i) => {
+    const code = box.querySelector('code');
+    const button = box.querySelector('.copy');
+    // Three buttons say Copy; each is described by the command it copies.
+    code.id = `command-${i}`;
+    button.setAttribute('aria-describedby', code.id);
+    let reset;
+    button.hidden = false;
+    button.addEventListener('click', async () => {
+      clearTimeout(reset);
+      try {
+        await navigator.clipboard.writeText(code.textContent);
+        button.textContent = said.textContent = 'Copied';
+        button.classList.add('done');
+      } catch {
+        getSelection().selectAllChildren(code);
+        button.textContent = said.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? 'Press ⌘C' : 'Press Ctrl+C';
+      }
+      reset = setTimeout(() => { button.textContent = 'Copy'; button.classList.remove('done'); said.textContent = ''; }, 2000);
+    });
+  });
+
+  // The loops can be stopped for good, not only by the system's Reduce Motion, and stay stopped
+  // on the next visit.
+  const still = document.querySelector('.still-toggle');
+  const stop = on => {
+    document.documentElement.classList.toggle('still', on);
+    still.querySelector('span').textContent = on ? 'Play the animations' : 'Stop the animations';
+    still.querySelector('use').setAttribute('href', on ? '#i-play' : '#i-pause');
+  };
+  try { stop(localStorage.getItem('still') === '1'); } catch {}
+  still.hidden = false;
+  still.addEventListener('click', () => {
+    const on = !document.documentElement.classList.contains('still');
+    stop(on);
+    try { localStorage.setItem('still', on ? '1' : ''); } catch {}
+  });
+
+  // The hero's panel stands open; the bar beside the notch shuts and opens it, by click, tap or
+  // keyboard. Shut, the bar calls as the app's does.
+  const screen = document.querySelector('.screen');
+  const barButton = screen.querySelector('.bar-hit');
+  barButton.hidden = false;
+  // The picture's words follow it: open, the panel; shut, the bar.
+  const picture = screen.querySelector('[role=img]');
+  const told = { open: picture.getAttribute('aria-label'), shut: picture.dataset.shut };
+  barButton.addEventListener('click', () => {
+    const open = screen.dataset.state !== 'open';
+    screen.dataset.state = open ? 'open' : 'shut';
+    barButton.setAttribute('aria-expanded', open);
+    picture.setAttribute('aria-label', told[screen.dataset.state]);
+  });
+
+  // History as the app draws it. The numbers are made up but the same on every visit, on the
+  // reader's own calendar: three months of them, up to now. Without scripts it stays hidden.
+  const hist = document.querySelector('.hist');
+  if (hist) {
+    hist.parentElement.hidden = false;
+    const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    // Months and days in full: a reader should not have to know an abbreviation.
+    const mon = d => MONTHS[d.getMonth()];
+    const hh = h => String(h).padStart(2, '0') + ':00';
+    const cents = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+    const whole = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    const dollars = v => v > 0 && v < .005 ? '<$0.01' : cents.format(v);
+    const wholeDollars = v => v > 0 && v < .5 ? '<$1' : whole.format(v);
+    const PROJECTS = [
+      { name: 'shop-web', busy: 1, models: { 'Opus 5.5': .82, 'Sonnet 5.5': .15, 'Haiku 5.5': .03 }, agents: { main: .76, Explore: .16, Plan: .08 },
+        sessions: ['Refactor checkout flow', 'Deploy preview build', 'Fix coupon rounding', 'Add Apple Pay to checkout'] },
+      { name: 'api', busy: .7, models: { 'Opus 5.5': .6, 'Sonnet 5.5': .4 }, agents: { main: .86, Explore: .14 },
+        sessions: ['Rate limits for the public API', 'Move auth to sessions', 'Fix the slow orders query'] },
+      { name: 'mobile-app', busy: .45, models: { 'Sonnet 5.5': .9, 'Haiku 5.5': .1 }, agents: { main: .9, 'general-purpose': .1 },
+        sessions: ['Push notifications on Android', 'Offline cart'] },
+      { name: 'docs', busy: .25, models: { 'Sonnet 5.5': .7, 'Haiku 5.5': .3 }, agents: { main: 1 },
+        sessions: ['Rewrite the install guide', 'API reference from OpenAPI'] },
+    ];
+    // The same made-up number for the same project, day and hour, on every visit.
+    const noise = (...keys) => {
+      let h = 2166136261;
+      for (const k of keys) { h = Math.imul(h ^ k, 16777619); h ^= h >>> 13; }
+      h = Math.imul(h, 1540483477); h ^= h >>> 15;
+      return (h >>> 0) / 4294967296;
+    };
+    const now = new Date();
+    const since = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const spent = new Map();
+    // What a project spent in each hour of a day, and on which of its sessions.
+    const dayOf = (p, day) => {
+      const n = Date.UTC(day.getFullYear(), day.getMonth(), day.getDate()) / 864e5;
+      if (!spent.has(p + ':' + n)) {
+        const weekend = day.getDay() % 6 === 0;
+        const on = noise(p, n, 1) < PROJECTS[p].busy * (weekend ? .35 : 1);
+        const scale = (3 + 9 * noise(p, n, 2)) * PROJECTS[p].busy;
+        const list = PROJECTS[p].sessions, first = Math.floor((n + p * 2) / 3) % list.length;
+        const split = noise(p, n, 3) < .4;
+        spent.set(p + ':' + n, Array.from({ length: 24 }, (_, h) => {
+          const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h);
+          const work = h >= 9 && h < 19 ? 1 : h >= 19 && h < 23 ? .35 : 0;
+          const cost = on && work && at >= since && at <= now && noise(p, n, h + 10) < .75 ? Math.round(scale * work * (.3 + noise(p, n, h + 40)) * 100) / 100 : 0;
+          return { cost, session: list[(first + (split && h >= 14 ? 1 : 0)) % list.length] };
+        }));
+      }
+      return spent.get(p + ':' + n);
+    };
+    const startOf = (span, d) => span === 'Month' ? new Date(d.getFullYear(), d.getMonth(), 1)
+      : new Date(d.getFullYear(), d.getMonth(), d.getDate() - (span === 'Week' ? (d.getDay() + 6) % 7 : 0));
+    const step = (span, d, by) => span === 'Month' ? new Date(d.getFullYear(), d.getMonth() + by, 1)
+      : new Date(d.getFullYear(), d.getMonth(), d.getDate() + by * (span === 'Week' ? 7 : 1));
+    const daysIn = (start, end) => {
+      const out = [];
+      for (let d = start; d < end; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) out.push(d);
+      return out;
+    };
+    const dayTitle = d => `${mon(d)} ${d.getDate()}`;
+    const spanTitle = (span, start, end) => {
+      if (span === 'Month') return `${MONTHS[start.getMonth()]} ${start.getFullYear()}`;
+      if (span === 'Day') return `${DAYS[start.getDay()]}, ${dayTitle(start)}, ${start.getFullYear()}`;
+      const last = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
+      return `${dayTitle(start)} – ${last.getMonth() === start.getMonth() ? last.getDate() : dayTitle(last)}, ${last.getFullYear()}`;
+    };
+    // Every hour of the days given, of the project picked or of all of them.
+    const hours = (days, project, hour) => {
+      const out = [];
+      for (const day of days) for (let p = 0; p < PROJECTS.length; p++) {
+        if (project !== null && p !== project) continue;
+        dayOf(p, day).forEach((spend, h) => { if (spend.cost && (hour === null || h === hour)) out.push({ p, ...spend }); });
+      }
+      return out;
+    };
+    const sum = list => list.reduce((total, x) => total + x.cost, 0);
+    const lines = (list, key) => {
+      const by = new Map();
+      for (const x of list) for (const [name, share] of key(x)) by.set(name, (by.get(name) || 0) + x.cost * share);
+      return [...by].map(([name, cost]) => ({ name, cost })).filter(l => l.cost > 0).sort((a, b) => b.cost - a.cost);
+    };
+    // By place, as the app: the mascots' amber glass, the mug's cream, a warm grey for the rest.
+    const PARTS = ['var(--part1)', 'var(--part2)', 'var(--part3)'];
+    const split = all => {
+      if (!all.length) return '';
+      const shown = all.length > 3 ? [...all.slice(0, 2), { name: 'others', cost: sum(all.slice(2)) }] : all;
+      const total = sum(shown);
+      return `<div class="h-split"><p aria-hidden="true">${shown.map((l, i) => `<i style="flex:${l.cost / total};background:${PARTS[Math.min(i, PARTS.length - 1)]}"></i>`).join('')}</p><span>${shown.map(l => `${l.name} ${wholeDollars(l.cost)}`).join(' · ')}</span></div>`;
+    };
+    const icon = id => `<svg class="i" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+
+    let pick = { span: 'Month', anchor: now, project: null, day: null, hour: null };
+    // The bars are too narrow to aim at, so they are for the pointer alone; the list under them
+    // offers the same choices, at a size anyone can press and read aloud.
+    const bars = (list, picked, kind, small, all) => {
+      const top = Math.max(...list.map(b => b.cost));
+      const past = list.filter(b => !b.future);
+      return `<div class="h-bars${small ? ' hours' : ''}${picked !== null ? ' picking' : ''}" aria-hidden="true">${list.map(b => {
+        const height = b.future || !top ? '2px' : `max(2px,${b.cost / top * 100}%)`;
+        if (b.future) return `<span class="future"><i style="height:2px"></i></span>`;
+        return `<span data-a="${kind}" data-v="${b.key}"${b.key === picked ? ' class="on"' : ''} title="${b.label}, ${dollars(b.cost)}"><i style="height:${height}"></i></span>`;
+      }).join('')}</div><div class="h-axis" aria-hidden="true"><span>${list[0].axis}</span><span>${list[list.length - 1].axis}</span></div>
+        <label class="h-sel"><span class="sr">${kind === 'day' ? 'Day' : 'Hour'}</span><select data-a="${kind}" data-k="sel-${kind}"><option value="">All of ${all}</option>${past.map(b => `<option value="${b.key}"${b.key === picked ? ' selected' : ''}>${b.label} · ${dollars(b.cost)}</option>`).join('')}</select></label>`;
+    };
+    const hourBars = day => Array.from({ length: 24 }, (_, h) => {
+      const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h);
+      return { key: h, cost: sum(hours([day], pick.project, h)), future: at > now, label: hh(h), axis: hh(h) };
+    });
+
+    // `want`: the button that keeps the keyboard when the one pressed is gone.
+    const render = want => {
+      const { span, project } = pick;
+      const start = startOf(span, pick.anchor), end = step(span, start, 1);
+      const days = daysIn(start, end);
+      const title = spanTitle(span, start, end);
+      const all = hours(days, project, null);
+      const focus = hours(pick.day ? [pick.day] : days, project, pick.hour);
+      const picked = pick.hour !== null || pick.day !== null;
+      const pickDay = pick.day || start;
+      const pickTitle = pick.hour !== null ? `${dayTitle(pickDay)}, ${hh(pick.hour)}` : pick.day ? dayTitle(pick.day) : '';
+      const daily = span === 'Day' ? hourBars(start)
+        : days.map(d => ({ key: d.getTime(), cost: sum(hours([d], project, null)), future: d > now, label: dayTitle(d), axis: dayTitle(d) }));
+      let html = `<div class="h-top">${project === null ? '' : `<button type="button" class="h-back" data-a="up" data-k="up">${icon('back')}All projects</button>`}
+        <div class="h-seg" role="group" aria-label="Span">${['Day', 'Week', 'Month'].map(s => `<button type="button" data-a="span" data-v="${s}" data-k="span-${s}" aria-pressed="${s === span}">${s}</button>`).join('')}</div></div>
+        <div class="h-stretch"><button type="button" class="h-step" data-a="step" data-v="-1" data-k="earlier" aria-label="Earlier"${start > since ? '' : ' disabled'}>${icon('left')}</button>
+        <span class="h-title">${title}</span>
+        <button type="button" class="h-step" data-a="step" data-v="1" data-k="later" aria-label="Later"${end <= now ? '' : ' disabled'}>${icon('right')}</button>
+        <span class="h-total"><b>${dollars(sum(all))}</b><span class="h-small">at API prices</span></span></div>`;
+      if (project !== null) html += `<div class="h-name">${PROJECTS[project].name}</div>`;
+      html += bars(daily, span === 'Day' ? pick.hour : pick.day && pick.day.getTime(), span === 'Day' ? 'hour' : 'day', false, title);
+      if (span !== 'Day' && pick.day) html += bars(hourBars(pick.day), pick.hour, 'hour', true, dayTitle(pick.day));
+      const models = split(lines(focus, x => Object.entries(PROJECTS[x.p].models)));
+      const agents = split(lines(focus, x => Object.entries(PROJECTS[x.p].agents)));
+      if (!focus.length) html += `<p class="h-quiet">No token use in this period.</p>`;
+      if (project === null) {
+        const rows = lines(focus, x => [[x.p, 1]]);
+        html += models + agents;
+        if (rows.length) html += `<h3 class="h-head">PROJECTS</h3><div class="h-list">${rows.map(r => `<button type="button" data-a="project" data-v="${r.name}" data-k="p-${r.name}" aria-label="${PROJECTS[r.name].name}, ${dollars(r.cost)}" title="Shows its sessions"><b>${PROJECTS[r.name].name}</b>${icon('right')}<span class="v">${dollars(r.cost)}</span></button>`).join('')}</div>`;
+      } else {
+        const rows = lines(focus, x => [[x.session, 1]]);
+        if (rows.length) html += `<h3 class="h-head">SESSIONS</h3><div class="h-list">${rows.map(r => `<p><b>${r.name}</b><span class="v">${dollars(r.cost)}</span></p>`).join('')}</div>`;
+        html += models + agents;
+      }
+      html += `<p class="h-foot">History since ${dayTitle(since)}, ${since.getFullYear()}</p>`;
+      const had = hist.contains(document.activeElement) ? document.activeElement.dataset.k : null;
+      hist.innerHTML = html;
+      if (had) (hist.querySelector(`[data-k="${had}"]:not(:disabled)`) || hist.querySelector(`[data-k="${want}"]`) || hist.querySelector('.h-step:not(:disabled)') || hist).focus();
+      return `${title}${project !== null ? ', ' + PROJECTS[project].name : ''}, ${dollars(sum(all))}${picked ? `; ${pickTitle}, ${dollars(sum(focus))}` : ''}`;
+    };
+    hist.addEventListener('click', e => {
+      const target = e.target.closest('button[data-a], span[data-a]');
+      if (!target || target.disabled) return;
+      const { a, v } = target.dataset;
+      const start = startOf(pick.span, pick.anchor);
+      const want = a === 'project' ? 'up' : `p-${pick.project}`;
+      if (a === 'span') pick = { span: v, anchor: pick.day || pick.anchor, project: pick.project, day: null, hour: null };
+      if (a === 'step') pick = { ...pick, anchor: step(pick.span, start, +v), day: null, hour: null };
+      if (a === 'day') pick = { ...pick, day: pick.day && pick.day.getTime() === +v ? null : new Date(+v), hour: null };
+      if (a === 'hour') pick = { ...pick, hour: pick.hour === +v ? null : +v };
+      if (a === 'project') pick = { ...pick, project: +v };
+      if (a === 'up') pick = { ...pick, project: null };
+      said.textContent = render(want);
+    });
+    hist.addEventListener('change', e => {
+      const { a } = e.target.dataset, v = e.target.value;
+      if (a === 'day') pick = { ...pick, day: v ? new Date(+v) : null, hour: null };
+      if (a === 'hour') pick = { ...pick, hour: v ? +v : null };
+      said.textContent = render(`sel-${a}`);
+    });
+    render();
+  }
+
+  // The loops rest while their section is off the screen.
+  if ('IntersectionObserver' in window) {
+    const rest = new IntersectionObserver(entries => {
+      for (const entry of entries) entry.target.classList.toggle('idle', !entry.isIntersecting);
+    });
+    for (const section of document.querySelectorAll('.nav, .hero, .section')) rest.observe(section);
+  }
+})();
+</script>
+</body>
+</html>
