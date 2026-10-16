@@ -72,11 +72,23 @@ test('a printed page shows every picture', async ({ page }) => {
   }
 });
 
-test('Stop stops every animation', async ({ page }) => {
+// Off the screen a section's loops already rest (.idle), so each part is brought into view: there
+// only Stop can be what holds them.
+test('Stop stops every animation, all the way down the page', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
+  await page.waitForTimeout(1500);
+  const running = () =>
+    page.evaluate(() =>
+      document.getAnimations().filter((a) => a.playState === 'running').map((a) => ('animationName' in a ? a.animationName : (a as CSSTransition).transitionProperty)),
+    );
+  expect((await running()).length).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Stop the animations' }).click();
-  await page.waitForTimeout(300);
-  expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running').length)).toBe(0);
+  for (const part of await page.locator('.hero, .section, .credits, .foot').all()) {
+    await part.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
+    expect(await running(), (await part.getAttribute('class')) ?? '').toEqual([]);
+  }
 });
 
 test('a picture still waiting shows at once when Stop is pressed', async ({ page }) => {

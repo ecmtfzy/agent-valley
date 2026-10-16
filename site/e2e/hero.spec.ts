@@ -75,6 +75,16 @@ test('the footer signs off with the full logo: the crew and the block-letter nam
   await expect(foot.locator('svg.wordmark')).toBeVisible();
 });
 
+test('under the crew photo, the coffee line and Sponsor the crew with the mug', async ({ page }) => {
+  await page.goto('/');
+  const credits = page.locator('section.credits');
+  await expect(credits.getByText("The app is free. Their coffee isn't.", { exact: true })).toBeVisible();
+  const sponsor = credits.getByRole('link', { name: 'Sponsor the crew' });
+  await expect(sponsor).toHaveAttribute('href', 'https://github.com/sponsors/morsechimwai');
+  expect((await sponsor.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(sponsor.locator('.steam img')).toHaveCount(2);
+});
+
 test('the footer offers Sponsor the crew as a button with the mug', async ({ page }) => {
   await page.goto('/');
   const sponsor = page.locator('footer').getByRole('link', { name: 'Sponsor the crew' });

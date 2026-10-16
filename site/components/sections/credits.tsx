@@ -1,4 +1,5 @@
 import { Reveal } from '@/components/reveal';
+import { SponsorButton } from '@/components/sponsor-button';
 
 // Credits: the crew's group photo, an old print with the camera's orange date stamp. The date is
 // Apollo 11's landing, the crew's own era.
@@ -26,6 +27,10 @@ export function Credits() {
           </figcaption>
         </figure>
       </Reveal>
+      <div className="mt-12 grid justify-items-center gap-4 text-center">
+        <p className="font-mono text-[.9375rem] text-muted-foreground">The app is free. Their coffee isn&apos;t.</p>
+        <SponsorButton />
+      </div>
     </section>
   );
 }
