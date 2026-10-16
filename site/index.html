@@ -345,6 +345,9 @@ a{color:var(--accent);text-underline-offset:3px}
 /* A session's own agent is one of four people; the other types have one face each. */
 .types .faces4{display:grid;grid-template-columns:repeat(2,52px)}
 .types .faces4 img{width:52px;height:52px}
+/* Under the type, the names the crew go by. */
+.types .label{text-align:center}
+.types .who{display:block;font-weight:400;color:var(--muted)}
 /* On a wide screen the crew stands on one horizon running the full width of the window. */
 @media (min-width:760px){
   .types{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -623,10 +626,10 @@ git push origin main
   <p class="intro">Every agent is a programmer from the early days of computing. The face tells you the type. The pose tells you the state.</p>
   <h3 class="sr">Types</h3>
   <ul class="types" role="list">
-    <li><span class="faces4"><img src="mascots/guru-working.svg" alt=""><img src="mascots/walrus-working.svg" alt=""><img src="mascots/engineer-working.svg" alt=""><img src="mascots/pearls-working.svg" alt=""></span>Session</li>
-    <li><img src="mascots/coder-working.svg" alt="">Plan</li>
-    <li><img src="mascots/afro-working.svg" alt="">Explore</li>
-    <li><img src="mascots/beatnik-working.svg" alt="">General-purpose</li>
+    <li><span class="faces4"><img src="mascots/guru-working.svg" alt=""><img src="mascots/walrus-working.svg" alt=""><img src="mascots/engineer-working.svg" alt=""><img src="mascots/pearls-working.svg" alt=""></span><span class="label">Session<span class="who">Sunny, Walt, Norm or Pearl</span></span></li>
+    <li><img src="mascots/coder-working.svg" alt=""><span class="label">Plan<span class="who">Judy</span></span></li>
+    <li><img src="mascots/afro-working.svg" alt=""><span class="label">Explore<span class="who">Faye</span></span></li>
+    <li><img src="mascots/beatnik-working.svg" alt=""><span class="label">General-purpose<span class="who">Felix</span></span></li>
   </ul>
   <h3 class="sr">States</h3>
   <ul class="states" role="list">
@@ -712,7 +715,7 @@ git push origin main
 <section class="wrap credits">
   <figure class="photo">
     <div class="snap">
-      <img src="crew-photo.webp" srcset="crew-photo-640.webp 640w, crew-photo.webp 1200w" sizes="(max-width:600px) calc(100vw - 60px), 532px" width="1200" height="896" loading="lazy" alt="The crew as a 1970s team photo in detailed pixel art, three rows deep. In the middle the bearded one in orange tie-dye waves at the camera; the one in the yellow vest has blinked.">
+      <img src="crew-photo.webp" srcset="crew-photo-640.webp 640w, crew-photo.webp 1200w" sizes="(max-width:600px) calc(100vw - 60px), 532px" width="1200" height="896" loading="lazy" alt="The crew as a 1970s team photo in detailed pixel art, three rows deep. At the back, Felix and Walt. In the middle, Sunny in orange tie-dye waves at the camera, between Norm, who has blinked, and Faye. At the front, Judy and Pearl.">
       <span class="stamp" aria-hidden="true">'69 7 20</span>
     </div>
     <figcaption><h2>The AgentValley crew</h2><span>Go take a break.</span><span>We'll call you when we need you.</span></figcaption>
