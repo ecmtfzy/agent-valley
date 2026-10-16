@@ -50,7 +50,7 @@ if CommandLine.arguments.count > 1 {
 }
 let id = "com.morsechimwai.agent-valley.test-copy"
 guard let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == id }) else {
-    print("The test copy is not running. Run testing/app.sh start first.")
+    print("The test copy is not running. Name the process instead: swift testing/axdump.swift <process id>")
     exit(1)
 }
 dump(AXUIElementCreateApplication(app.processIdentifier), depth: 0)

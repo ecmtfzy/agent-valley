@@ -6,7 +6,7 @@ by a test. These can be: nothing here touches your own ~/.claude.
 
   testing/demo.py start <home>
       Writes six sessions under <home>/.claude, then keeps the working ones moving for 20
-      minutes. Run it in the background, then `testing/app.sh start <home>`.
+      minutes. testing/pictures.sh runs it in the background and draws the panel over them.
         Refactor checkout flow   working, with two working sub-agents and one finished
         Fix flaky login test     asks a question with three options
         Migrate users table      has a plan waiting for approval
@@ -197,7 +197,7 @@ def start(home):
     os.makedirs(os.path.dirname(PID_FILE), exist_ok=True)
     with open(PID_FILE, "w") as file:
         file.write(str(os.getpid()))
-    print(f"Demo sessions written to {home}. Now: testing/app.sh start {home}", flush=True)
+    print(f"Demo sessions written to {home}.", flush=True)
 
     turn, until = 0, time.time() + LIFETIME
     while time.time() < until:
