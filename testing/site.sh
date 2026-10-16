@@ -12,6 +12,9 @@
 #   testing/site.sh social    Writes docs/social-preview.png at 1280×640, the picture GitHub shows
 #                             for a link to the repo: the crew, the name and the line under it.
 #                             It goes up by hand, in the repo's Settings, under Social preview.
+#   testing/site.sh logo      Writes docs/logo.svg and docs/logo-dark.svg, the full logo for the
+#                             README: the crew of mark.svg beside the name of logo.svg, as the
+#                             footer lays them out. The dark copy has light letters for GitHub's dark theme.
 #   testing/site.sh photo     Writes docs/crew-photo.webp, the crew photo framed as the site shows it,
 #                             for the README.
 #   testing/site.sh check     Installs, tests and builds the site; every line of the spec's copy is
@@ -96,6 +99,21 @@ HTML
     python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).save(sys.argv[2], quality=86, method=6)' \
         "$work/photo.png" docs/crew-photo.webp
     ls -l docs/crew-photo.webp
+    ;;
+logo)
+    # The crew (16×13) and the name (88×12) in one drawing, bottom edges level and four mark pixels
+    # apart, as the footer sets them. Shown at four screen pixels to one, every rect stays crisp.
+    python3 -I - site/public/mark.svg site/public/logo.svg docs <<'PY'
+import re, sys
+inner = lambda p: re.sub(r'^.*?<svg[^>]*>|</svg>\s*$', '', open(p).read(), flags=re.S)
+mark, name = inner(sys.argv[1]), inner(sys.argv[2])
+for out, letters, dots in (('logo.svg', '#23190F', '#B8A685'), ('logo-dark.svg', '#E6EDF3', '#6E6553')):
+    drawn = name.replace('#23190F', letters).replace('#B8A685', dots)
+    open(f'{sys.argv[3]}/{out}', 'w').write(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 13" width="432" height="52" shape-rendering="crispEdges">'
+        f'<g>{mark}</g><g transform="translate(20 1)">{drawn}</g></svg>\n')
+PY
+    ls -l docs/logo.svg docs/logo-dark.svg
     ;;
 webicons)
     # The crew of site/public/mark.svg for browsers: favicon.ico (32 and 16, the mark on nothing, one

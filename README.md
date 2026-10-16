@@ -1,10 +1,10 @@
-<img src="site/public/mark.svg" alt="" width="80" align="left">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.svg">
+  <img src="docs/logo.svg" alt="AgentValley" width="432">
+</picture>
 
-**AgentValley**<br>
 A small valley of programmers in your notch.<br>
 Only for Claude Code, on Mac · Free · Open source · [agentvalley.app](https://agentvalley.app)
-
-<br clear="left">
 
 # Every agent, at a glance, right in your notch.
 
