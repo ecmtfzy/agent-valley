@@ -26,11 +26,16 @@ Open it:
 open "$(brew --prefix)/opt/agent-valley/AgentValley.app"
 ```
 
-The panel opens once to show where it lives. After that, point at the notch to open it.
-
 To update: `brew upgrade morsechimwai/tap/agent-valley`, then quit the app and open it again.
 
 To remove: if you installed the plugin, run `claude plugin uninstall notch-answers@agent-valley && claude plugin marketplace remove agent-valley` first. Then `brew uninstall agent-valley`. Your History stays in `~/Library/Application Support/AgentValley` until you delete that folder.
+
+## How to use
+
+1. Open the app. The panel opens once to show where it lives.
+2. Point at the notch and the panel opens. Every agent has a row in it.
+3. Someone waving, and a red count beside the notch, means an agent needs you. Click its row to jump to its app.
+4. Or press ⌃⌥⌘A from any app. Arrows to pick, Return to jump.
 
 ## What it does
 
@@ -40,9 +45,26 @@ To remove: if you installed the plugin, run `claude plugin uninstall notch-answe
 - **Answer from the notch.** Allow once or Deny, using a plugin you install yourself: turn on `Answer from the notch` in the settings, run the command it shows, then start Claude Code again.
 - **See what each project cost.** History by day, week or month, at API prices. Kept on your Mac, even after Claude Code clears its old files.
 - **Plan limits.** Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on.
-- **Keyboard.** Press ⌃⌥⌘A from any app. Arrows to pick, Return to jump.
 
 No guessed progress bars. If an agent goes quiet, AgentValley says so. Sounds stay off until you turn them on.
+
+## Meet the crew
+
+We're seven programmers from a computer room in 1969. We build things because we can't stop, not because anyone told us to. After work there's beer and a stack of records, and a smell in the room the janitor stopped asking about a long time ago. Now we live in your Mac's notch.
+
+<img src="docs/crew-photo.webp" alt="The crew's team photo in pixel art, an old print stamped '69 7 20. At the back, Felix and Walt. In the middle, Norm with his eyes shut, Sunny waving and Faye. At the front, Judy and Pearl. The caption reads: The AgentValley crew. Go take a break. We'll call you when we need you." width="600">
+
+The first four run sessions. Start Claude Code and one of them takes the session, with hair and a shirt picked for it. The other three take the sub-agent jobs a session hands out.
+
+<table>
+<tr><td><img src="site/mascots/guru-wave0.svg" alt="" width="48"></td><td><b>Sunny</b>, the guru · runs a session<br>Yoga at sunrise, then code until the sun goes down again. He believes every bug came to teach him something. When he waves, an agent is waiting for you.</td></tr>
+<tr><td><img src="site/mascots/walrus-working.svg" alt="" width="48"></td><td><b>Walt</b>, the walrus · runs a session<br>Friday nights he plays bass in a garage band. A neighbour once asked about the smoke coming out, and Walt said it was a barbecue. Nobody has seen the grill yet.</td></tr>
+<tr><td><img src="site/mascots/engineer-working.svg" alt="" width="48"></td><td><b>Norm</b>, the engineer · runs a session<br>The only one of us who irons his shirt for work. He came over from a rocket launch control room and gets through a science fiction novel a night. He blinked in the team photo, and he says he meant to.</td></tr>
+<tr><td><img src="site/mascots/pearls-working.svg" alt="" width="48"></td><td><b>Pearl</b> · runs a session<br>She knows the computer better than the people who built it. Detective novels taught her to hunt bugs from the last page back. The pearls stay on, even when she crawls under the machine.</td></tr>
+<tr><td><img src="site/mascots/coder-working.svg" alt="" width="48"></td><td><b>Judy</b> · the Plan sub-agent<br>Nobody touches a keyboard until Judy has the plan on paper. In the evenings she plays folk guitar by the campfire, mostly songs she wrote about flowcharts.</td></tr>
+<tr><td><img src="site/mascots/afro-working.svg" alt="" width="48"></td><td><b>Faye</b> · the Explore sub-agent<br>Faye reads every file until she finds the one you meant. On weekends she disappears into the desert and always comes back with new ideas. What she found out there, she has never said.</td></tr>
+<tr><td><img src="site/mascots/beatnik-working.svg" alt="" width="48"></td><td><b>Felix</b> · the General-purpose sub-agent<br>Any job without a name goes to Felix. On Thursday nights he reads poetry in a basement coffeehouse, and he plays the bongos while the machine runs. For every other kind of sub-agent he turns up in a different shirt.</td></tr>
+</table>
 
 ## It reads. It doesn't touch.
 
@@ -66,11 +88,11 @@ Needs the Command Line Tools (`xcode-select --install`). The tests need Xcode: `
 
 ## Sponsor the crew
 
-The crew runs on coffee. If AgentValley has saved you a few trips back to the terminal, [sponsor them on GitHub](https://github.com/sponsors/morsechimwai). The money goes to morsechimwai, who spends it on keeping the app going.
+The app is free. Our coffee isn't. If AgentValley has saved you a few trips back to the terminal, [sponsor the crew on GitHub](https://github.com/sponsors/morsechimwai). Morse holds the money for us and spends it on keeping the app going.
 
 ## Contributing
 
-Bugs and ideas: open an issue. See [CONTRIBUTING.md](CONTRIBUTING.md). Security problems: see [SECURITY.md](SECURITY.md).
+There's a spare chair in the computer room. Bugs and ideas go in an [issue](https://github.com/morsechimwai/agent-valley/issues). If you'd rather fix it yourself, send a pull request: one change per pull request, a test when it changes what the app does, and `swift test` passing. We bend on most things, but not this one: AgentValley never writes in `~/.claude` and never answers for you. The rest is in [CONTRIBUTING.md](CONTRIBUTING.md). Security problems go to [SECURITY.md](SECURITY.md).
 
 ## License
 

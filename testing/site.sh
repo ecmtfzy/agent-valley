@@ -10,6 +10,8 @@
 #   testing/site.sh social    Writes docs/social-preview.png at 1280×640, the picture GitHub shows
 #                             for a link to the repo: the crew, the name and the line under it.
 #                             It goes up by hand, in the repo's Settings, under Social preview.
+#   testing/site.sh photo     Writes docs/crew-photo.webp, the crew photo framed as the site shows it,
+#                             for the README.
 #   testing/site.sh check     Every line of the spec's copy is on the page, every file it points
 #                             to is there, and nothing is loaded from another site.
 #   testing/site.sh serve     Serves site/ at http://localhost:8765 for a browser.
@@ -55,6 +57,35 @@ HTML
         --hide-scrollbars --allow-file-access-from-files --virtual-time-budget=2000 --window-size=1280,640 \
         --screenshot="$PWD/docs/social-preview.png" "file://$work/social.html" 2>/dev/null
     sips -g pixelWidth -g pixelHeight docs/social-preview.png | tail -2
+    ;;
+photo)
+    # The crew photo as the site's credits show it, print, date stamp and caption, on nothing,
+    # for the README, where no CSS can frame it: docs/crew-photo.webp at twice its size.
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    cat > "$work/photo.html" <<HTML
+<!doctype html><style>
+@font-face{font-family:"Plex Mono";src:url(file://$PWD/site/fonts/IBMPlexMono-Regular.woff2)}
+@font-face{font-family:"Plex Mono";font-weight:600;src:url(file://$PWD/site/fonts/IBMPlexMono-SemiBold.woff2)}
+html,body{margin:0;background:transparent}
+.photo{position:absolute;left:40px;top:30px;width:532px;padding:14px 14px 18px;border-radius:3px;background:#fbf7ee;color:#2a2118;transform:rotate(-2.5deg);box-shadow:0 22px 40px -16px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.2)}
+.snap{position:relative;aspect-ratio:4/3;overflow:hidden;background:#6f7477;filter:sepia(.18) saturate(.92)}
+.snap img{display:block;width:100%;height:100%;object-fit:cover}
+.snap::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(30,15,5,.5))}
+.stamp{position:absolute;z-index:1;right:5%;bottom:4%;color:#ff8a1f;font:600 .95rem "Plex Mono";letter-spacing:.08em;opacity:.9}
+p{display:grid;gap:2px;margin:14px 0 0;padding:0 4px;font:400 .9375rem/1.5 "Plex Mono"}
+b{font-weight:600}
+</style>
+<div class="photo"><div class="snap"><img src="file://$PWD/site/crew-photo.webp"><span class="stamp">'69 7 20</span></div>
+<p><b>The AgentValley crew</b><span>Go take a break.</span><span>We'll call you when we need you.</span></p></div>
+HTML
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --user-data-dir="$work/profile" \
+        --hide-scrollbars --allow-file-access-from-files --default-background-color=00000000 \
+        --force-device-scale-factor=2 --virtual-time-budget=2000 --window-size=640,580 \
+        --screenshot="$work/photo.png" "file://$work/photo.html" 2>/dev/null
+    python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).save(sys.argv[2], quality=86, method=6)' \
+        "$work/photo.png" docs/crew-photo.webp
+    ls -l docs/crew-photo.webp
     ;;
 webicons)
     # The crew of site/mark.svg for browsers: favicon.ico (32 and 16, the mark on nothing, one
