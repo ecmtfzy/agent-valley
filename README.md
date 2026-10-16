@@ -2,7 +2,7 @@
 
 **AgentValley**<br>
 A small valley of programmers in your notch.<br>
-For Claude Code on Mac · Free · Open source
+For Claude Code on Mac · Free · Open source · [agentvalley.app](https://agentvalley.app)
 
 <br clear="left">
 
