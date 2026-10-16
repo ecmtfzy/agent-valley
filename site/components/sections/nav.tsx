@@ -1,13 +1,16 @@
+import { NavFold } from '@/components/nav-fold';
 import { StillToggle } from '@/components/still-toggle';
 import { Button } from '@/components/ui/button';
+import { Wordmark } from '@/components/wordmark';
 
-// The crew and the name in plain type; the block-letter logo signs off at the foot.
+// The full logo at the very top, the crew and the block-letter name; down the page the name folds
+// away and the crew in the notch stays. The link keeps its name either way.
 export function Nav() {
   return (
     <header className="wrap nav">
-      <a className="brand" href="/">
+      <a className="brand" href="/" aria-label="AgentValley">
         <img src="/mark.svg" alt="" width="32" height="26" />
-        AgentValley
+        <Wordmark />
       </a>
       <nav aria-label="Main">
         {/* Words on this page is reached from every dotted word. A phone keeps the bar to one row: GitHub is in the hero and at the foot. */}
@@ -17,6 +20,7 @@ export function Nav() {
           <a href="#install">Install</a>
         </Button>
       </nav>
+      <NavFold />
     </header>
   );
 }

@@ -10,8 +10,19 @@
 html{scroll-padding-top:80px}
 .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;min-height:64px}
 .nav::before{content:"";position:absolute;z-index:-1;inset:0 calc(50% - 50vw);background:var(--background);border-bottom:1px solid var(--border)}
-.brand{display:flex;align-items:center;gap:10px;min-height:44px;color:var(--foreground);font-size:1.0625rem;font-weight:600;letter-spacing:-.02em;text-decoration:none}
+.brand{display:flex;align-items:center;gap:10px;min-height:44px;text-decoration:none}
 .brand img{flex:none;image-rendering:pixelated}
+/* The name beside the crew at the crew's pixel size, two to one, three on a wide screen. Down the
+   page it wipes away letter by letter, as the old bar's did; the crew stays where it was. */
+.nav .wordmark{flex:none;width:176px;height:24px;clip-path:inset(0);transition:clip-path .3s steps(11)}
+.mini .wordmark{clip-path:inset(0 100% 0 0);visibility:hidden;transition:clip-path .3s steps(11),visibility 0s .3s}
+.mini .wordmark .d{animation-play-state:paused}
+.still .nav .wordmark{transition:none}
+@media (min-width:768px){.brand img{width:48px;height:39px}.nav .wordmark{width:264px;height:36px}}
+/* Too narrow for both beside the buttons: the name alone at the top, the crew alone down the page;
+   narrower still, the crew alone throughout. */
+@media (max-width:399px){.nav:not(.mini) .brand img{display:none}.mini .wordmark{display:none}}
+@media (max-width:359px){.nav:not(.mini) .brand img{display:block}.nav .wordmark{display:none}}
 .wordmark{fill:var(--foreground)}
 /* At the foot the name stands beside the crew at the crew's pixel size: two to one, three on a wider screen. */
 .foot .wordmark{display:block;width:176px;height:24px}

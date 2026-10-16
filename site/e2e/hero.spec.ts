@@ -11,17 +11,43 @@ test('the notch shuts and opens the panel, and the picture says so', async ({ pa
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
 });
 
-test('the top bar is the crew and the name in plain type, without the motto', async ({ page }) => {
+test('at the top the bar wears the full logo; down the page, only the crew in the notch', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
   const bar = page.locator('header.nav');
   const home = bar.getByRole('link', { name: 'AgentValley', exact: true });
-  await expect(home).toHaveText('AgentValley');
-  await expect(home.locator('img[src="/mark.svg"]')).toBeVisible();
-  await expect(bar.locator('svg.wordmark')).toHaveCount(0);
+  const mark = home.locator('img[src="/mark.svg"]');
+  const name = home.locator('svg.wordmark');
+  await expect(mark).toBeVisible();
+  await expect(name).toBeVisible();
   await expect(bar.getByText('A small valley of programmers in your notch.')).toHaveCount(0);
   await expect(bar.getByRole('link', { name: 'Words on this page' })).toHaveCount(0);
-  for (const name of ['AgentValley on GitHub', 'Install']) await expect(bar.getByRole('link', { name })).toBeVisible();
+  for (const label of ['AgentValley on GitHub', 'Install']) await expect(bar.getByRole('link', { name: label })).toBeVisible();
+  await page.mouse.wheel(0, 600);
+  await expect(name).toBeHidden();
+  await expect(mark).toBeVisible();
+  await expect(home).toHaveAccessibleName('AgentValley');
+  await page.evaluate(() => scrollTo(0, 0));
+  await expect(name).toBeVisible();
+});
+
+test('a narrow phone wears the name at the top and the crew down the page', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto('/');
+  const home = page.locator('header.nav').getByRole('link', { name: 'AgentValley', exact: true });
+  await expect(home.locator('svg.wordmark')).toBeVisible();
+  await expect(home.locator('img[src="/mark.svg"]')).toBeHidden();
+  await page.mouse.wheel(0, 600);
+  await expect(home.locator('svg.wordmark')).toBeHidden();
+  await expect(home.locator('img[src="/mark.svg"]')).toBeVisible();
+});
+
+test('the narrowest phone has room for the crew alone', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto('/');
+  const home = page.locator('header.nav').getByRole('link', { name: 'AgentValley', exact: true });
+  await expect(home.locator('img[src="/mark.svg"]')).toBeVisible();
+  await expect(home.locator('svg.wordmark')).toBeHidden();
 });
 
 test('the animations switch on the top bar is an icon that names itself on hover', async ({ page }) => {
