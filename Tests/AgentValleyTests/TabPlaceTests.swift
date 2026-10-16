@@ -106,6 +106,7 @@ final class TabPlaceTests: XCTestCase {
     // Claude Code moves itself into a worktree, and a path can run through a link. Ghostty
     // still names the folder the session was started in, as the shell told it: so does this.
     func testGhosttyIsAskedByTheFolderTheSessionWasStartedIn() throws {
+        try XCTSkipIf(NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.mitchellh.ghostty") == nil, "Ghostty is not on this Mac")
         let ghostty = try XCTUnwrap(NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.mitchellh.ghostty").map { OwnerApp(bundle: $0, name: "Ghostty") } ?? nil, "Ghostty is not on this Mac")
         let started = try XCTUnwrap(ProcessInfo.processInfo.environment["PWD"])
         let here = FileManager.default.currentDirectoryPath
