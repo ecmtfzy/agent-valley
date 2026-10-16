@@ -1,0 +1,74 @@
+import type { Metadata } from 'next';
+import { GeistMono } from 'geist/font/mono';
+import { GeistSans } from 'geist/font/sans';
+import { Announcer } from '@/components/announcer';
+import { IconSprite } from '@/components/icons';
+import './globals.css';
+import { CSP } from '@/lib/csp';
+
+const TITLE = 'AgentValley — Every Claude Code agent in your notch';
+const DESCRIPTION =
+  'A free, open-source Mac app that shows every Claude Code agent, sub-agents too, in your notch. See who is working, on which model, and who needs you.';
+
+export const metadata: Metadata = {
+  metadataBase: new URL('https://agentvalley.app'),
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: 'https://agentvalley.app/' },
+  openGraph: {
+    type: 'website',
+    url: 'https://agentvalley.app/',
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ['https://agentvalley.app/og.png'],
+  },
+  twitter: { card: 'summary_large_image' },
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '32x32' },
+      { url: '/mark.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
+};
+
+// For search engines: what this page is about, in their own terms.
+const SOFTWARE = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'AgentValley',
+  description: DESCRIPTION,
+  url: 'https://agentvalley.app/',
+  image: 'https://agentvalley.app/og.png',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS 15 or later',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  license: 'https://opensource.org/licenses/MIT',
+  author: { '@type': 'Person', name: 'morsechimwai', url: 'https://github.com/morsechimwai' },
+  sameAs: ['https://github.com/morsechimwai/agent-valley'],
+};
+
+// Before the first paint: js marks that scripts run, so a picture may wait to come up; a stop
+// chosen on an earlier visit holds from the start, not a moment later. If React has not arrived
+// 3 s later (a bundle blocked, failed or too slow), js goes again and the page stands as it does
+// without scripts.
+const EARLY =
+  "var d=document.documentElement;d.classList.add('js');setTimeout(function(){d.hasAttribute('data-live')||d.classList.remove('js')},3000);try{localStorage.getItem('still')==='1'&&d.classList.add('still')}catch(e){}";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    // The early script changes <html>'s classes before React arrives; that difference is expected.
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+      <head>
+        <meta httpEquiv="Content-Security-Policy" content={CSP} />
+        <script dangerouslySetInnerHTML={{ __html: EARLY }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(SOFTWARE) }} />
+      </head>
+      <body>
+        <IconSprite />
+        {children}
+        <Announcer />
+      </body>
+    </html>
+  );
+}

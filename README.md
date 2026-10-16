@@ -1,8 +1,8 @@
-<img src="site/mark.svg" alt="" width="80" align="left">
+<img src="site/public/mark.svg" alt="" width="80" align="left">
 
 **AgentValley**<br>
 A small valley of programmers in your notch.<br>
-For Claude Code on Mac · Free · Open source · [agentvalley.app](https://agentvalley.app)
+Only for Claude Code, on Mac · Free · Open source · [agentvalley.app](https://agentvalley.app)
 
 <br clear="left">
 
@@ -57,13 +57,13 @@ We're seven programmers from a computer room in 1969. We build things because we
 The first four run sessions. Start Claude Code and one of them takes the session, with hair and a shirt picked for it. The other three take the sub-agent jobs a session hands out.
 
 <table>
-<tr><td width="76"><img src="site/mascots/guru-wave0.svg" alt="" width="48"></td><td><b>Sunny</b>, the guru · runs a session<br>Yoga at sunrise, then code until the sun goes down again. He believes every bug came to teach him something. When he waves, an agent is waiting for you.</td></tr>
-<tr><td width="76"><img src="site/mascots/walrus-working.svg" alt="" width="48"></td><td><b>Walt</b>, the walrus · runs a session<br>Friday nights he plays bass in a garage band. A neighbour once asked about the smoke coming out, and Walt said it was a barbecue. Nobody has seen the grill yet.</td></tr>
-<tr><td width="76"><img src="site/mascots/engineer-working.svg" alt="" width="48"></td><td><b>Norm</b>, the engineer · runs a session<br>The only one of us who irons his shirt for work. He came over from a rocket launch control room and gets through a science fiction novel a night. He blinked in the team photo, and he says he meant to.</td></tr>
-<tr><td width="76"><img src="site/mascots/pearls-working.svg" alt="" width="48"></td><td><b>Pearl</b> · runs a session<br>She knows the computer better than the people who built it. Detective novels taught her to hunt bugs from the last page back. The pearls stay on, even when she crawls under the machine.</td></tr>
-<tr><td width="76"><img src="site/mascots/coder-working.svg" alt="" width="48"></td><td><b>Judy</b> · the Plan sub-agent<br>Nobody touches a keyboard until Judy has the plan on paper. In the evenings she plays folk guitar by the campfire, mostly songs she wrote about flowcharts.</td></tr>
-<tr><td width="76"><img src="site/mascots/afro-working.svg" alt="" width="48"></td><td><b>Faye</b> · the Explore sub-agent<br>Faye reads every file until she finds the one you meant. On weekends she disappears into the desert and always comes back with new ideas. What she found out there, she has never said.</td></tr>
-<tr><td width="76"><img src="site/mascots/beatnik-working.svg" alt="" width="48"></td><td><b>Felix</b> · the General-purpose sub-agent<br>Any job without a name goes to Felix. On Thursday nights he reads poetry in a basement coffeehouse, and he plays the bongos while the machine runs. For every other kind of sub-agent he turns up in a different shirt.</td></tr>
+<tr><td width="76"><img src="site/public/mascots/guru-wave0.svg" alt="" width="48"></td><td><b>Sunny</b>, the guru · runs a session<br>Yoga at sunrise, then code until the sun goes down again. He believes every bug came to teach him something. When he waves, an agent is waiting for you.</td></tr>
+<tr><td width="76"><img src="site/public/mascots/walrus-working.svg" alt="" width="48"></td><td><b>Walt</b>, the walrus · runs a session<br>Friday nights he plays bass in a garage band. A neighbour once asked about the smoke coming out, and Walt said it was a barbecue. Nobody has seen the grill yet.</td></tr>
+<tr><td width="76"><img src="site/public/mascots/engineer-working.svg" alt="" width="48"></td><td><b>Norm</b>, the engineer · runs a session<br>The only one of us who irons his shirt for work. He came over from a rocket launch control room and gets through a science fiction novel a night. He blinked in the team photo, and he says he meant to.</td></tr>
+<tr><td width="76"><img src="site/public/mascots/pearls-working.svg" alt="" width="48"></td><td><b>Pearl</b> · runs a session<br>She knows the computer better than the people who built it. Detective novels taught her to hunt bugs from the last page back. The pearls stay on, even when she crawls under the machine.</td></tr>
+<tr><td width="76"><img src="site/public/mascots/coder-working.svg" alt="" width="48"></td><td><b>Judy</b> · the Plan sub-agent<br>Nobody touches a keyboard until Judy has the plan on paper. In the evenings she plays folk guitar by the campfire, mostly songs she wrote about flowcharts.</td></tr>
+<tr><td width="76"><img src="site/public/mascots/afro-working.svg" alt="" width="48"></td><td><b>Faye</b> · the Explore sub-agent<br>Faye reads every file until she finds the one you meant. On weekends she disappears into the desert and always comes back with new ideas. What she found out there, she has never said.</td></tr>
+<tr><td width="76"><img src="site/public/mascots/beatnik-working.svg" alt="" width="48"></td><td><b>Felix</b> · the General-purpose sub-agent<br>Any job without a name goes to Felix. On Thursday nights he reads poetry in a basement coffeehouse, and he plays the bongos while the machine runs. For every other kind of sub-agent he turns up in a different shirt.</td></tr>
 </table>
 
 ## It reads. It doesn't touch.

@@ -1,0 +1,232 @@
+@import "tailwindcss";
+@import "./set-pieces.css";
+
+/* No dark theme: the page has one look, so dark: utilities never apply. */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* A warm white page. Black is kept for the app's own parts: the panel, the bar, a row, a
+     terminal. --accent-text is the orange that reads on the page; --amber is for fills and for
+     text drawn on black. Every text colour reaches 7:1 on the page and on its cards (WCAG AAA). */
+  color-scheme: light;
+  --background: #fafaf7;
+  --foreground: #171717;
+  --card: #f3f2ed;
+  --card-foreground: #171717;
+  --popover: #fafaf7;
+  --popover-foreground: #171717;
+  --primary: #171717;
+  --primary-foreground: #fafaf7;
+  --secondary: #f3f2ed;
+  --secondary-foreground: #171717;
+  --muted: #f3f2ed;
+  --muted-foreground: #52514c;
+  --accent: #ecebe4;
+  --accent-foreground: #171717;
+  --accent-text: #723a00;
+  --destructive: #8f1a14;
+  --border: #e3e1d9;
+  --input: #e3e1d9;
+  --ring: #723a00;
+  --radius: 0.5rem;
+  --amber: #ffb000;
+  --on-amber: #1c1300;
+  /* --red fills the count and the dot under black text; --red-text is the same red lifted to 7:1 on black. */
+  --red: #ff6359;
+  --red-text: #ff8a80;
+  --paper: #f4ecd9;
+  --greenbar: #e3ecd4;
+  --type: #2a2118;
+  /* The app's own colours, for the parts drawn as the app draws them. */
+  --ink: #000;
+  --app-fg: #fff;
+  --app-card: #121212;
+  --app-fill: #1c1c1e;
+  --app-dim: #a8a8ad;
+  --pick: #e07b39;
+  --app-soft: rgba(255, 255, 255, 0.6);
+  --app-seg: #bbb;
+  --app-tab: #ddd;
+  --app-rule: #222;
+  --app-key: #2a2a2a;
+  --ring-track: rgba(255, 255, 255, 0.2);
+  --h-bar: rgba(255, 255, 255, 0.7);
+  --h-bar-dim: rgba(255, 255, 255, 0.35);
+  --h-bar-later: rgba(255, 255, 255, 0.1);
+  /* History's split: the costliest part, the next, and the rest. */
+  --part1: #e0a030;
+  --part2: #f2ead8;
+  --part3: #8c8378;
+  /* The hero's Mac: its wallpaper, its menu bar drawn in the wallpaper's cream, the camera, the notch's edge,
+     the bezel round the screen, the sunset's glow over the horizon. */
+  --wall: #1b110a;
+  --menu: 255, 236, 210;
+  --lens: #1d2733;
+  --lens-rim: #2c3a48;
+  --notch-edge: #5a5a5e;
+  --bezel: #0e0e10;
+  --glow: rgba(229, 160, 58, 0.3);
+  /* A terminal of the time: warm black, a header a step lighter, one waiting in red. */
+  --term-bg: #16120f;
+  --term-head: #221c17;
+  --term-edge: #3a322b;
+  --term-fg: #d9d2c3;
+  --term-dim: #bab2a2;
+  --term-dot: #4a4038;
+  --term-wait: #5a2a26;
+  /* The page's own small parts: amber pressed, the lamp off, a line in amber, the prompt, the scrollbar. */
+  --amber-hi: #ffc233;
+  --lamp: #b8a685;
+  --amber-line: rgba(255, 176, 0, 0.5);
+  --prompt: #69450e;
+  --scroll: #c9c6ba;
+  /* How much of a word's own colour its dotted underline keeps; tests/contrast.test.ts holds it to 3:1. */
+  --w-line: 70%;
+  /* The crew's photo: the print, the studio grey, the camera's date, the lens's dark corners. */
+  --print: #fbf7ee;
+  --studio: #6f7477;
+  --stamp: #ff8a1f;
+  --vignette: rgba(30, 15, 5, 0.5);
+  /* The valley's horizon: the 1970s wallpaper of the hero's Mac, and the ground the crew stands on. */
+  --hz1: #e5a03a;
+  --hz2: #d9772e;
+  --hz3: #b4501f;
+  --hz4: #7a3417;
+  --hz5: #3d1f10;
+  /* Geist for the page; the Mac's own monospace for the app's parts, as the app is set. */
+  --sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
+  --app: ui-monospace, "SF Mono", Menlo, monospace;
+  --horizon: linear-gradient(180deg, var(--hz1) 0 20%, var(--hz2) 20% 40%, var(--hz3) 40% 60%, var(--hz4) 60% 80%, var(--hz5) 80%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-text: var(--accent-text);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-amber: var(--amber);
+  --color-on-amber: var(--on-amber);
+  --color-ink: var(--ink);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+  --font-app: var(--app);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* The page's own layout: a centred column, sections ruled off from each other, and two columns
+   side by side on a wide screen, the picture first or second. */
+@utility wrap {
+  max-width: 1140px;
+  margin-inline: auto;
+  padding-inline: 16px;
+  @media (width >= 768px) {
+    padding-inline: 28px;
+  }
+}
+@utility section {
+  padding-block: clamp(64px, 12vw, 104px);
+  border-top: 1px solid var(--border);
+}
+@utility split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
+  align-items: center;
+  @media (width >= 900px) {
+    /* --cols, so that flip wins whichever of the two Tailwind writes first. */
+    grid-template-columns: var(--cols, minmax(0, 5fr) minmax(0, 6fr));
+    gap: 64px;
+  }
+}
+@utility flip {
+  @media (width >= 900px) {
+    --cols: minmax(0, 6fr) minmax(0, 5fr);
+    & > :first-child {
+      order: 2;
+    }
+  }
+}
+@utility stack {
+  & > * + * {
+    margin-top: 16px;
+  }
+  & > h2 + p {
+    margin-top: 20px;
+  }
+}
+@utility lead {
+  max-width: 30em;
+  font-size: 1.1875rem;
+  line-height: 1.55;
+}
+@utility small {
+  max-width: 36em;
+  margin-top: 12px;
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scrollbar-color: var(--scroll) var(--background);
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    overflow-x: clip;
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    caret-color: var(--accent-text);
+  }
+  ::selection {
+    background: var(--amber);
+    color: var(--on-amber);
+  }
+  h1,
+  h2,
+  h3 {
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  h1 {
+    font-size: clamp(2.5rem, 5.2vw, 4rem);
+    line-height: 1.04;
+  }
+  h2 {
+    font-size: clamp(1.75rem, 3.6vw, 2.625rem);
+  }
+  /* Tailwind's reset takes the underline off; a link in a sentence keeps it, as the old page's did. */
+  a {
+    color: var(--accent-text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
