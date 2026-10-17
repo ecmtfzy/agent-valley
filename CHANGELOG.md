@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 — 2026-10-17
+
+- History has its own button at the top of the panel, a chart beside the pin. The token line at the end of the list still opens it, but it never looked like something to press.
+
 ## 0.1.2 — 2026-10-17
 
 - The crew comes to Claude Code's terminal too. The status line under the prompt gets the face of whoever runs the session, with the model, your plan and your limits, and each sub-agent row gets a face, its model and its current step. Set it up in the Actions settings, under Crew in the terminal. It keeps working with the app closed. Tried in Terminal, iTerm2, Ghostty and Cursor.

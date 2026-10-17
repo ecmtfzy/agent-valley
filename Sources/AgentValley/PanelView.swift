@@ -331,6 +331,10 @@ enum Format {
         showingSettings ? "Back to agents" : "Settings"
     }
 
+    static func historyHelp(showing: Bool) -> String {
+        showing ? "Back to agents" : "History"
+    }
+
     /// What a click on the speaker will do, or why nothing sounds for now.
     static func soundHelp(on: Bool, quietUntil: Int?) -> String {
         guard on else { return "Turn sounds on" }
@@ -1042,6 +1046,18 @@ struct PanelView: View {
                 .help(Format.pinHelp(pinned: state.pinned))
                 .accessibilityLabel(Text(verbatim: "Keep the panel open"))
                 .accessibilityValue(Text(verbatim: state.pinned ? "On" : "Off"))
+                // History, beside the other pages. The token line at the end of the list opens it
+                // too, but it reads as numbers rather than a button, and a long list scrolls it away.
+                if settings.tokenUse {
+                    Button { state.toggleHistory() } label: {
+                        Image(systemName: "chart.bar.xaxis").font(.system(size: 11))
+                            .frame(width: 26, height: 26).contentShape(Rectangle()).hoverFill()
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white.opacity(state.showingHistory ? 1 : 0.6))
+                    .help(Format.historyHelp(showing: state.showingHistory))
+                    .accessibilityLabel(Text(verbatim: Format.historyHelp(showing: state.showingHistory)))
+                }
                 // What the marks mean, beside the list they are on: the settings page that also
                 // holds it takes the list's place.
                 Button { state.toggleLegend() } label: {

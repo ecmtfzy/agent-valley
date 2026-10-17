@@ -362,6 +362,8 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.pinHelp(pinned: true), "Let the panel close again")
         XCTAssertEqual(Format.gearHelp(showingSettings: false), "Settings")
         XCTAssertEqual(Format.gearHelp(showingSettings: true), "Back to agents")
+        XCTAssertEqual(Format.historyHelp(showing: false), "History")
+        XCTAssertEqual(Format.historyHelp(showing: true), "Back to agents")
     }
 
     func testTheSpeakerSaysWhatAClickWillDo() {

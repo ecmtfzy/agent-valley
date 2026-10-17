@@ -1,5 +1,5 @@
 // The app's own icons, drawn once on the page and used by name.
-export type IconId = 'folder' | 'branch' | 'out' | 'eyeoff' | 'mute' | 'pin' | 'help' | 'left' | 'right' | 'pause' | 'play' | 'back' | 'gear';
+export type IconId = 'folder' | 'branch' | 'out' | 'eyeoff' | 'mute' | 'pin' | 'help' | 'left' | 'right' | 'pause' | 'play' | 'back' | 'gear' | 'chart';
 
 export function IconSprite() {
   return (
@@ -16,6 +16,7 @@ export function IconSprite() {
       <symbol id="i-pause" viewBox="0 0 16 16" strokeWidth="2"><path d="M5.5 3.5v9M10.5 3.5v9"/></symbol>
       <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5l7.5 4.5L5 12.5z"/></symbol>
       <symbol id="i-back" viewBox="0 0 16 16"><path d="M13.5 8h-11M6.5 4l-4 4 4 4"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 16 16"><path d="M2 13.5h12M4.5 11V8M8 11V3.5M11.5 11V6"/></symbol>
       <symbol id="i-gear" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2"/><path d="M6.09 3.38L6.74 1.52H9.26L9.91 3.38L11.69 2.53L13.47 4.31L12.62 6.09L14.48 6.74V9.26L12.62 9.91L13.47 11.69L11.69 13.47L9.91 12.62L9.26 14.48H6.74L6.09 12.62L4.31 13.47L2.53 11.69L3.38 9.91L1.52 9.26V6.74L3.38 6.09L2.53 4.31L4.31 2.53z"/></symbol>
     </svg>
   );

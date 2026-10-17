@@ -76,7 +76,7 @@ function ScreenDrawing() {
               <img src="/mascots/afro-working.svg" alt="" />
             </span>
           </span>
-          <span className="p-icons"><Icon id="mute" /><Icon id="pin" /><Icon id="help" /><Icon id="gear" /></span>
+          <span className="p-icons"><Icon id="mute" /><Icon id="pin" /><Icon id="chart" /><Icon id="help" /><Icon id="gear" /></span>
         </div>
         <div className="p-head"><em>1 needs you</em><span className="extra"> · 3 working</span></div>
         <div className="p-card">
