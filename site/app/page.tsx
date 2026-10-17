@@ -10,6 +10,7 @@ import { Nav } from '@/components/sections/nav';
 import { NeedsYou } from '@/components/sections/needs-you';
 import { Problem } from '@/components/sections/problem';
 import { Rows } from '@/components/sections/rows';
+import { Terminal } from '@/components/sections/terminal';
 import { Trust } from '@/components/sections/trust';
 import { Words } from '@/components/sections/words';
 
@@ -23,6 +24,7 @@ export default function Home() {
         <Rows />
         <NeedsYou />
         <Costs />
+        <Terminal />
         <Trust />
         <Crew />
         <Also />

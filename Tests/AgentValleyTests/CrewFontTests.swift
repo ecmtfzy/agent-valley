@@ -1,0 +1,82 @@
+import CoreText
+import XCTest
+@testable import AgentValley
+
+final class CrewFontTests: XCTestCase {
+    func testEveryFaceHasItsOwnCodepointInOrder() {
+        XCTAssertEqual(CrewFont.faces.map(\.scalar), Array(UInt32(0x3F000)...0x3F0BC))
+    }
+
+    func testCodepointsFollowTheFixedOrder() {
+        XCTAssertEqual(CrewFont.character(.general, .working), "\u{3F000}")
+        XCTAssertEqual(CrewFont.character(.explore, .working), "\u{3F003}")
+        XCTAssertEqual(CrewFont.character(.plan, .needsYou), "\u{3F007}")
+        XCTAssertEqual(CrewFont.character(.other(shirt: 3), .done), "\u{3F014}")
+        XCTAssertEqual(CrewFont.character(.lead(LeadLook()), .working), "\u{3F015}")
+        XCTAssertEqual(CrewFont.character(.lead(LeadLook(face: 3, hair: 5, shirt: 6)), .working), "\u{3F0BC}")
+        XCTAssertEqual(CrewFont.character(.lead(LeadLook(face: 3, hair: 5, shirt: 6)), .done), "\u{3F0BC}")
+    }
+
+    /// `character` counts in fixed strides through these pools: a pool of another size would
+    /// point every face after it at someone else, and the font's hash would not notice.
+    func testEveryKindFindsItsOwnFace() {
+        XCTAssertEqual(Person.otherShirts.count, 4)
+        XCTAssertEqual(Person.leads.count, 4)
+        XCTAssertEqual(Person.leadHair.count, 6)
+        XCTAssertEqual(Person.leadShirts.count, 7)
+        var kinds: [MascotKind] = [.general, .explore, .plan] + (0..<Person.otherShirts.count).map { .other(shirt: $0) }
+        for face in 0..<Person.leads.count {
+            for hair in 0..<Person.leadHair.count {
+                for shirt in 0..<Person.leadShirts.count { kinds.append(.lead(LeadLook(face: face, hair: hair, shirt: shirt))) }
+            }
+        }
+        for kind in kinds {
+            let scalar = CrewFont.character(kind, .working).unicodeScalars.first!.value
+            XCTAssertEqual(CrewFont.faces[Int(scalar - CrewFont.firstScalar)].person, kind.person, "\(kind)")
+        }
+    }
+
+    /// The rects of Explore's "needs you" face, laid back into a grid, are the cells the notch draws.
+    func testTheJSONCarriesTheCellsTheNotchDraws() throws {
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: CrewFont.facesJSON()) as? [String: Any])
+        let faces = try XCTUnwrap(json["faces"] as? [[String: Any]])
+        func face(_ scalar: Int) throws -> [String: Any] {
+            try XCTUnwrap(faces.first { $0["codepoint"] as? Int == scalar })
+        }
+        var grid = [[UInt32?]](repeating: [UInt32?](repeating: nil, count: 12), count: 12)
+        for rect in try XCTUnwrap(face(0x3F004)["rects"] as? [[Any]]) {
+            let x0 = rect[0] as! Int, x1 = rect[1] as! Int, y = rect[2] as! Int
+            let hex = try XCTUnwrap(UInt32(rect[3] as! String, radix: 16))
+            for x in x0..<x1 { grid[y][x] = hex }
+        }
+        let cells = MascotView.pose(.afro, status: .needsYou, callsOut: true, blink: false, wave: 0)
+        XCTAssertEqual(grid, cells.map { $0.map(Person.afro.hex) })
+        XCTAssertEqual(try face(0x3F005)["opacity"] as? Double, 0.45)
+    }
+
+    func testTheCommittedFontWasBuiltFromTheseFaces() throws {
+        let url = PluginTests.root.appendingPathComponent(CrewFont.fileName)
+        let provider = try XCTUnwrap(CGDataProvider(url: url as CFURL), "Run testing/crew-font.sh")
+        let graphics = try XCTUnwrap(CGFont(provider), "Run testing/crew-font.sh")
+        let font = CTFontCreateWithGraphicsFont(graphics, 1200, nil, nil)
+        XCTAssertEqual(CTFontCopyName(font, kCTFontUniqueNameKey) as String?, CrewFont.uniqueName, "Run testing/crew-font.sh")
+        XCTAssertEqual(CTFontCopyFamilyName(font) as String, CrewFont.family)
+        for face in CrewFont.faces {
+            let units = Array(String(UnicodeScalar(face.scalar)!).utf16)
+            var glyphs = [CGGlyph](repeating: 0, count: units.count)
+            XCTAssertTrue(CTFontGetGlyphsForCharacters(font, units, &glyphs, units.count), "U+\(String(face.scalar, radix: 16)) has no glyph")
+            XCTAssertNotEqual(glyphs[0], 0)
+            var advance = CGSize.zero
+            CTFontGetAdvancesForGlyphs(font, .horizontal, glyphs, &advance, 1)
+            XCTAssertEqual(advance.width, 1440, "U+\(String(face.scalar, radix: 16))")
+        }
+    }
+
+    /// Not a test: `testing/crew-font.sh` runs it to hand the faces to the script that builds the font.
+    func testWriteTheFacesForTheFont() throws {
+        guard let out = ProcessInfo.processInfo.environment["CREW_FACES_OUT"] else {
+            throw XCTSkip("Run by testing/crew-font.sh.")
+        }
+        try CrewFont.facesJSON().write(to: URL(fileURLWithPath: out))
+    }
+}

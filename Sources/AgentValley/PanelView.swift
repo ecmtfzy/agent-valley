@@ -282,16 +282,30 @@ enum Format {
     /// What installs the plugin, with the path of this very copy of the app. One line to copy:
     /// leaving the panel to paste closes it, and a second trip was easy to forget.
     static func installCommand(resources: URL) -> String {
-        // Homebrew keeps each version in a folder of its own and `brew upgrade` deletes the old
-        // one, and with it the plugin Claude Code loads. Its opt link names whichever is installed.
-        var parts = resources.pathComponents
+        let path = URL(fileURLWithPath: stablePath(resources)).appendingPathComponent("claude-plugin").path
+        return "claude plugin marketplace add \(quoted(path)) && claude plugin install notch-answers@agent-valley"
+    }
+
+    /// A path into this copy of the app that still works after `brew upgrade`. Homebrew keeps each
+    /// version in a folder of its own and deletes the old one when it upgrades; its opt link names
+    /// whichever is installed.
+    static func stablePath(_ url: URL) -> String {
+        var parts = url.pathComponents
         if let i = parts.indices.dropLast(2).first(where: { parts[$0] == "Cellar" && parts[$0 + 1] == "agent-valley" }) {
             parts.replaceSubrange(i...i + 2, with: ["opt", "agent-valley"])
         }
-        // Single quotes, so nothing in the path is read by the shell the command is pasted into.
-        let path = URL(fileURLWithPath: NSString.path(withComponents: parts)).appendingPathComponent("claude-plugin").path
-            .replacingOccurrences(of: "'", with: "'\\''")
-        return "claude plugin marketplace add '\(path)' && claude plugin install notch-answers@agent-valley"
+        return NSString.path(withComponents: parts)
+    }
+
+    /// The app's `crew` command as a shell runs it: Claude Code's settings hold it, and the
+    /// install and uninstall lines are pasted into a terminal.
+    static func crewCommand(executable: String, _ mode: String) -> String {
+        "\(quoted(executable)) crew \(mode)"
+    }
+
+    /// Single quotes, so nothing in the path is read by the shell the command is pasted into.
+    private static func quoted(_ path: String) -> String {
+        "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     static func answersStatus(_ state: AnswerStore.State, now: Date) -> String? {
@@ -439,6 +453,17 @@ enum Format {
     /// The line that unfolds the way out. Not "Remove the plugin": standing there before
     /// anything was installed, that read as if a plugin were already in.
     static let removePlugin = "How to remove the plugin"
+    /// The crew's row on the Actions page: what it does, the two steps, and the way out. It is
+    /// a command the person runs themselves, like the plugin: the app does not write into ~/.claude.
+    static let crewTitle = "Crew in the terminal"
+    static let crewWhat = "We show up in Claude Code's terminal too. The status line under the prompt gets this session's face, model, plan and limits, and each sub-agent row gets its face, model and current step. Works with this app closed."
+    static let crewSetup = "How to set it up"
+    static let crewSteps = (
+        run: "1. Copy this and run it in a terminal. It installs our font and sets statusLine and subagentStatusLine in Claude Code's settings.json. Anything it replaces is kept, and comes back when you take it out.",
+        restart: "2. Start Claude Code again. If you use Ghostty, quit and reopen it first."
+    )
+    static let removeCrew = "How to take it out"
+    static let removeCrewNote = "Puts back the status line you had before, and removes our font and the line added to Ghostty's config."
     static let stepsHelp = "Tool calls so far"
     static let extrasHelp = "The agent's type"
     static let jumpHelp = "Show who needs you"
@@ -1682,13 +1707,16 @@ private struct HoverFill: ViewModifier {
     let radius: CGFloat
     /// For something already filled white: a lighter fill behind it would not show, so it darkens.
     let darkens: Bool
-    @State private var hovering = false
+    @State private var over = false
+    /// A button that can't be pressed shows nothing under the pointer.
+    @Environment(\.isEnabled) private var enabled
+    private var hovering: Bool { over && enabled }
 
     func body(content: Content) -> some View {
         content
             .background(Color.white.opacity(hovering && !darkens ? 0.1 : 0), in: RoundedRectangle(cornerRadius: radius))
             .overlay(Color.black.opacity(hovering && darkens ? 0.18 : 0).clipShape(RoundedRectangle(cornerRadius: radius)).allowsHitTesting(false))
-            .onHover { hovering = $0 }
+            .onHover { over = $0 }
     }
 }
 

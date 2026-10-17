@@ -13,6 +13,7 @@ struct HistoryPage: View {
     @State private var slice = LedgerSlice()
     /// Worked out when the pick or the answers change, not at every drawing.
     @State private var report: HistoryReport
+    @State private var exportProblem: String?
 
     init(ledger: UsageLedger, pick: Binding<HistoryPick>, calendar: Calendar = HistoryReport.calendar(), home: String = NSHomeDirectory(),
          back: @escaping () -> Void) {
@@ -40,18 +41,15 @@ struct HistoryPage: View {
                     BackToAgents(action: back)
                 }
                 Spacer(minLength: 0)
+                // At the top, not at the foot: a month of every project runs to a long scroll.
+                exportButton
                 ChoiceBar(title: "Span", choices: Span.allCases, label: { $0.rawValue }, selection: Binding(get: { pick.span }, set: { span in
                     // Another span: the project stays, and it shows the day that was.
                     pick = HistoryPick(span: span, anchor: pick.day ?? pick.anchor, project: pick.project)
                 }))
             }
-            if let problem = ledger.problem {
-                // Not orange: orange is what is picked.
-                Label { Text(verbatim: problem).foregroundStyle(.white.opacity(0.8)) } icon: {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(LimitMeter.color(.critical))
-                }
-                .fixedSize(horizontal: false, vertical: true)
-            }
+            if let problem = ledger.problem { problemLine(problem) }
+            if let exportProblem { problemLine(exportProblem) }
             if let reading = ledger.reading {
                 Text(verbatim: Format.readingHistory(reading)).foregroundStyle(.white.opacity(0.6))
             } else {
@@ -72,7 +70,10 @@ struct HistoryPage: View {
             }
         }
         .padding(14)
-        .onChange(of: pick) { rebuild() }
+        .onChange(of: pick) {
+            exportProblem = nil
+            rebuild()
+        }
         .task(id: Load(interval: report.interval, revision: ledger.revision)) {
             ledger.load(report.interval) { slice in
                 self.slice = slice
@@ -83,6 +84,47 @@ struct HistoryPage: View {
 
     private func rebuild() {
         report = HistoryReport.make(slice, pick: pick, calendar: calendar, home: home)
+    }
+
+    // Not orange: orange is what is picked.
+    private func problemLine(_ problem: String) -> some View {
+        Label { Text(verbatim: problem).foregroundStyle(.white.opacity(0.8)) } icon: {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(LimitMeter.color(.critical))
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - The report
+
+    private var exportButton: some View {
+        Button(action: export) {
+            // As "← Agents" across from it.
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.down.doc").font(.system(size: 10, weight: .semibold))
+                Text(verbatim: Format.exportPDF)
+            }
+            .foregroundStyle(.white.opacity(report.exportable ? 0.8 : 0.25))
+            .padding(.horizontal, 6)
+            .frame(height: 22)
+            .contentShape(Rectangle())
+            .hoverFill()
+        }
+        .buttonStyle(.plain)
+        .disabled(!report.exportable)
+        .accessibilityLabel(Text(verbatim: Format.exportPDF))
+        .accessibilityHint(Text(verbatim: Format.exportPDFHint))
+    }
+
+    /// The whole stretch on the page, to a PDF the default app opens. Made only here, on the
+    /// press: it reads the whole stretch again.
+    private func export() {
+        guard let document = HistoryDocument.make(slice, pick: pick, calendar: calendar, home: home, printed: Date()) else { return }
+        do {
+            NSWorkspace.shared.open(try ReportPDF.write(document, calendar: calendar))
+            exportProblem = nil
+        } catch {
+            exportProblem = Format.couldNotMakePDF(error.localizedDescription)
+        }
     }
 
     // MARK: - The stretch and its bars

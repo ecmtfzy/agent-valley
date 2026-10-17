@@ -179,6 +179,27 @@ html{scroll-padding-top:80px}
   .anatomy [data-part]::before{content:attr(data-part);display:block;color:var(--amber);font:400 .78em/1.4 var(--mono)}
 }
 
+/* Claude Code under its prompt with the crew in: the status line, then the sub-agent rows. The
+   type grows with the box, so the meters stay on one line as they do in a terminal this wide. */
+.cterm{container-type:inline-size;padding:clamp(16px,3.5vw,32px);border-radius:14px;background:var(--ink);color:var(--app-fg)}
+.cterm>div{font:400 clamp(11px,2.55cqw,15px)/1.7 var(--mono)}
+.cterm p{display:flex;flex-wrap:wrap;align-items:center;column-gap:2ch}
+.cterm b{font-weight:600}
+.cterm .m{--s:1.35em}
+.t-dim{color:var(--app-dim)}
+.t-prompt{margin-bottom:1em;padding:.5em 0;border-block:1px solid var(--app-key)}
+.t-meters{margin-bottom:1em}
+.cterm .t-meters{column-gap:0}
+.t-meters>span{white-space:nowrap}
+.t-meters>span+span{margin-left:1ch;padding-left:1ch;border-left:1px solid var(--app-dim)}
+.t-row p+p{padding-left:3ch}
+.t-row+.t-row{margin-top:.3em}
+/* Too narrow for the meters side by side: one under another. */
+@container (max-width:440px){
+  .cterm .t-meters{display:grid}
+  .t-meters>span+span{margin-left:0;padding-left:0;border-left:0}
+}
+
 /* The bar as it looks most of the day, and a request it opens to */
 .ask{display:grid;gap:18px;justify-items:center;font:400 clamp(.82rem,1.6vw,.95rem)/1.5 var(--app);color:var(--app-fg)}
 .strip{--bar:46px;display:flex;align-items:center;height:46px;padding:0 14px;border-radius:0 0 18px 18px;background:var(--ink);gap:10px}

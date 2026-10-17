@@ -28,7 +28,7 @@ open "$(brew --prefix)/opt/agent-valley/AgentValley.app"
 
 To update: `brew upgrade morsechimwai/tap/agent-valley`, then quit the app and open it again.
 
-To remove: if you installed the plugin, run `claude plugin uninstall notch-answers@agent-valley && claude plugin marketplace remove agent-valley` first. Then `brew uninstall agent-valley`. Your History stays in `~/Library/Application Support/AgentValley` until you delete that folder.
+To remove: first take out what you added yourself. For the plugin, run `claude plugin uninstall notch-answers@agent-valley && claude plugin marketplace remove agent-valley`. For the crew in your terminal, run the command under How to take it out in the app's Actions settings. Then `brew uninstall agent-valley`. Your History stays in `~/Library/Application Support/AgentValley` until you delete that folder.
 
 ## How to use
 
@@ -44,6 +44,8 @@ To remove: if you installed the plugin, run `claude plugin uninstall notch-answe
 - **Jump to its app in one click.** Turn on Go to the session's tab, and Terminal and iTerm2 open the exact tab. Ghostty does too, unless two sessions run in the same folder.
 - **Answer from the notch.** Allow once or Deny, using a plugin you install yourself: turn on `Answer from the notch` in the settings, run the command it shows, then start Claude Code again.
 - **See what each project cost.** History by day, week or month, at API prices. Kept on your Mac, even after Claude Code clears its old files.
+- **The crew in your terminal too.** Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. One command from the app's Actions settings sets it up, and it keeps working with the app closed.<br>
+  <img src="docs/terminal.png" alt="Claude Code in a terminal. Under the prompt, the status line shows Sunny's face, Opus 5.5 and Max 20x, then bars for context, the 5-hour limit and the weekly limit. Below it, two sub-agent rows, each with a little face, its task, time, model, folder, branch and current step." width="544">
 - **Plan limits.** Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on.
 
 No guessed progress bars. If an agent goes quiet, AgentValley says so. Sounds stay off until you turn them on.
@@ -71,7 +73,8 @@ The first four run sessions. Start Claude Code and one of them takes the session
 - Reads `~/.claude/projects` and `~/.claude/sessions`, the files Claude Code writes as it works.
 - Looks at Claude Code's processes and each project's `.git` to show which app and branch a session is in.
 - Reads your Claude Code login from the Keychain only when you turn on Plan limits, and sends it only to api.anthropic.com.
-- Besides its own settings, it writes only in one folder: `~/Library/Application Support/AgentValley`. Nothing in `~/.claude` changes.
+- Besides its own settings, it writes only in one folder: `~/Library/Application Support/AgentValley`. Nothing in `~/.claude` changes, unless you put the crew in your terminal.
+- You start that yourself, with a command from the app's settings. It sets the status line in `~/.claude/settings.json` and adds our font to `~/Library/Fonts`, and from then on the app keeps the font up to date. With Ghostty, it also adds one line to Ghostty's config. The command that takes the crew out undoes all of it.
 - The only hook is the plugin that brings Allow and Deny to the notch, and you install it yourself.
 - Never answers for you. Allow happens only when you choose it.
 
@@ -92,7 +95,7 @@ The app is free. Our coffee isn't. If AgentValley has saved you a few trips back
 
 ## Contributing
 
-There's a spare chair in the computer room. Bugs and ideas go in an [issue](https://github.com/morsechimwai/agent-valley/issues). If you'd rather fix it yourself, send a pull request: one change per pull request, a test when it changes what the app does, and `swift test` passing. We bend on most things, but not this one: AgentValley never writes in `~/.claude` and never answers for you. The rest is in [CONTRIBUTING.md](CONTRIBUTING.md). Security problems go to [SECURITY.md](SECURITY.md).
+There's a spare chair in the computer room. Bugs and ideas go in an [issue](https://github.com/morsechimwai/agent-valley/issues). If you'd rather fix it yourself, send a pull request: one change per pull request, a test when it changes what the app does, and `swift test` passing. We bend on most things, but not this one: AgentValley never writes in `~/.claude` on its own and never answers for you. The rest is in [CONTRIBUTING.md](CONTRIBUTING.md). Security problems go to [SECURITY.md](SECURITY.md).
 
 ## License
 

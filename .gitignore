@@ -12,3 +12,7 @@ site/next-env.d.ts
 site/test-results/
 site/playwright-report/
 site/*.tsbuildinfo
+
+.DS_Store
+__pycache__/
+.claude/worktrees/

@@ -136,6 +136,12 @@ final class HistoryReportTests: XCTestCase {
         XCTAssertEqual(report.unpriced, 1000)
         XCTAssertEqual(report.projects.map(\.name), ["api", "app"])
         XCTAssertEqual(report.projects[0].cost, 15, accuracy: 1e-9)
+        // Each line counts its answers and sessions, and when the first and the last were.
+        XCTAssertEqual(report.projects[0].answers, 2)
+        XCTAssertEqual(report.projects[0].sessions, 2)
+        XCTAssertEqual(report.projects[1].answers, 3)
+        XCTAssertEqual(report.projects[0].first, date("2026-10-12T10:00:00.000Z"))
+        XCTAssertEqual(report.projects[0].last, date("2026-10-12T11:00:00.000Z"))
         // The first level has no sessions: they are a project's own, one level down.
         XCTAssertTrue(report.sessions.isEmpty)
         // Two parts named and the rest as others: the panel is narrow.
@@ -178,6 +184,16 @@ final class HistoryReportTests: XCTestCase {
         XCTAssertEqual(report.agents[2].cost, 15, accuracy: 1e-9)
         let three = Array(report.agents.prefix(2)) + [CostLine(id: "x", name: "x", cost: 0.5)]
         XCTAssertEqual(HistoryReport.folded(three).map(\.name), ["type7", "type6", "x"])
+    }
+
+    func testOthersAddUpAnswersAndSessions() {
+        let lines = [(1, 1), (2, 1), (3, 2), (4, 3)].enumerated().map { index, counts in
+            CostLine(id: "\(index)", name: "\(index)", cost: Double(10 - index), answers: counts.0, sessions: counts.1)
+        }
+        let folded = HistoryReport.folded(lines)
+        XCTAssertEqual(folded.map(\.name), ["0", "1", "others"])
+        XCTAssertEqual(folded[2].answers, 7)
+        XCTAssertEqual(folded[2].sessions, 5)
     }
 
     // A project's bars are its own: when it spent, not when everything did.

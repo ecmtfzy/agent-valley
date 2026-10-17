@@ -29,6 +29,8 @@ mkdir -p "$APP/Contents/Resources"
 cp -R plugin "$APP/Contents/Resources/claude-plugin"
 # The icon Finder shows; testing/site.sh icon makes it from the website's crew mark.
 cp AppIcon.icns "$APP/Contents/Resources/"
+# The crew's faces for Claude Code's terminal; the user installs the font themselves.
+cp AgentValleyCrew.ttf "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -46,9 +48,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.1</string>
+	<string>0.1.2</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>3</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>LSUIElement</key>

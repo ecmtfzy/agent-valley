@@ -1,0 +1,222 @@
+import XCTest
+@testable import AgentValley
+
+final class CrewLineTests: XCTestCase {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    lazy var input: [String: Any] = ["model": ["display_name": "Opus 5.5"], "session_id": "s1",
+        "context_window": ["used_percentage": 22.0, "context_window_size": 1_000_000],
+        "rate_limits": ["five_hour": ["used_percentage": 6.0, "resets_at": now.timeIntervalSince1970 + 9_750],
+                        "seven_day": ["used_percentage": 70.0, "resets_at": now.timeIntervalSince1970 + 226_830]]]
+
+    func plain(_ s: String) -> String {
+        s.replacingOccurrences(of: "\u{1B}\\[[0-9;]*m", with: "", options: .regularExpression)
+    }
+
+    func lines(_ columns: Int, plan: String? = "Max 20x") -> [String] {
+        plain(CrewLine.status(input, columns: columns, plan: plan, look: LeadLook(), now: now)).components(separatedBy: "\n")
+    }
+
+    func testTheTopLineIsTheLeadModelAndPlan() {
+        let lines = lines(98)
+        XCTAssertEqual(lines[0], "\u{3F015}  Opus 5.5 · Max 20x")
+        XCTAssertEqual(lines[1], "ctx ━━━━━━━━━━ 22% 220k/1.0m  │  5h ━━━━━━━━━━ 6% ↻ 2h 42m  │  7d ━━━━━━━━━━ 70% ↻ 2d 15h")
+    }
+
+    func testNoPlanDropsTheDot() {
+        XCTAssertEqual(lines(98, plan: nil)[0], "\u{3F015}  Opus 5.5")
+    }
+
+    func testNoModelKeepsFaceAndPlan() {
+        input["model"] = nil
+        XCTAssertEqual(lines(98)[0], "\u{3F015}  Max 20x")
+        XCTAssertEqual(lines(98, plan: nil)[0], "\u{3F015}")
+    }
+
+    func testTheLayoutShrinksToFit() {
+        func bottom(_ columns: Int) -> String { lines(columns)[1] }
+        XCTAssertTrue(bottom(98).contains("  │  ") && bottom(98).contains("━━━━━━━━━━"))
+        XCTAssertTrue(bottom(97).contains(" │ ") && !bottom(97).contains("  │  ") && bottom(97).contains("━━━━━━━━ ") && !bottom(97).contains("━━━━━━━━━"))
+        XCTAssertTrue(bottom(87).contains("220k/1.0m") && bottom(87).contains("━━━━━━ ") && !bottom(87).contains("━━━━━━━"))
+        XCTAssertFalse(bottom(81).contains("220k")); XCTAssertTrue(bottom(81).contains("━━━━━━ "))
+        XCTAssertTrue(bottom(71).contains("━━━━ ") && !bottom(71).contains("━━━━━"))
+        for columns in [98, 97, 87, 81, 71] { XCTAssertLessThanOrEqual(CrewLine.width(bottom(columns)), columns - 9) }
+        XCTAssertTrue(bottom(40).contains("━━━━ ") && !bottom(40).contains("━━━━━"))
+    }
+
+    func testBarFill() {
+        XCTAssertTrue(CrewLine.bar(0, cells: 10) == (0, 10)); XCTAssertTrue(CrewLine.bar(0.4, cells: 10) == (1, 9))
+        XCTAssertTrue(CrewLine.bar(22, cells: 10) == (2, 8)); XCTAssertTrue(CrewLine.bar(130, cells: 10) == (10, 0))
+    }
+
+    func testHighAndCriticalNumbers() {
+        func render(_ percent: Double) -> String {
+            input["rate_limits"] = ["five_hour": ["used_percentage": percent]]
+            return CrewLine.status(input, columns: 98, plan: nil, look: LeadLook(), now: now)
+        }
+        let high = render(80)
+        XCTAssertTrue(high.contains(CrewLine.Style.yellow + "80%"), high)
+        XCTAssertFalse(render(20).contains(CrewLine.Style.yellow))
+        let critical = render(96)
+        XCTAssertTrue(plain(critical).contains("[96%]"))
+        for text in [high, critical, CrewLine.status(self.input, columns: 98, plan: "Max", look: LeadLook(), now: now)] {
+            XCTAssertFalse(text.contains("38;2;255;69;59")); XCTAssertFalse(text.contains("38;2;255;255;255"))
+        }
+    }
+
+    func testMissingPiecesAreSkipped() {
+        input["rate_limits"] = nil
+        let ctxOnly = lines(98)
+        XCTAssertEqual(ctxOnly.count, 2)
+        XCTAssertTrue(ctxOnly[1].hasPrefix("ctx") && !ctxOnly[1].contains("5h") && !ctxOnly[1].contains("7d"))
+        let empty = plain(CrewLine.status([:], columns: 98, plan: nil, look: LeadLook(), now: now))
+        XCTAssertEqual(empty, "\u{3F015}")
+    }
+
+    func testPlanName() {
+        XCTAssertEqual(CrewLine.plan(fromClaudeJSON: ["oauthAccount": ["organizationType": "claude_max", "organizationRateLimitTier": "default_claude_max_20x"]]), "Max 20x")
+        XCTAssertEqual(CrewLine.plan(fromClaudeJSON: ["oauthAccount": ["organizationType": "claude_pro"]]), "Pro")
+        XCTAssertNil(CrewLine.plan(fromClaudeJSON: nil)); XCTAssertNil(CrewLine.plan(fromClaudeJSON: ["oauthAccount": [:]]))
+    }
+
+    func testWidthAndCut() {
+        XCTAssertEqual(CrewLine.width("\u{3F000}  ab"), 6); XCTAssertEqual(CrewLine.width("กี่"), 1); XCTAssertEqual(CrewLine.width("代码"), 4)
+        XCTAssertEqual(CrewLine.width(CrewLine.Style.bold + "ab" + CrewLine.Style.reset), 2)
+        XCTAssertEqual(CrewLine.cut("abcdef", to: 4), "abc…"); XCTAssertEqual(CrewLine.cut("代码代码", to: 5), "代码…")
+        XCTAssertEqual(CrewLine.width("🚀"), 2); XCTAssertEqual(CrewLine.width("🪐"), 2)
+        // Emoji drawn as pictures take two cells, also when U+FE0F asks for the picture.
+        XCTAssertEqual(CrewLine.width("✅⭐⚡⏳"), 8); XCTAssertEqual(CrewLine.width("⚠️"), 2); XCTAssertEqual(CrewLine.width("❤️a"), 3)
+        XCTAssertEqual(CrewLine.width("1"), 1); XCTAssertEqual(CrewLine.width("#"), 1)
+    }
+
+    func task(_ extra: [String: Any] = [:]) -> [String: Any] {
+        ["id": "a1", "agentType": "Explore", "status": "running", "description": "Find the login code",
+         "label": "Read login.ts", "startTime": (now.timeIntervalSince1970 - 272) * 1000,
+         "model": "claude-opus-5-5", "cwd": "/Users/me/agents-visualizer"].merging(extra) { $1 }
+    }
+
+    func content(_ tasks: [[String: Any]], columns: Int = 100) -> [String] {
+        CrewLine.rows(["tasks": tasks, "columns": columns], now: now, branch: { _ in "main" }).map { line in
+            let json = try! JSONSerialization.jsonObject(with: Data(line.utf8)) as! [String: Any]
+            return json["content"] as! String
+        }
+    }
+
+    func testARowIsThreeLinesLikeThePanel() throws {
+        XCTAssertEqual(plain(content([task()])[0]).split(separator: "\n"),
+                       ["\u{3F003}  Find the login code  4m 32s  Opus 5.5", "    ▭ agents-visualizer  ⑂ main", "    > Read login.ts"])
+        let line = CrewLine.rows(["tasks": [task()]], now: now, branch: { _ in "main" })[0]
+        XCTAssertEqual((try JSONSerialization.jsonObject(with: Data(line.utf8)) as! [String: Any])["id"] as? String, "a1")
+    }
+
+    func testNoStepLineBeforeTheAgentStarts() {
+        XCTAssertEqual(content([task(["label": "Find the login code"])])[0].components(separatedBy: "\n").count, 2)
+    }
+
+    func testWaitingNeedsYou() {
+        let row = content([task(["status": "waiting"])])[0]
+        XCTAssertTrue(row.contains(CrewLine.Style.needsYou + "needs you"))
+        XCTAssertTrue(row.hasPrefix("\u{3F004}"))
+    }
+
+    func testFinishedRowsFade() {
+        for status in ["completed", "failed", "killed", "idle"] {
+            let row = content([task(["status": status])])[0]
+            XCTAssertTrue(plain(row).contains("  done  "))
+            XCTAssertTrue(plain(row).hasPrefix("\u{3F005}") || row.hasPrefix(CrewLine.Style.faint + "\u{3F005}"))
+            for line in row.components(separatedBy: "\n") { XCTAssertTrue(line.hasPrefix(CrewLine.Style.faint)) }
+        }
+    }
+
+    func testPastEightLiveAgentsEachRowIsOneLine() {
+        XCTAssertTrue(content(Array(repeating: task(), count: 9)).allSatisfy { !$0.contains("\n") })
+        XCTAssertTrue(content(Array(repeating: task(), count: 8)).allSatisfy { $0.contains("\n") })
+        // As in the app, finished agents do not count.
+        let mixed = Array(repeating: task(), count: 7) + Array(repeating: task(["status": "completed"]), count: 2)
+        XCTAssertTrue(content(mixed).allSatisfy { $0.contains("\n") })
+    }
+
+    func testOtherTypesWearAShirtFromThePool() {
+        let face = CrewFont.character(MascotKind(type: "code-reviewer"), .working)
+        XCTAssertTrue(plain(content([task(["agentType": "code-reviewer"])])[0]).hasPrefix(face))
+    }
+
+    func testThaiAndChineseDescriptionsAreCutByCells() {
+        for text in ["ตรวจสอบโค้ดที่เกี่ยวกับการเข้าสู่ระบบทั้งหมดของแอพพลิเคชัน", "检查所有与登录有关的代码和测试文件"] {
+            let lines = content([task(["description": text])], columns: 40)[0].components(separatedBy: "\n")
+            XCTAssertTrue(lines.allSatisfy { CrewLine.width($0) <= 34 })
+            XCTAssertTrue(lines[0].contains("…"))
+        }
+    }
+
+    func testEveryLineFitsTheColumns() {
+        let long = String(repeating: "x", count: 200)
+        let lines = content([task(["description": long, "label": long + "y", "cwd": "/a/" + long])], columns: 50)[0].components(separatedBy: "\n")
+        XCTAssertEqual(lines.count, 3)
+        XCTAssertTrue(lines.allSatisfy { CrewLine.width($0) <= 44 })
+    }
+
+    func testNoFixedWhite() {
+        for status in ["running", "waiting", "completed"] {
+            XCTAssertFalse(content([task(["status": status])])[0].contains("38;2;255;255;255"))
+        }
+    }
+
+    func testControlCharactersInOutsideTextAreDropped() {
+        let row = content([task(["description": "a\nb\u{1B}[31mc", "label": "x\ry", "cwd": "/u/f\u{1B}o\u{9B}31m\u{202E}"])])[0]
+        let lines = row.components(separatedBy: "\n")
+        XCTAssertEqual(lines.count, 3)
+        // A control character stands for a space, so the words either side stay apart.
+        XCTAssertEqual(plain(lines[0]).dropFirst(1), "  a b [31mc  4m 32s  Opus 5.5")
+        XCTAssertEqual(plain(lines[2]), "    > x y")
+        XCTAssertEqual(row.components(separatedBy: "\u{1B}").count, row.components(separatedBy: "\u{1B}[").count)
+        XCTAssertFalse(row.contains("\u{1B}o"))
+        XCTAssertFalse(row.contains("\u{9B}")); XCTAssertFalse(row.contains("\u{202E}"))
+    }
+
+    func testOddTextNeverLeavesABlankTitleOrHiddenMarks() {
+        let blank = content([task(["description": " \n\t ", "label": ""])])[0]
+        XCTAssertTrue(plain(blank).dropFirst(1).hasPrefix("  Explore  "))
+        let marked = content([task(["description": "Fix\u{2028}it\u{200F}\u{200E}\u{061C} now", "label": ""])])[0]
+        XCTAssertTrue(plain(marked).dropFirst(1).hasPrefix("  Fix it now  "))
+    }
+
+    func testBranchFromGit() throws {
+        let root = NSTemporaryDirectory() + "crewbranch-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        let fm = FileManager.default
+        try fm.createDirectory(atPath: root + "/repo/.git/worktrees/w", withIntermediateDirectories: true)
+        try fm.createDirectory(atPath: root + "/repo/sub/dir", withIntermediateDirectories: true)
+        try fm.createDirectory(atPath: root + "/w", withIntermediateDirectories: true)
+        try fm.createDirectory(atPath: root + "/bare/.git", withIntermediateDirectories: true)
+        try "ref: refs/heads/feature/x\n".write(toFile: root + "/repo/.git/HEAD", atomically: true, encoding: .utf8)
+        try "ref: refs/heads/w\n".write(toFile: root + "/repo/.git/worktrees/w/HEAD", atomically: true, encoding: .utf8)
+        try "gitdir: ../repo/.git/worktrees/w\n".write(toFile: root + "/w/.git", atomically: true, encoding: .utf8)
+        try "0123456789abcdef0123456789abcdef01234567\n".write(toFile: root + "/bare/.git/HEAD", atomically: true, encoding: .utf8)
+        XCTAssertEqual(CrewLine.branch(of: root + "/repo/sub/dir"), "feature/x")
+        XCTAssertEqual(CrewLine.branch(of: root + "/w"), "w")
+        XCTAssertEqual(CrewLine.branch(of: root + "/bare"), "")
+        XCTAssertEqual(CrewLine.branch(of: "/"), "")
+    }
+
+    func testCutInNoRoomAndStrayEscape() {
+        XCTAssertEqual(CrewLine.cut("abc", to: 0), "")
+        XCTAssertEqual(CrewLine.width("a\u{1B}bc"), 4)
+    }
+
+    func testSaraAmTakesItsOwnCell() {
+        XCTAssertEqual(CrewLine.width("น้ำทำ"), 4); XCTAssertEqual(CrewLine.width("กี่"), 1)
+        let text = String(repeating: "ทำความสำคัญน้ำทำงานซ้ำคำนำทำนองจำนำ", count: 4)
+        let lines = content([task(["description": text])], columns: 40)[0].components(separatedBy: "\n")
+        XCTAssertTrue(lines.allSatisfy { CrewLine.width($0) <= 34 })
+        XCTAssertTrue(lines[0].contains("…"))
+    }
+
+    func testOddStartTimesDoNotCrash() {
+        for start in [-1e300, 1e300] { XCTAssertEqual(content([task(["startTime": start])]).count, 1) }
+    }
+
+    func testTinyColumnsStillFit() {
+        let lines = content([task()], columns: 12)[0].components(separatedBy: "\n")
+        XCTAssertTrue(lines.allSatisfy { CrewLine.width($0) <= 6 })
+    }
+}

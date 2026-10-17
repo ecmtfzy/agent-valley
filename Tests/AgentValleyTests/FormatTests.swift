@@ -258,6 +258,12 @@ final class FormatTests: XCTestCase {
             .hasPrefix("claude plugin marketplace add '/Users/me/Cellar/wine/AgentValley.app/Contents/Resources/claude-plugin' && "))
     }
 
+    func testStablePathAndCrewCommand() {
+        XCTAssertEqual(Format.stablePath(URL(fileURLWithPath: "/opt/homebrew/Cellar/agent-valley/0.1.2/AgentValley.app/Contents/MacOS/AgentValley")),
+                       "/opt/homebrew/opt/agent-valley/AgentValley.app/Contents/MacOS/AgentValley")
+        XCTAssertEqual(Format.crewCommand(executable: "/Apps/It's/AgentValley", "install"), #"'/Apps/It'\''s/AgentValley' crew install"#)
+    }
+
     func testAnswersStatusLine() {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         XCTAssertNil(Format.answersStatus(.off, now: now))
@@ -530,6 +536,17 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.removePlugin, "How to remove the plugin")
     }
 
+    // The row for the crew in the terminal says what it does, the two steps, and the way out.
+    func testTheCrewInTheTerminalSaysWhatItDoesAndHowToTakeItOut() {
+        XCTAssertEqual(Format.crewTitle, "Crew in the terminal")
+        XCTAssertEqual(Format.crewWhat, "We show up in Claude Code's terminal too. The status line under the prompt gets this session's face, model, plan and limits, and each sub-agent row gets its face, model and current step. Works with this app closed.")
+        XCTAssertEqual(Format.crewSetup, "How to set it up")
+        XCTAssertEqual(Format.crewSteps.run, "1. Copy this and run it in a terminal. It installs our font and sets statusLine and subagentStatusLine in Claude Code's settings.json. Anything it replaces is kept, and comes back when you take it out.")
+        XCTAssertEqual(Format.crewSteps.restart, "2. Start Claude Code again. If you use Ghostty, quit and reopen it first.")
+        XCTAssertEqual(Format.removeCrew, "How to take it out")
+        XCTAssertEqual(Format.removeCrewNote, "Puts back the status line you had before, and removes our font and the line added to Ghostty's config.")
+    }
+
     // What that sentence says of the plugin is what the plugin's own files do.
     func testWhatIsSaidOfThePluginIsWhatItDoes() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("plugin/notch-answers")
@@ -669,5 +686,11 @@ final class FormatTests: XCTestCase {
     func testTheBandUnderTheSettingsNamesQuitOnlyWhereItIs() {
         XCTAssertEqual(Format.settingsBelow(.general), "More and Quit below")
         XCTAssertEqual(Format.settingsBelow(.actions), "More settings below")
+    }
+
+    func testExportWords() {
+        XCTAssertEqual(Format.exportPDF, "Export PDF")
+        XCTAssertEqual(Format.exportPDFHint, "Makes a PDF report of this period and opens it")
+        XCTAssertEqual(Format.couldNotMakePDF("The disk is full."), "Couldn't make the PDF. The disk is full.")
     }
 }

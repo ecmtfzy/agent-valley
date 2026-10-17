@@ -45,7 +45,7 @@ export function Install() {
           To update: <code>brew upgrade morsechimwai/<wbr />tap/<wbr /><span className="nw">agent-valley</span></code>, then quit the app and open it again.
         </p>
         <p className="small">
-          To remove: if you installed the plugin, run <code>claude plugin uninstall <span className="nw">notch-answers@agent-valley</span> &amp;&amp; claude plugin marketplace remove <span className="nw">agent-valley</span></code> first. Then <code>brew uninstall <span className="nw">agent-valley</span></code>. Your <Word id="history">History</Word> stays in ~/Library/<wbr />Application Support/<wbr />AgentValley until you delete that folder.
+          To remove: first take out what you added yourself. For the plugin, run <code>claude plugin uninstall <span className="nw">notch-answers@agent-valley</span> &amp;&amp; claude plugin marketplace remove <span className="nw">agent-valley</span></code>. For the crew in your terminal, run the command under How to take it out in the app&apos;s Actions settings. Then <code>brew uninstall <span className="nw">agent-valley</span></code>. Your <Word id="history">History</Word> stays in ~/Library/<wbr />Application Support/<wbr />AgentValley until you delete that folder.
         </p>
         <p className="small">
           Stuck? <a href="https://github.com/morsechimwai/agent-valley/issues">Ask on GitHub</a>.

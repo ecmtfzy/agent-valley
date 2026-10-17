@@ -1,6 +1,12 @@
 import AppKit
 import Combine
 
+// Claude Code runs `AgentValley crew status` every few seconds: a command answers and exits
+// before any of the app is touched, so it stays quick and never puts a second notch on screen.
+if CommandLine.arguments.count > 1, CommandLine.arguments[1] == "crew" {
+    exit(Crew.run(Array(CommandLine.arguments.dropFirst(2))))
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = Settings()
     private let store = AgentStore()
@@ -31,6 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.$sessions
             .sink { [answers] sessions in answers.reconcile(with: sessions) }
             .store(in: &watches)
+        // After an update the font the person installed is replaced with the one in this app.
+        if let bundled = Bundle.main.resourceURL?.appendingPathComponent(CrewFont.fileName) {
+            CrewSetup.refreshFont(home: FileManager.default.homeDirectoryForCurrentUser, bundled: bundled)
+        }
         LoginItem.follow(settings)
         store.start()
         notch = NotchWindowController(store: store, settings: settings, limits: limits, answers: answers, sound: SoundPlayer(settings: settings), usage: usage)

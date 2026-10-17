@@ -353,7 +353,7 @@ struct MascotView: View {
     }
 }
 
-/// A square of cells, each its own colour or none.
+/// Rows of cells, each its own colour or none, `size` wide: a mascot's square, or the logo's band.
 struct Pixels: View {
     let cells: [[Character]]
     let size: CGFloat
@@ -362,7 +362,7 @@ struct Pixels: View {
 
     var body: some View {
         Canvas { graphics, canvasSize in
-            let cell = canvasSize.width / CGFloat(cells.count)
+            let cell = canvasSize.width / CGFloat(columns)
             // Edges on whole device pixels: cells of a fractional size left hairlines between them.
             let snap = { (value: CGFloat) in (value * scale).rounded() / scale }
             for (y, row) in cells.enumerated() {
@@ -374,8 +374,10 @@ struct Pixels: View {
                 }
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: size, height: size * CGFloat(cells.count) / CGFloat(columns))
     }
+
+    private var columns: Int { max(1, cells.first?.count ?? 1) }
 }
 
 /// What the bar shows with nothing left to do: a mug of coffee, its steam swaying. Under Reduce

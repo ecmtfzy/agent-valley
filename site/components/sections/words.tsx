@@ -15,6 +15,7 @@ const WORDS: [string, string, string][] = [
   ["bob", "bob", "To move up and down a little."],
   ["valley", "valley", "The ground the crew stands on. \"Put the valley in your notch\" means install AgentValley."],
   ["terminal", "terminal", "The app where you type commands and where Claude Code runs. Terminal, iTerm2 and Ghostty are three."],
+  ["status-line", "status line, prompt", "The prompt is where you type to Claude Code. The status line is the strip under it, which Claude Code lets an app fill in."],
   ["process", "process", "A program while it is running."],
   ["git", ".git, branch", "A project's .git folder holds its history. A branch is one line of work in it."],
   ["jump", "jump, Return", "Jump: bring the agent's app to the front, at its window or tab. Return: the Return key, also called Enter."],

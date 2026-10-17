@@ -125,6 +125,20 @@ struct SettingsView: View {
         Fold(title: Format.removePlugin) {
             commandRow(Format.uninstallCommand, spoken: "Copy the command that removes the plugin")
         }
+        SettingRow(title: Format.crewTitle, caption: Format.crewWhat) { EmptyView() }
+        let crewExe = Format.stablePath(Bundle.main.executableURL ?? Bundle.main.bundleURL)
+        Fold(title: Format.crewSetup) {
+            Text(verbatim: Format.crewSteps.run)
+                .foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+            commandRow(Format.crewCommand(executable: crewExe, "install"), spoken: "Copy the command that puts the crew in the terminal")
+            Text(verbatim: Format.crewSteps.restart)
+                .foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+        }
+        Fold(title: Format.removeCrew) {
+            commandRow(Format.crewCommand(executable: crewExe, "uninstall"), spoken: "Copy the command that takes the crew out of the terminal")
+            Text(verbatim: Format.removeCrewNote)
+                .foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+        }
         SettingRow(title: "Go to the session's tab", caption: Format.tabCaption) {
             Switch(title: "Go to the session's tab", isOn: $settings.goToTab)
         }

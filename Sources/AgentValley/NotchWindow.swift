@@ -454,6 +454,9 @@ final class NotchWindowController: NSObject {
     /// For the "Token use" switch, which History hangs on.
     private let settings: Settings
     private var tokenWatch: AnyCancellable?
+    private var leadLooksWatch: AnyCancellable?
+    /// The bytes last written for `crew status`, so a refresh that changes nothing writes nothing.
+    private var lastLeadLooks: Data?
     /// The panel opened by itself and stays until the cursor has been over it once.
     private var held = false
     /// The island at the last look for the cursor, and the place it shrank from under it.
@@ -478,6 +481,16 @@ final class NotchWindowController: NSObject {
         }
         super.init()
         tokenWatch = settings.$tokenUse.sink { [weak self] on in self?.state.tokenUse(on) }
+        // `crew status` runs without the app's data, so the leads' looks go to it in a small file,
+        // picked among the sessions the panel lists so the terminal shows the notch's faces.
+        leadLooksWatch = store.$sessions.combineLatest(state.$hidden).sink { [weak self] sessions, hidden in
+            guard let self else { return }
+            let data = CrewSetup.leadLooksData(sessions, hidden: hidden)
+            // Remembered only once it is on disk, so a failed write is tried again.
+            if data != self.lastLeadLooks, (try? CrewSetup.writeLeadLooks(data, home: FileManager.default.homeDirectoryForCurrentUser)) != nil {
+                self.lastLeadLooks = data
+            }
+        }
         panel.isOpaque = false
         panel.appearance = NSAppearance(named: .darkAqua)
         panel.backgroundColor = .clear

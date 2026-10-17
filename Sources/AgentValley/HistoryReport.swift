@@ -36,6 +36,12 @@ struct CostLine: Equatable, Identifiable {
     var cost = 0.0
     /// Tokens of answers the price table does not know.
     var unpriced = 0
+    var answers = 0
+    /// Sessions apart.
+    var sessions = 0
+    /// When its first and its last answer were given.
+    var first: Date?
+    var last: Date?
 }
 
 /// One bar: a stretch of time, and what was spent in it.
@@ -69,7 +75,7 @@ struct HistoryReport: Equatable {
     /// A split names this many parts, and puts the rest together as "others": the panel is narrow.
     static let named = 2
 
-    private struct Priced {
+    struct Priced {
         let answer: LedgerAnswer
         let cost: Double?
         let project: String
@@ -106,14 +112,7 @@ struct HistoryReport: Equatable {
         let stretch = interval(of: pick.span, around: pick.anchor, calendar: calendar)
         report.interval = stretch
         report.ready = slice.interval == stretch
-        let known = Projects.known(slice.folders)
-        // Each answer priced once, and each folder named once.
-        var names: [String: String] = [:]
-        let priced = slice.answers.filter { stretch.start <= $0.at && $0.at < stretch.end }.map { answer -> Priced in
-            let project = names[answer.folder] ?? Projects.name(of: answer.folder, home: home, known: known)
-            names[answer.folder] = project
-            return Priced(answer: answer, cost: Pricing.cost(of: answer), project: project)
-        }
+        let priced = priced(slice, in: stretch, home: home)
         // In a project its own answers make the totals and the bars. The list of projects stays
         // the whole stretch's, for the level above.
         let scope = pick.project.map { project in priced.filter { $0.project == project } } ?? priced
@@ -153,12 +152,24 @@ struct HistoryReport: Equatable {
         return report
     }
 
+    /// The answers given in `stretch`, each priced once, and each folder named once.
+    static func priced(_ slice: LedgerSlice, in stretch: DateInterval, home: String) -> [Priced] {
+        let known = Projects.known(slice.folders)
+        var names: [String: String] = [:]
+        return slice.answers.filter { stretch.start <= $0.at && $0.at < stretch.end }.map { answer -> Priced in
+            let project = names[answer.folder] ?? Projects.name(of: answer.folder, home: home, known: known)
+            names[answer.folder] = project
+            return Priced(answer: answer, cost: Pricing.cost(of: answer), project: project)
+        }
+    }
+
     /// The rest of the parts past the first `named` put together as "others", when that is more than one part.
     static func folded(_ lines: [CostLine]) -> [CostLine] {
         guard lines.count > named + 1 else { return lines }
         let rest = lines.dropFirst(named)
         return Array(lines.prefix(named))
-            + [CostLine(id: "others", name: "others", cost: rest.reduce(0) { $0 + $1.cost }, unpriced: rest.reduce(0) { $0 + $1.unpriced })]
+            + [CostLine(id: "others", name: "others", cost: rest.reduce(0) { $0 + $1.cost }, unpriced: rest.reduce(0) { $0 + $1.unpriced },
+                        answers: rest.reduce(0) { $0 + $1.answers }, sessions: rest.reduce(0) { $0 + $1.sessions })]
     }
 
     /// A plugin's agent type goes without the plugin's name, as on the panel's rows.
@@ -166,23 +177,32 @@ struct HistoryReport: Equatable {
         type.split(separator: ":").last.map(String.init) ?? type
     }
 
-    private static func sum(_ priced: [Priced]) -> Double {
+    static func sum(_ priced: [Priced]) -> Double {
         priced.reduce(0) { $0 + ($1.cost ?? 0) }
     }
 
     /// Grouped by `key`, each group added up, costliest first. A group is shown by its key
     /// unless `name` names it from its answers.
-    private static func lines(_ priced: [Priced], by key: (Priced) -> String,
-                              name: (String, [Priced]) -> String = { id, _ in id }) -> [CostLine] {
+    static func lines(_ priced: [Priced], by key: (Priced) -> String,
+                      name: (String, [Priced]) -> String = { id, _ in id }) -> [CostLine] {
         Dictionary(grouping: priced, by: key).map { id, group in
-            CostLine(id: id, name: name(id, group), cost: sum(group),
-                     unpriced: group.reduce(0) { $0 + ($1.cost == nil ? $1.answer.tokens : 0) })
+            var line = CostLine(id: id, name: name(id, group), answers: group.count)
+            var sessions = Set<String>()
+            for item in group {
+                line.cost += item.cost ?? 0
+                if item.cost == nil { line.unpriced += item.answer.tokens }
+                sessions.insert(item.answer.session)
+                line.first = min(line.first ?? item.answer.at, item.answer.at)
+                line.last = max(line.last ?? item.answer.at, item.answer.at)
+            }
+            line.sessions = sessions.count
+            return line
         }
         .sorted { $0.cost != $1.cost ? $0.cost > $1.cost : $0.name < $1.name }
     }
 
     /// A session Claude Code gave no name: its project, and the day of its first answer here.
-    private static func untitled(_ group: [Priced], calendar: Calendar) -> String {
+    static func untitled(_ group: [Priced], calendar: Calendar) -> String {
         let first = group.map(\.answer.at).min() ?? Date()
         return "\(group[0].project) · \(Format.pickTitle(DateInterval(start: first, duration: 0), hourly: false, calendar: calendar))"
     }
@@ -230,6 +250,9 @@ extension Format {
     static let showsSessions = "Shows its sessions"
     /// On the band under the History page when it runs past the edge.
     static let historyBelow = "More below"
+    static let exportPDF = "Export PDF"
+    static let exportPDFHint = "Makes a PDF report of this period and opens it"
+    static func couldNotMakePDF(_ reason: String) -> String { "Couldn't make the PDF. " + reason }
 
     /// "$1,234.56". A sum too small for a cent, but more than nothing, is "<$0.01".
     static func dollars(_ value: Double) -> String {
@@ -242,7 +265,7 @@ extension Format {
         line.cost == 0 && line.unpriced > 0 ? "—" : dollars(line.cost)
     }
 
-    private static func date(_ format: String, _ date: Date, _ calendar: Calendar) -> String {
+    static func date(_ format: String, _ date: Date, _ calendar: Calendar) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.calendar = calendar
@@ -285,7 +308,7 @@ extension Format {
         lines.map { "\($0.name), \(dollars($0))" }.joined(separator: "; ")
     }
 
-    private static func count(_ value: Int) -> String {
+    static func count(_ value: Int) -> String {
         value.formatted(.number.locale(Locale(identifier: "en_US")))
     }
 
