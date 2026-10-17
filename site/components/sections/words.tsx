@@ -22,6 +22,8 @@ const WORDS: [string, string, string][] = [
   ["tokens", "tokens", "The small pieces of text a model reads and writes. Use and cost are counted in them."],
   ["api", "API prices", "What Anthropic charges for each token you use without a Claude plan. API stands for application programming interface."],
   ["history", "History", "The panel's page of past costs, and the record of them it keeps on your Mac."],
+  ["pdf", "PDF", "A file that looks the same on every screen and printer. PDF stands for Portable Document Format."],
+  ["statement", "statement of work", "A summary of the work done in a stretch of time and what it cost, to keep or to send to whoever pays."],
   ["limits", "Plan limits", "How much of your Claude plan you may use in 5 hours and in a week."],
   ["homebrew", "Homebrew", "A free tool that installs apps on a Mac from the terminal. Its command is brew."],
   ["build", "build, the source", "To build is to make an app from its code, the source. Homebrew does it on your Mac."],

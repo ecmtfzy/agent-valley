@@ -385,3 +385,20 @@ a.w:hover{text-decoration-style:solid}
   html:not(.still) .face:hover img:nth-child(3){animation:second .8s steps(1) infinite}
 }
 }
+
+/* The PDF report's motion: its still, and over it the player once the page may move. */
+.r-figure{position:relative;margin:0;overflow:hidden;border-radius:14px;background:#f3f2ed}
+.r-still{display:block;width:100%;height:auto}
+.r-player{position:absolute;inset:0;display:none}
+/* Played by the scroll (report-scrub.tsx sets data-scrub and the track's eleven screens): the copy
+   and the picture held under the bar meanwhile, the picture no wider than the screen's height
+   leaves room for, the copy above it on a narrow screen. */
+@media screen{
+  .report[data-scrub] .r-stage{position:sticky;top:64px;height:calc(100svh - 64px);align-content:safe center}
+  .report[data-scrub] .r-player{display:block}
+  .report[data-scrub] .r-picture{width:min(100%,calc((100svh - 64px - 16rem) * 4 / 3));justify-self:center}
+}
+@media screen and (min-width:900px){
+  .report[data-scrub] .r-picture{width:min(100%,calc((100svh - 64px - 6rem) * 4 / 3))}
+}
+@media print{.r-track{height:auto!important}}

@@ -17,6 +17,12 @@
 #                             footer lays them out. The dark copy has light letters for GitHub's dark theme.
 #   testing/site.sh photo     Writes docs/crew-photo.webp, the crew photo framed as the site shows it,
 #                             for the README.
+#   testing/site.sh report    Draws the report motion from the app: the History page and the two
+#                             PDFs of a made-up September (ReportMotionAssetsTests), as WebP in
+#                             site/public/report-motion with their totals in site/motion; then,
+#                             with Remotion, the still the site shows where nothing moves and
+#                             docs/report-motion.gif for the README. Remotion fetches its Chrome
+#                             on its first render.
 #   testing/site.sh check     Installs, tests and builds the site; every line of the spec's copy is
 #                             on the page, every file it points to is there, nothing is loaded
 #                             from another site, and the browser tests pass.
@@ -99,6 +105,39 @@ HTML
     python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).save(sys.argv[2], quality=86, method=6)' \
         "$work/photo.png" docs/crew-photo.webp
     ls -l docs/crew-photo.webp
+    ;;
+report)
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    REPORT_MOTION_OUT="$work" swift test --filter ReportMotionAssetsTests >/dev/null
+    for n in all shop-web; do sips -s format png -Z 2400 "$work/report-$n.pdf" --out "$work/report-$n.png" >/dev/null; done
+    # The page cut to the panel; each PDF page 1300 wide, enough for the camera's 2.35 times.
+    mkdir -p site/public/report-motion "$work/public"
+    python3 -I - "$work" site/public/report-motion <<'PY'
+import sys
+from PIL import Image
+work, out = sys.argv[1], sys.argv[2]
+for n in ('all', 'shop-web'):
+    page = Image.open(f'{work}/history-{n}.png').convert('RGBA')
+    page.crop(page.getbbox()).save(f'{out}/history-{n}.webp', quality=86, method=6)
+    sheet = Image.open(f'{work}/report-{n}.png').convert('RGB')
+    sheet.resize((1300, round(1300 * sheet.height / sheet.width)), Image.LANCZOS).save(f'{out}/report-{n}.webp', quality=86, method=6)
+PY
+    cp "$work/totals.json" site/motion/report-totals.json
+    # What Remotion reads, the font with it: kept out of site/public, where the site loads its own.
+    cp site/public/report-motion/history-*.webp site/public/report-motion/report-*.webp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
+    (cd site && npx remotion still motion/index.tsx ReportMotion "$work/still.png" --frame=232 --scale=1.25 \
+        --props='{"loop":false,"base":""}' --public-dir="$work/public" --log=error)
+    python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], quality=86, method=6)' \
+        "$work/still.png" site/public/report-motion/still.webp
+    (cd site && npx remotion render motion/index.tsx ReportMotion ../docs/report-motion.gif --codec=gif --every-nth-frame=2 --scale=0.6 \
+        --props='{"loop":true,"base":""}' --public-dir="$work/public" --log=error --overwrite)
+    ls -l site/public/report-motion site/motion/report-totals.json docs/report-motion.gif
+    sips -g pixelWidth -g pixelHeight site/public/report-motion/still.webp docs/report-motion.gif | grep pixel
+    if [ "$(stat -f %z docs/report-motion.gif)" -gt 5242880 ]; then
+        echo "docs/report-motion.gif is over 5 MB: lower its --scale." >&2
+        exit 1
+    fi
     ;;
 logo)
     # The crew (16×13) and the name (88×12) in one drawing, bottom edges level and four mark pixels

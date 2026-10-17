@@ -9,6 +9,7 @@ import { Install } from '@/components/sections/install';
 import { Nav } from '@/components/sections/nav';
 import { NeedsYou } from '@/components/sections/needs-you';
 import { Problem } from '@/components/sections/problem';
+import { Report } from '@/components/sections/report';
 import { Rows } from '@/components/sections/rows';
 import { Terminal } from '@/components/sections/terminal';
 import { Trust } from '@/components/sections/trust';
@@ -24,6 +25,7 @@ export default function Home() {
         <Rows />
         <NeedsYou />
         <Costs />
+        <Report />
         <Terminal />
         <Trust />
         <Crew />

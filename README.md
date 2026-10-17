@@ -43,7 +43,8 @@ To remove: first take out what you added yourself. For the plugin, run `claude p
 - **Know the moment one needs you.** When an agent asks a question or waits for permission, a red count appears beside the notch. Open the panel to read the question or the command.
 - **Jump to its app in one click.** Turn on Go to the session's tab, and Terminal and iTerm2 open the exact tab. Ghostty does too, unless two sessions run in the same folder.
 - **Answer from the notch.** Allow once or Deny, using a plugin you install yourself: turn on `Answer from the notch` in the settings, run the command it shows, then start Claude Code again.
-- **See what each project cost.** History by day, week or month, at API prices. Open it from the chart button at the top of the panel. Kept on your Mac, even after Claude Code clears its old files.
+- **See what each project cost.** History by day, week or month, at API prices. Open it from the chart button at the top of the panel. Kept on your Mac, even after Claude Code clears its old files. Export PDF writes a statement of work: every project for you, or one for your team or a client.<br>
+  <img src="docs/report-motion.gif" alt="The History page in the notch panel. Export PDF prints a statement of work for every project, then the panel picks shop-web and prints one for that project alone. Each page opens with its total." width="544">
 - **The crew in your terminal too.** Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. One command from the app's Actions settings sets it up, and it keeps working with the app closed.<br>
   <img src="docs/terminal.png" alt="Claude Code in a terminal. Under the prompt, the status line shows Sunny's face, Opus 5.5 and Max 20x, then bars for context, the 5-hour limit and the weekly limit. Below it, two sub-agent rows, each with a little face, its task, time, model, folder, branch and current step." width="544">
 - **Plan limits.** Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on.
@@ -100,3 +101,5 @@ There's a spare chair in the computer room. Bugs and ideas go in an [issue](http
 ## License
 
 MIT. Made by morsechimwai. Not affiliated with Anthropic.
+
+The PDF report's motion, here and on the site, is made with [Remotion](https://www.remotion.dev), under its own license.

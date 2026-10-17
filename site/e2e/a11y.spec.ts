@@ -20,3 +20,15 @@ test('no AAA violations with the panel shut', async ({ page }) => {
   const { violations } = await check(page);
   expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
 });
+
+test.describe('with the report player loaded', () => {
+  test.use({ reducedMotion: 'no-preference', viewport: { width: 1280, height: 800 } });
+  test('no AAA violations with the report player loaded', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.report[data-scrub]').waitFor();
+    await page.locator('.r-track').evaluate((t: HTMLElement) => scrollTo(0, t.getBoundingClientRect().top + scrollY + (t.offsetHeight - innerHeight) / 2));
+    await page.waitForTimeout(300);
+    const { violations } = await check(page);
+    expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+  });
+});
