@@ -18,11 +18,15 @@
 #   testing/site.sh photo     Writes docs/crew-photo.webp, the crew photo framed as the site shows it,
 #                             for the README.
 #   testing/site.sh report    Draws the report motion from the app: the History page and the two
-#                             PDFs of a made-up September (ReportMotionAssetsTests), as WebP in
-#                             site/public/report-motion with their totals in site/motion; then,
-#                             with Remotion, the still the site shows where nothing moves and
-#                             docs/report-motion.gif for the README. Remotion fetches its Chrome
-#                             on its first render.
+#                             PDFs of a made-up September (ReportMotionAssetsTests), their totals
+#                             in site/motion; then, with Remotion, the first page's head that the
+#                             site shows (site/public/report-sheet.webp) and docs/report-motion.gif
+#                             for the README. Remotion fetches its Chrome on its first render.
+#   testing/site.sh needs-you Draws the needs-you motion's pictures from the app: the panel shut
+#                             while three made-up sessions work, shut with the red 1, open on the
+#                             request and open once it is allowed (NeedsYouMotionAssetsTests), as
+#                             WebP in site/public/needs-you; then, with Remotion, the still the
+#                             site shows where nothing moves.
 #   testing/site.sh check     Installs, tests and builds the site; every line of the spec's copy is
 #                             on the page, every file it points to is there, nothing is loaded
 #                             from another site, and the browser tests pass.
@@ -111,9 +115,10 @@ report)
     trap 'rm -rf "$work"' EXIT
     REPORT_MOTION_OUT="$work" swift test --filter ReportMotionAssetsTests >/dev/null
     for n in all shop-web; do sips -s format png -Z 2400 "$work/report-$n.pdf" --out "$work/report-$n.png" >/dev/null; done
-    # The page cut to the panel; each PDF page 1300 wide, enough for the camera's 2.35 times.
-    mkdir -p site/public/report-motion "$work/public"
-    python3 -I - "$work" site/public/report-motion <<'PY'
+    # What Remotion reads: the page cut to the panel; each PDF page 1300 wide, enough for the
+    # camera's 2.35 times; the font. Kept out of site/public, which serves only what the site shows.
+    mkdir -p "$work/public"
+    python3 -I - "$work" "$work/public" <<'PY'
 import sys
 from PIL import Image
 work, out = sys.argv[1], sys.argv[2]
@@ -124,20 +129,54 @@ for n in ('all', 'shop-web'):
     sheet.resize((1300, round(1300 * sheet.height / sheet.width)), Image.LANCZOS).save(f'{out}/report-{n}.webp', quality=86, method=6)
 PY
     cp "$work/totals.json" site/motion/report-totals.json
-    # What Remotion reads, the font with it: kept out of site/public, where the site loads its own.
-    cp site/public/report-motion/history-*.webp site/public/report-motion/report-*.webp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
-    (cd site && npx remotion still motion/index.tsx ReportMotion "$work/still.png" --frame=232 --scale=1.25 \
-        --props='{"loop":false,"base":""}' --public-dir="$work/public" --log=error)
-    python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], quality=86, method=6)' \
-        "$work/still.png" site/public/report-motion/still.webp
+    cp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
+    # The camera held on the first page's head (BEATS.zoomA).
+    (cd site && npx remotion still motion/index.tsx ReportMotion "$work/still.png" --frame=74 --scale=1.25 \
+        --props='{"loop":false}' --public-dir="$work/public" --log=error)
+    # Without the empty grey above the page.
+    python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").crop((0, 120, 1500, 1125)).save(sys.argv[2], quality=86, method=6)' \
+        "$work/still.png" site/public/report-sheet.webp
     (cd site && npx remotion render motion/index.tsx ReportMotion ../docs/report-motion.gif --codec=gif --every-nth-frame=2 --scale=0.6 \
-        --props='{"loop":true,"base":""}' --public-dir="$work/public" --log=error --overwrite)
-    ls -l site/public/report-motion site/motion/report-totals.json docs/report-motion.gif
-    sips -g pixelWidth -g pixelHeight site/public/report-motion/still.webp docs/report-motion.gif | grep pixel
+        --props='{"loop":true}' --public-dir="$work/public" --log=error --overwrite)
+    ls -l site/public/report-sheet.webp site/motion/report-totals.json docs/report-motion.gif
+    sips -g pixelWidth -g pixelHeight site/public/report-sheet.webp docs/report-motion.gif | grep pixel
     if [ "$(stat -f %z docs/report-motion.gif)" -gt 5242880 ]; then
         echo "docs/report-motion.gif is over 5 MB: lower its --scale." >&2
         exit 1
     fi
+    ;;
+needs-you)
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    NEEDS_YOU_MOTION_OUT="$work" swift test --filter NeedsYouMotionAssetsTests >/dev/null
+    # All four cut by one box, the open panel's, so they lie over one another in the motion.
+    mkdir -p site/public/needs-you "$work/public"
+    python3 -I - "$work" site/public/needs-you <<'PY'
+import sys
+from PIL import Image
+work, out = sys.argv[1], sys.argv[2]
+names = ('shut-working', 'shut-asking', 'open-asking', 'open-allowed')
+pictures = {n: Image.open(f'{work}/{n}.png').convert('RGBA') for n in names}
+left = pictures['open-asking'].getbbox()[0]
+box = (left, 0, left + 1088, 840)
+# Where the motion (site/motion/needs-you-motion.tsx: PANEL, ISLAND, HEIGHT) expects the app's
+# shapes, in the cut pictures' pixels. When the app draws them elsewhere, change both.
+expected = {'open-asking': (0, 0, 1088, 836), 'open-allowed': (0, 0, 1088, 742), 'shut-working': (244, 0, 844, 76), 'shut-asking': (244, 0, 844, 76)}
+for n, want in expected.items():
+    got = pictures[n].crop(box).getbbox()
+    if got != want:
+        sys.exit(f'{n} is drawn at {got}, the motion expects {want}: change site/motion/needs-you-motion.tsx with it.')
+for n, picture in pictures.items():
+    picture.crop(box).save(f'{out}/{n}.webp', quality=88, method=6)
+PY
+    # The entry loads the report's font for every composition.
+    cp site/public/needs-you/shut-*.webp site/public/needs-you/open-*.webp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
+    # The panel open on the request, the pointer on the notch (BEATS.toCard's start).
+    (cd site && npx remotion still motion/index.tsx NeedsYouMotion "$work/still.png" --frame=80 --scale=1.25 \
+        --props='{"base":""}' --public-dir="$work/public" --log=error)
+    python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], quality=86, method=6)' \
+        "$work/still.png" site/public/needs-you/still.webp
+    ls -l site/public/needs-you
     ;;
 logo)
     # The crew (16×13) and the name (88×12) in one drawing, bottom edges level and four mark pixels

@@ -1,15 +1,14 @@
 import type React from 'react';
 import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from 'remotion';
-import { SCRUB } from '../lib/report-scrub';
 import totals from './report-totals.json';
 
 // The History page exports a PDF twice: every project, then shop-web alone. The pictures are the
-// app's own, drawn by testing/site.sh report. On the site the frame follows the scroll; the
-// README's GIF plays it round with `loop`, which fades it in and out.
+// app's own, drawn by testing/site.sh report. The site shows one frame, the camera on the first
+// page's head; the README's GIF plays it round with `loop`, which fades it in and out.
 // Files here import one another by relative paths: Remotion's bundler does not read tsconfig paths.
 
 export const REPORT_MOTION = { width: 1200, height: 900, fps: 30, durationInFrames: 240 } as const;
-export type ReportMotionProps = { readonly loop: boolean; readonly base: string };
+export type ReportMotionProps = { readonly loop: boolean };
 
 const PICTURE = {
   page: 'history-all.webp',
@@ -17,8 +16,6 @@ const PICTURE = {
   sheetAll: 'report-all.webp',
   sheetProject: 'report-shop-web.webp',
 } as const;
-/** What the motion draws from, for the site to have ready before the player covers its still. */
-export const PICTURES = Object.values(PICTURE);
 
 const { width: W, height: H } = REPORT_MOTION;
 const PAPER = 'rgb(250,247,239)';
@@ -32,9 +29,10 @@ const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 const tween = (f: number, a: number, b: number, from: number, to: number, easing = snap) =>
   interpolate(f, [a, b], [from, to], { ...clamp, easing });
 
-// In frames. The count ends before the camera moves in, so the zoom shows the PDF's own total.
+// In frames; with `loop` it fades in before start and out after end. The count ends before the
+// camera moves in, so the zoom shows the PDF's own total.
 export const BEATS = {
-  start: SCRUB.start,
+  start: 8,
   toExport: [8, 22],
   pressExport: 24,
   outA: [26, 40],
@@ -49,7 +47,7 @@ export const BEATS = {
   countB: [136, 154],
   zoomB: [156, 170, 200, 212],
   away: [212, 226],
-  end: SCRUB.end,
+  end: 232,
   total: REPORT_MOTION.durationInFrames,
 } as const;
 
@@ -97,8 +95,8 @@ const Ring: React.FC<{ x: number; y: number; w: number; h: number; t: number }> 
   />
 );
 
-// While it counts, the total is written over the page's own in the site's mono face, the same
-// on every computer; once counted the cover goes and the PDF's figure shows.
+// While it counts, the total is written over the page's own in Geist Mono, the same on every
+// computer; once counted the cover goes and the PDF's figure shows.
 const Sheet: React.FC<{ src: string; total: number; counting: number | null; style: React.CSSProperties }> = ({ src, total, counting, style }) => (
   <div style={{ position: 'absolute', width: 1696, height: 2400, transformOrigin: '0 0', boxShadow: '0 30px 80px rgba(0,0,0,.28)', ...style }}>
     <Img src={src} style={{ width: 1696, height: 2400, display: 'block' }} />
@@ -112,8 +110,7 @@ const Sheet: React.FC<{ src: string; total: number; counting: number | null; sty
           height: TOTAL.height,
           background: PAPER,
           textAlign: 'right',
-          // The site names its Geist Mono in --font-geist-mono; the command line loads it as Geist Mono.
-          fontFamily: 'var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace',
+          fontFamily: '"Geist Mono", ui-monospace, monospace',
           fontWeight: 700,
           fontSize: 75,
           lineHeight: 1,
@@ -129,9 +126,8 @@ const Sheet: React.FC<{ src: string; total: number; counting: number | null; sty
   </div>
 );
 
-export const ReportMotion: React.FC<ReportMotionProps> = ({ loop, base }) => {
+export const ReportMotion: React.FC<ReportMotionProps> = ({ loop }) => {
   const f = useCurrentFrame();
-  const file = (name: string) => (base ? base + name : staticFile(name));
   const B = BEATS;
 
   const keys = [B.toExport[0], B.toExport[1], B.toShopWeb[0], B.toShopWeb[1], B.toExport2[0], B.toExport2[1], B.away[0], B.away[1]];
@@ -177,14 +173,14 @@ export const ReportMotion: React.FC<ReportMotionProps> = ({ loop, base }) => {
         }}
       >
         <div style={{ position: 'absolute', left: PANEL.x, top: PANEL.y, width: 1088 * PANEL.scale, filter: `brightness(${1 - outA * 0.12 - zoom * 0.5})` }}>
-          <Img src={file(PICTURE.page)} style={{ width: '100%', display: 'block', opacity: 1 - projectPage }} />
-          <Img src={file(PICTURE.projectPage)} style={{ width: '100%', display: 'block', position: 'absolute', top: 0, opacity: projectPage }} />
+          <Img src={staticFile(PICTURE.page)} style={{ width: '100%', display: 'block', opacity: 1 - projectPage }} />
+          <Img src={staticFile(PICTURE.projectPage)} style={{ width: '100%', display: 'block', position: 'absolute', top: 0, opacity: projectPage }} />
         </div>
         <Ring x={EXPORT.x - 4} y={EXPORT.y} w={118} h={38} t={ring(B.pressExport)} />
         <Ring x={SHOP_WEB.x + 30} y={SHOP_WEB.y} w={110} h={34} t={ring(B.pressShopWeb, 7)} />
         <Ring x={EXPORT.x - 4} y={EXPORT.y} w={118} h={38} t={ring(B.pressExport2)} />
-        {outA > 0 && <Sheet src={file(PICTURE.sheetAll)} total={totals.all} counting={count(B.countA)} style={sheet(outA, sheetA)} />}
-        {outB > 0 && <Sheet src={file(PICTURE.sheetProject)} total={totals['shop-web']} counting={count(B.countB)} style={sheet(outB, sheetB)} />}
+        {outA > 0 && <Sheet src={staticFile(PICTURE.sheetAll)} total={totals.all} counting={count(B.countA)} style={sheet(outA, sheetA)} />}
+        {outB > 0 && <Sheet src={staticFile(PICTURE.sheetProject)} total={totals['shop-web']} counting={count(B.countB)} style={sheet(outB, sheetB)} />}
         <Cursor x={cx} y={cy} press={press} />
       </AbsoluteFill>
     </AbsoluteFill>

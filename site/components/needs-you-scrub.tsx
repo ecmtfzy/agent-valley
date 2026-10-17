@@ -2,11 +2,11 @@
 
 import type { PlayerRef } from '@remotion/player';
 import { useEffect, useRef, useState } from 'react';
-import { frameAt, progressOf } from '@/lib/report-scrub';
+import { frameAt, progressOf, SCRUB } from '@/lib/scrub';
 
 type Loaded = {
   Player: typeof import('@remotion/player').Player;
-  motion: typeof import('@/motion/report-motion');
+  motion: typeof import('@/motion/needs-you-motion');
 };
 
 // Where the page may move: not with Reduce Motion, nor on a screen too short to hold the copy
@@ -14,18 +14,18 @@ type Loaded = {
 // data-scrub alone, so the track changes only here, where the reader's place is kept.
 const MAY_MOVE = '(prefers-reduced-motion: no-preference) and (min-height: 560px)';
 
-// The report motion over its still, played by the scroll: the section's track grows to eleven
-// screens and the frame is how far through it the screen is. Remotion loads only when the
-// section is near and may move.
-export function ReportScrub() {
+// The needs-you motion over its still, played by the scroll: the section's track grows to
+// SCRUB.screens screens and the frame is how far through it the screen is. Remotion loads only
+// when the section is near and may move.
+export function NeedsYouScrub() {
   const player = useRef<PlayerRef>(null);
   const frame = useRef(0);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
 
   useEffect(() => {
-    const section = document.querySelector<HTMLElement>('section.report');
-    const track = section?.querySelector<HTMLElement>('.r-track');
-    const figure = section?.querySelector<HTMLElement>('.r-figure');
+    const section = document.querySelector<HTMLElement>('section.needs-you');
+    const track = section?.querySelector<HTMLElement>('.s-track');
+    const figure = section?.querySelector<HTMLElement>('.s-figure');
     if (!section || !track || !figure) return;
     const html = document.documentElement;
     const media = matchMedia(MAY_MOVE);
@@ -53,7 +53,7 @@ export function ReportScrub() {
     // when it folds is brought back to the section.
     const fit = () => {
       const may = !failed && media.matches && !html.classList.contains('still');
-      const height = may ? `${11 * screen.offsetHeight}px` : '';
+      const height = may ? `${SCRUB.screens * screen.offsetHeight}px` : '';
       if (track.style.height !== height || section.hasAttribute('data-scrub') !== may) {
         const before = track.getBoundingClientRect();
         const y = scrollY;
@@ -73,9 +73,9 @@ export function ReportScrub() {
     const load = () => {
       if (loading) return;
       loading = true;
-      Promise.all([import('@remotion/player'), import('@/motion/report-motion')])
+      Promise.all([import('@remotion/player'), import('@/motion/needs-you-motion')])
         .then(async ([{ Player }, motion]) => {
-          await Promise.all(motion.PICTURES.map((name) => Object.assign(new Image(), { src: `/report-motion/${name}` }).decode()));
+          await Promise.all(motion.PICTURES.map((name) => Object.assign(new Image(), { src: `/needs-you/${name}` }).decode()));
           setLoaded({ Player, motion });
         })
         .catch(() => {
@@ -117,15 +117,15 @@ export function ReportScrub() {
   if (!loaded) return null;
   const { Player, motion } = loaded;
   return (
-    <div className="r-player" inert aria-hidden="true">
+    <div className="s-player" inert aria-hidden="true">
       <Player
         ref={player}
-        component={motion.ReportMotion}
-        compositionWidth={motion.REPORT_MOTION.width}
-        compositionHeight={motion.REPORT_MOTION.height}
-        durationInFrames={motion.REPORT_MOTION.durationInFrames}
-        fps={motion.REPORT_MOTION.fps}
-        inputProps={{ loop: false, base: '/report-motion/' }}
+        component={motion.NeedsYouMotion}
+        compositionWidth={motion.NEEDS_YOU_MOTION.width}
+        compositionHeight={motion.NEEDS_YOU_MOTION.height}
+        durationInFrames={motion.NEEDS_YOU_MOTION.durationInFrames}
+        fps={motion.NEEDS_YOU_MOTION.fps}
+        inputProps={{ base: '/needs-you/' }}
         initialFrame={frame.current}
         controls={false}
         clickToPlay={false}

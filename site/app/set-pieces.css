@@ -115,14 +115,14 @@ html{scroll-padding-top:80px}
 .p-dim .i+span{margin-right:1em}
 .defs{position:absolute;width:0;height:0;overflow:hidden}
 .draw{display:contents}
-.panel em,.ask em,.anatomy em{font-style:normal;font-weight:600;color:var(--red-text)}
+.panel em,.anatomy em{font-style:normal;font-weight:600;color:var(--red-text)}
 .p-card{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:.9em .7em;margin-top:.7em;padding:.9em;border-radius:1em;background:var(--app-card)}
 .p-line{display:flex;justify-content:space-between;gap:1em}
 .p-line b{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .p-line span{flex:none;white-space:nowrap}
 .p-dim,.model{color:var(--app-dim)}
 .p-go{display:inline-block;margin-top:.6em;padding:.25em .7em;border-radius:.4em;background:var(--app-fg);color:var(--ink)}
-.panel .m,.ask .m,.anatomy .m{--s:2.2em}
+.panel .m,.anatomy .m{--s:2.2em}
 
 /* A mascot: the pose, and over it the pose it moves to. Timed as the app's: a tick of 0.4 s. */
 .m{--hop:max(-2px,calc(var(--s,20px) / -12));position:relative;display:inline-block;flex:none;width:var(--s,20px);height:var(--s,20px)}
@@ -200,20 +200,6 @@ html{scroll-padding-top:80px}
   .t-meters>span+span{margin-left:0;padding-left:0;border-left:0}
 }
 
-/* The bar as it looks most of the day, and a request it opens to */
-.ask{display:grid;gap:18px;justify-items:center;font:400 clamp(.82rem,1.6vw,.95rem)/1.5 var(--app);color:var(--app-fg)}
-.strip{--bar:46px;display:flex;align-items:center;height:46px;padding:0 14px;border-radius:0 0 18px 18px;background:var(--ink);gap:10px}
-.strip .m{--s:28px}
-.strip .count{min-width:24px;height:24px;font-size:15px;line-height:24px}
-.strip .gap{position:relative;width:150px;height:100%}
-.strip .gap::after{content:"";position:absolute;top:30%;left:50%;width:8px;height:8px;transform:translateX(-50%);border-radius:50%;background:var(--lens);box-shadow:inset 0 0 0 1px var(--lens-rim)}
-.strip .gauge{width:22px;height:22px}
-.ask .p-card{width:min(100%,460px);margin:0}
-.ask .p-line{flex-wrap:wrap;column-gap:1em}
-.ask .p-line b{white-space:normal}
-.answer{display:flex;gap:8px;margin-top:.8em}
-.answer span{padding:.35em .9em;border-radius:.45em;background:var(--app-fg);color:var(--ink)}
-.answer span+span{background:var(--app-key);color:var(--app-fg)}
 
 /* History as the app draws it, with made-up numbers on the reader's own calendar to click through */
 
@@ -386,19 +372,26 @@ a.w:hover{text-decoration-style:solid}
 }
 }
 
-/* The PDF report's motion: its still, and over it the player once the page may move. */
-.r-figure{position:relative;margin:0;overflow:hidden;border-radius:14px;background:#f3f2ed}
-.r-still{display:block;width:100%;height:auto}
-.r-player{position:absolute;inset:0;display:none}
-/* Played by the scroll (report-scrub.tsx sets data-scrub and the track's eleven screens): the copy
-   and the picture held under the bar meanwhile, the picture no wider than the screen's height
-   leaves room for, the copy above it on a narrow screen. */
+/* The PDF report's first page, on the grey it was drawn on. */
+.r-sheet{display:block;width:100%;height:auto;border-radius:14px;background:#f3f2ed}
+
+/* The needs-you motion: its still, and over it the player once the page may move. */
+.s-figure{position:relative;margin:0;overflow:hidden;border-radius:14px;background:#f3f2ed}
+.s-still{display:block;width:100%;height:auto}
+.s-player{position:absolute;inset:0;display:none}
+/* Played by the scroll (needs-you-scrub.tsx sets data-scrub and the track's height): the picture
+   held under the bar meanwhile, no taller than the screen leaves room for; side by side, on a
+   screen 40 of the reader's own text sizes tall (ems follow the browser's text size), the copy
+   beside it is held too, and grows rather than spill if it still does not fit. */
 @media screen{
-  .report[data-scrub] .r-stage{position:sticky;top:64px;height:calc(100svh - 64px);align-content:safe center}
-  .report[data-scrub] .r-player{display:block}
-  .report[data-scrub] .r-picture{width:min(100%,calc((100svh - 64px - 16rem) * 4 / 3));justify-self:center}
+  [data-scrub] .s-stage{position:sticky;top:64px;display:grid;height:calc(100svh - 64px);align-content:safe center}
+  [data-scrub] .s-player{display:block}
+  [data-scrub] .s-figure{width:min(100%,calc((100svh - 64px - 2rem) * 4 / 3));justify-self:center}
 }
 @media screen and (min-width:900px){
-  .report[data-scrub] .r-picture{width:min(100%,calc((100svh - 64px - 6rem) * 4 / 3))}
+  [data-scrub] .s-copy{align-self:start}
 }
-@media print{.r-track{height:auto!important}}
+@media screen and (min-width:900px) and (min-height:40em){
+  [data-scrub] .s-copy{position:sticky;top:64px;display:flex;flex-direction:column;justify-content:safe center;min-height:calc(100svh - 64px)}
+}
+@media print{.s-track{height:auto!important}}
