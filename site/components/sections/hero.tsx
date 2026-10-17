@@ -39,7 +39,7 @@ export function Hero() {
       </div>
       {/* Stacked, the heading and the copy below it are one block; the picture keeps its distance. */}
       <div className="mt-8 min-[900px]:mt-0 min-[900px]:[grid-area:screen]">
-        <p className="notch-note" aria-hidden="true">The notch. Press it to open or close the panel. On your Mac, point at it.</p>
+        <p className="notch-note" aria-hidden="true">The notch. Point at it or press it to open the panel.</p>
         <HeroScreen>
           <ScreenDrawing />
         </HeroScreen>

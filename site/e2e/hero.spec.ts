@@ -11,6 +11,110 @@ test('the notch shuts and opens the panel, and the picture says so', async ({ pa
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
 });
 
+// With a mouse the hero's panel behaves as the app's: a pointer resting on the bar opens it, one
+// leaving the panel shuts it, one only crossing the bar does nothing.
+test.describe('pointing at the notch', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+  const screen = (page: import('@playwright/test').Page) => page.locator('.screen');
+  const centre = async (page: import('@playwright/test').Page, selector: string) => {
+    const box = (await page.locator(selector).boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const ready = async (page: import('@playwright/test').Page) => {
+    await page.goto('/');
+    await expect(screen(page)).toHaveAttribute('data-opened', '', { timeout: 2000 });
+  };
+  // A place beside the picture, off it.
+  const away = async (page: import('@playwright/test').Page) => {
+    const box = (await screen(page).boundingBox())!;
+    await page.mouse.move(box.x - 20, box.y + box.height / 2);
+  };
+
+  test('a pointer that leaves the panel shuts it, and one resting on the bar opens it again', async ({ page }) => {
+    await ready(page);
+    const panel = await centre(page, '.screen .panel');
+    await page.mouse.move(panel.x, panel.y);
+    await away(page);
+    await expect(screen(page)).toHaveAttribute('data-state', 'shut');
+    const bar = await centre(page, '.bar-hit');
+    await page.mouse.move(bar.x, bar.y);
+    await expect(screen(page)).toHaveAttribute('data-state', 'open');
+    await expect(page.getByRole('button', { name: 'The notch: the AgentValley panel' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('a pointer that never came in leaves the panel open', async ({ page }) => {
+    await ready(page);
+    await away(page);
+    await page.mouse.move(200, 600);
+    await page.waitForTimeout(500);
+    await expect(screen(page)).toHaveAttribute('data-state', 'open');
+  });
+
+  test('a pointer only crossing the bar does not open it', async ({ page }) => {
+    await ready(page);
+    const panel = await centre(page, '.screen .panel');
+    await page.mouse.move(panel.x, panel.y);
+    await away(page);
+    await expect(screen(page)).toHaveAttribute('data-state', 'shut');
+    const bar = await centre(page, '.bar-hit');
+    await page.mouse.move(bar.x, bar.y);
+    await away(page);
+    await page.waitForTimeout(400);
+    await expect(screen(page)).toHaveAttribute('data-state', 'shut');
+  });
+
+  test('pressed shut, it stays shut under the resting pointer until the pointer goes and comes back', async ({ page }) => {
+    await ready(page);
+    const notch = page.getByRole('button', { name: 'The notch: the AgentValley panel' });
+    await notch.click();
+    await page.waitForTimeout(400);
+    await expect(screen(page)).toHaveAttribute('data-state', 'shut');
+    const bar = await centre(page, '.bar-hit');
+    await away(page);
+    await page.mouse.move(bar.x, bar.y);
+    await expect(screen(page)).toHaveAttribute('data-state', 'open');
+  });
+
+  test('Esc shuts the panel the pointer is in', async ({ page }) => {
+    await ready(page);
+    const panel = await centre(page, '.screen .panel');
+    await page.mouse.move(panel.x, panel.y);
+    await page.keyboard.press('Escape');
+    await expect(screen(page)).toHaveAttribute('data-state', 'shut');
+  });
+
+  test('Esc with the pointer on the bar keeps it shut while the pointer rests there', async ({ page }) => {
+    await ready(page);
+    const bar = await centre(page, '.bar-hit');
+    await page.mouse.move(bar.x, bar.y);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    await expect(screen(page)).toHaveAttribute('data-state', 'shut');
+  });
+
+  test('a pointer passing over the picture while it first opens does not leave it shut', async ({ page }) => {
+    await page.goto('/');
+    // The button shows once React is here, the moment the 400 ms before the first opening start.
+    await page.locator('.bar-hit').waitFor();
+    const panel = await centre(page, '.screen .panel');
+    await page.mouse.move(panel.x, panel.y);
+    await away(page);
+    await page.waitForTimeout(1000);
+    await expect(screen(page)).toHaveAttribute('data-state', 'open');
+  });
+});
+
+test.describe('on a touch screen', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  test('a tap on the notch shuts the panel, and it stays shut', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.screen')).toHaveAttribute('data-opened', '', { timeout: 2000 });
+    await page.getByRole('button', { name: 'The notch: the AgentValley panel' }).tap();
+    await page.waitForTimeout(500);
+    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
+  });
+});
+
 test('at the top the bar wears the block-letter name alone; down the page, only the crew in the notch', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
