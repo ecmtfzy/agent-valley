@@ -20,7 +20,7 @@
 #   testing/site.sh report    Draws the report motion from the app: the History page and the two
 #                             PDFs of a made-up September (ReportMotionAssetsTests), their totals
 #                             in site/motion; then, with Remotion, the first page's head that the
-#                             site shows (site/public/report-sheet.webp) and docs/report-motion.gif
+#                             site shows, on nothing (site/public/report-sheet.webp), and docs/report-motion.gif
 #                             for the README. Remotion fetches its Chrome on its first render.
 #   testing/site.sh needs-you Draws the needs-you motion's pictures from the app: the panel shut
 #                             while three made-up sessions work, shut with the red 1, open on the
@@ -130,11 +130,10 @@ for n in ('all', 'shop-web'):
 PY
     cp "$work/totals.json" site/motion/report-totals.json
     cp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
-    # The camera held on the first page's head (BEATS.zoomA).
+    # The camera held on the first page's head (BEATS.zoomA), on nothing, cut to the page and its shadow.
     (cd site && npx remotion still motion/index.tsx ReportMotion "$work/still.png" --frame=74 --scale=1.25 \
-        --props='{"loop":false}' --public-dir="$work/public" --log=error)
-    # Without the empty grey above the page.
-    python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").crop((0, 120, 1500, 1125)).save(sys.argv[2], quality=86, method=6)' \
+        --props='{"loop":false,"bare":true}' --public-dir="$work/public" --log=error)
+    python3 -I -c 'import sys; from PIL import Image; i = Image.open(sys.argv[1]).convert("RGBA"); i.crop(i.getchannel("A").getbbox()).save(sys.argv[2], quality=86, alpha_quality=90, method=6)' \
         "$work/still.png" site/public/report-sheet.webp
     (cd site && npx remotion render motion/index.tsx ReportMotion ../docs/report-motion.gif --codec=gif --every-nth-frame=2 --scale=0.6 \
         --props='{"loop":true}' --public-dir="$work/public" --log=error --overwrite)
@@ -172,7 +171,7 @@ PY
     # The entry loads the report's font for every composition.
     cp site/public/needs-you/shut-*.webp site/public/needs-you/open-*.webp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
     # The panel open on the request, the pointer on the notch (BEATS.toCard's start).
-    (cd site && npx remotion still motion/index.tsx NeedsYouMotion "$work/still.png" --frame=80 --scale=1.25 \
+    (cd site && npx remotion still motion/index.tsx NeedsYouMotion "$work/still.png" --frame=100 --scale=1.25 \
         --props='{"base":""}' --public-dir="$work/public" --log=error)
     python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], quality=86, method=6)' \
         "$work/still.png" site/public/needs-you/still.webp

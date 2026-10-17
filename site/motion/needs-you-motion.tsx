@@ -1,13 +1,10 @@
 import type React from 'react';
 import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from 'remotion';
-import { SCRUB } from '../lib/scrub';
 
 // The bar beside the notch while three agents work; one asks to push, the bar shows a red 1, the
 // pointer opens the panel, Allow once, and the agent goes back to work. The four pictures are
-// the app's own panel, drawn by testing/site.sh needs-you. The site plays it by the scroll.
-// Files here import one another by relative paths: Remotion's bundler does not read tsconfig paths.
-
-export const NEEDS_YOU_MOTION = { width: 1200, height: 900, fps: 30, durationInFrames: SCRUB.end + 1 } as const;
+// the app's own panel, drawn by testing/site.sh needs-you. The site plays it round and round:
+// it ends on the bar it starts on.
 export type NeedsYouMotionProps = { readonly base: string };
 
 const PICTURE = {
@@ -19,7 +16,7 @@ const PICTURE = {
 /** What the motion draws from, for the site to have ready before the player covers its still. */
 export const PICTURES = Object.values(PICTURE);
 
-const { width: W } = NEEDS_YOU_MOTION;
+const W = 1200;
 const BG = '#f3f2ed';
 const AMBER = '#ffb000';
 const RED = '#f0503c';
@@ -30,28 +27,30 @@ const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 const tween = (f: number, a: number, b: number, from: number, to: number, easing = snap) =>
   interpolate(f, [a, b], [from, to], { ...clamp, easing });
 
-// In frames.
+// In frames, at 30 a second: a second and a half to read the request, one to see it allowed.
 export const BEATS = {
-  ask: [18, 24],
-  ring: 20,
-  pointIn: [34, 50],
+  ask: [30, 36],
+  ring: 32,
+  pointIn: [54, 70],
   // The black island grows into the panel, then what is in it comes in; on the way back the other way round.
-  grow: [52, 66],
-  fill: [60, 72],
+  grow: [72, 86],
+  fill: [80, 92],
   // The camera leaves the bar ahead of the island, and comes back to it behind.
-  wide: [44, 62],
-  toCard: [80, 94],
-  toAllow: [86, 100],
-  pressAllow: 104,
-  // A cut, as the app redraws the card: any fade shows both cards at once, and the scroll can stop on it.
-  allowed: 110,
-  settle: [110, 122],
-  pointOut: [128, 142],
-  empty: [144, 150],
-  shrink: [146, 162],
-  narrow: [150, 168],
-  end: SCRUB.end,
+  wide: [64, 82],
+  toCard: [100, 114],
+  toAllow: [128, 142],
+  pressAllow: 146,
+  // A cut, as the app redraws the card: any fade shows both cards at once.
+  allowed: 152,
+  settle: [152, 164],
+  pointOut: [180, 194],
+  empty: [196, 202],
+  shrink: [198, 214],
+  narrow: [202, 220],
+  end: 240,
 } as const;
+
+export const NEEDS_YOU_MOTION = { width: W, height: 900, fps: 30, durationInFrames: BEATS.end + 1 } as const;
 
 // The pictures are 1088 × 840, cut alike from the panel at two pixels to the point, the top of
 // the screen at their top edge. Places below are in their pixels; testing/site.sh needs-you

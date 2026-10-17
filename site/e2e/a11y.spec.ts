@@ -25,8 +25,7 @@ test.describe('with the needs-you player loaded', () => {
   test.use({ reducedMotion: 'no-preference', viewport: { width: 1280, height: 800 } });
   test('no AAA violations with the needs-you player loaded', async ({ page }) => {
     await page.goto('/');
-    await page.locator('.needs-you[data-scrub]').waitFor();
-    await page.locator('.s-track').evaluate((t: HTMLElement) => scrollTo(0, t.getBoundingClientRect().top + scrollY + (t.offsetHeight - innerHeight) / 2));
+    await page.locator('.needs-you').scrollIntoViewIfNeeded();
     await page.locator('.s-player').waitFor();
     await page.waitForTimeout(300);
     const { violations } = await check(page);

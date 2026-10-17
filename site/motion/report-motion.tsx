@@ -4,11 +4,11 @@ import totals from './report-totals.json';
 
 // The History page exports a PDF twice: every project, then shop-web alone. The pictures are the
 // app's own, drawn by testing/site.sh report. The site shows one frame, the camera on the first
-// page's head; the README's GIF plays it round with `loop`, which fades it in and out.
+// page's head, drawn `bare`, on nothing; the README's GIF plays it round with `loop`, which fades it in and out.
 // Files here import one another by relative paths: Remotion's bundler does not read tsconfig paths.
 
 export const REPORT_MOTION = { width: 1200, height: 900, fps: 30, durationInFrames: 240 } as const;
-export type ReportMotionProps = { readonly loop: boolean };
+export type ReportMotionProps = { readonly loop: boolean; readonly bare?: boolean };
 
 const PICTURE = {
   page: 'history-all.webp',
@@ -126,7 +126,7 @@ const Sheet: React.FC<{ src: string; total: number; counting: number | null; sty
   </div>
 );
 
-export const ReportMotion: React.FC<ReportMotionProps> = ({ loop }) => {
+export const ReportMotion: React.FC<ReportMotionProps> = ({ loop, bare = false }) => {
   const f = useCurrentFrame();
   const B = BEATS;
 
@@ -163,7 +163,7 @@ export const ReportMotion: React.FC<ReportMotionProps> = ({ loop }) => {
   });
 
   return (
-    <AbsoluteFill style={{ background: BG }}>
+    <AbsoluteFill style={{ background: bare ? undefined : BG }}>
       <AbsoluteFill
         style={{
           opacity: fade,
