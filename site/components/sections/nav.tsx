@@ -3,8 +3,8 @@ import { StillToggle } from '@/components/still-toggle';
 import { Button } from '@/components/ui/button';
 import { Wordmark } from '@/components/wordmark';
 
-// The full logo at the very top, the crew and the block-letter name; down the page the name folds
-// away and the crew in the notch stays. The link keeps its name either way.
+// The block-letter name at the very top; down the page the crew in the notch takes its place.
+// The link keeps its name either way.
 export function Nav() {
   return (
     <header className="wrap nav">

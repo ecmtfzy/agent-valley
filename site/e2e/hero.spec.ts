@@ -11,15 +11,15 @@ test('the notch shuts and opens the panel, and the picture says so', async ({ pa
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
 });
 
-test('at the top the bar wears the full logo; down the page, only the crew in the notch', async ({ page }) => {
+test('at the top the bar wears the block-letter name alone; down the page, only the crew in the notch', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
   const bar = page.locator('header.nav');
   const home = bar.getByRole('link', { name: 'AgentValley', exact: true });
   const mark = home.locator('img[src="/mark.svg"]');
   const name = home.locator('svg.wordmark');
-  await expect(mark).toBeVisible();
   await expect(name).toBeVisible();
+  await expect(mark).toBeHidden();
   await expect(bar.getByText('A small valley of programmers in your notch.')).toHaveCount(0);
   await expect(bar.getByRole('link', { name: 'Words on this page' })).toHaveCount(0);
   for (const label of ['AgentValley on GitHub', 'Install']) await expect(bar.getByRole('link', { name: label })).toBeVisible();
@@ -29,6 +29,7 @@ test('at the top the bar wears the full logo; down the page, only the crew in th
   await expect(home).toHaveAccessibleName('AgentValley');
   await page.evaluate(() => scrollTo(0, 0));
   await expect(name).toBeVisible();
+  await expect(mark).toBeHidden();
 });
 
 test('a narrow phone wears the name at the top and the crew down the page', async ({ page }) => {
@@ -93,10 +94,10 @@ test('the hero says, in a badge of its own, that the app is for Claude Code alon
   await expect(page.locator('.hero img[alt*="Claude" i], .hero svg[aria-label*="Claude" i]')).toHaveCount(0);
 });
 
-test('the footer signs off with the full logo: the crew and the block-letter name', async ({ page }) => {
+test('the footer signs off with the block-letter name alone', async ({ page }) => {
   await page.goto('/');
   const foot = page.locator('footer');
-  await expect(foot.locator('img[src="/mark.svg"]')).toBeVisible();
+  await expect(foot.locator('img[src="/mark.svg"]')).toHaveCount(0);
   await expect(foot.getByRole('img', { name: 'AgentValley' })).toBeVisible();
   await expect(foot.locator('svg.wordmark')).toBeVisible();
 });

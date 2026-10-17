@@ -10,21 +10,24 @@
 html{scroll-padding-top:80px}
 .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;min-height:64px}
 .nav::before{content:"";position:absolute;z-index:-1;inset:0 calc(50% - 50vw);background:var(--background);border-bottom:1px solid var(--border)}
-.brand{display:flex;align-items:center;gap:10px;min-height:44px;text-decoration:none}
-.brand img{flex:none;image-rendering:pixelated}
-/* The name beside the crew at the crew's pixel size, two to one, three on a wide screen. Down the
-   page it wipes away letter by letter, as the old bar's did; the crew stays where it was. */
-.nav .wordmark{flex:none;width:176px;height:24px;clip-path:inset(0);transition:clip-path .3s steps(11)}
-.mini .wordmark{clip-path:inset(0 100% 0 0);visibility:hidden;transition:clip-path .3s steps(11),visibility 0s .3s}
+.brand{display:grid;align-items:center;min-height:44px;text-decoration:none}
+.brand>*{grid-area:1/1;justify-self:start}
+/* The name at the very top, the crew down the page, in one spot. Going down, the letters are pulled
+   up into the top of the screen one after another and the crew drops out of it, as the notch would;
+   going back up, the crew is pulled up and the letters fall back into place. */
+.brand img{image-rendering:pixelated;visibility:hidden;transform:translateY(-64px);transition:transform .2s cubic-bezier(.6,0,.9,.4),visibility 0s .2s}
+.mini .brand img{visibility:visible;transform:none;transition:transform .45s cubic-bezier(.3,1.6,.5,1) .2s}
+.nav .wordmark{width:176px;height:24px;overflow:visible}
+.nav .wordmark rect{transition:transform .4s cubic-bezier(.3,1.5,.6,1) calc(.12s + var(--i) * 30ms)}
+.mini .wordmark{visibility:hidden;transition:visibility 0s .5s}
+.mini .wordmark rect{transform:translateY(-30px);transition:transform .22s cubic-bezier(.6,0,.9,.4) calc(var(--i) * 25ms)}
 .mini .wordmark .d{animation-play-state:paused}
-.still .nav .wordmark{transition:none}
+.still .nav .brand img,.still .nav .wordmark,.still .nav .wordmark rect{transition:none}
 @media (min-width:768px){.brand img{width:48px;height:39px}.nav .wordmark{width:264px;height:36px}}
-/* Too narrow for both beside the buttons: the name alone at the top, the crew alone down the page;
-   narrower still, the crew alone throughout. */
-@media (max-width:399px){.nav:not(.mini) .brand img{display:none}.mini .wordmark{display:none}}
-@media (max-width:359px){.nav:not(.mini) .brand img{display:block}.nav .wordmark{display:none}}
+/* Too narrow for the name beside the buttons: the crew alone throughout. */
+@media (max-width:359px){.nav .wordmark{display:none}.nav .brand img{visibility:visible;transform:none;transition:none}}
 .wordmark{fill:var(--foreground)}
-/* At the foot the name stands beside the crew at the crew's pixel size: two to one, three on a wider screen. */
+/* At the foot the name alone, two pixels to a unit, three on a wider screen. */
 .foot .wordmark{display:block;width:176px;height:24px}
 @media (min-width:480px){.foot .wordmark{width:264px;height:36px}}
 /* The shade's dots light up in a wave every few seconds, as the lamps did on the front panel of a

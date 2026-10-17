@@ -1,17 +1,14 @@
 import { SponsorButton } from '@/components/sponsor-button';
 import { Wordmark } from '@/components/wordmark';
 
-// The full logo on the left with the motto under it, the links on the right, and the small print
-// under a rule. The crew and the name share one pixel size.
+// The block-letter name on the left with the motto under it, the links on the right, and the small
+// print under a rule.
 export function Footer() {
   return (
     <footer className="wrap foot border-t pt-12 pb-10 font-mono text-sm text-muted-foreground">
       <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-6">
         <div>
-          <div className="flex items-end gap-3">
-            <img className="h-[26px] w-8 flex-none [image-rendering:pixelated] min-[480px]:h-[39px] min-[480px]:w-12" src="/mark.svg" alt="" width="48" height="39" />
-            <Wordmark />
-          </div>
+          <Wordmark />
           <p className="mt-3">A small valley of programmers in your notch.</p>
         </div>
         {/* The page asks for the crew's coffee twice, both after the install: under their photo and here. */}
