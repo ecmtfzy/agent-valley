@@ -42,7 +42,7 @@ export function Terminal() {
             <p className="t-prompt">&gt; Find where we take payments, then plan refunds</p>
             <p><Mascot who="guru" pose="still" /><b>Opus 5.5</b><span className="t-dim">· Max 20x</span></p>
             <p className="t-meters">
-              <span><span className="t-dim">ctx</span> <Bar percent={34} /> <b>34%</b></span>
+              <span><span className="t-dim">context</span> <Bar percent={34} /> <b>34%</b></span>
               <span><span className="t-dim">5h</span> <Bar percent={41} /> <b>41%</b> <span className="t-dim">↻ 2h 10m</span></span>
               <span><span className="t-dim">7d</span> <Bar percent={62} /> <b>62%</b> <span className="t-dim">↻ 3d 4h</span></span>
             </p>
