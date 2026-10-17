@@ -55,12 +55,18 @@ final class ReportMotionAssetsTests: XCTestCase {
             var d = 0
             while day < month.end {
                 let weekend = calendar.isDateInWeekend(day)
-                let count = Int((project.busy * (weekend ? 30 : 104) * (0.75 + 0.5 * Double((d * 7 + p * 3) % 5) / 4)).rounded())
+                // In steps with their types written: one expression was too much for CI's compiler.
+                let perDay: Double = weekend ? 30 : 104
+                let step = (d * 7 + p * 3) % 5
+                let variation: Double = 0.75 + 0.5 * Double(step) / 4
+                let count = Int((project.busy * perDay * variation).rounded())
                 // A session runs for a few days, then the next one takes over.
                 let s = (d / 4 + p) % project.sessions.count
+                // From nine in the morning, spread over ten hours.
+                let gap: Double = 36_000 / Double(max(count, 1))
                 for n in 0..<count {
                     serial += 1
-                    let at = day.addingTimeInterval(9 * 3600 + Double(n) * (10 * 3600 / Double(max(count, 1))))
+                    let at = day.addingTimeInterval(32_400 + Double(n) * gap)
                     let model = pick(project.models, at: (Double(serial) * 0.618_033_988_7).truncatingRemainder(dividingBy: 1))
                     let agent = pick(project.agents, at: (Double(serial) * 0.414_213_562_4).truncatingRemainder(dividingBy: 1))
                     let output = 3_000 + (serial * 7919) % 7_000
@@ -112,7 +118,7 @@ final class ReportMotionAssetsTests: XCTestCase {
             totals.append(String(format: "\"%@\": %.2f", name, document.total))
         }
         // In cents as the PDF prints them; JSONSerialization would write 1414.6600000000001.
-        try ("{" + totals.joined(separator: ", ") + "}\n").write(toFile: "\(out)/totals.json", atomically: true, encoding: .utf8)
+        try "{\(totals.joined(separator: ", "))}\n".write(toFile: "\(out)/totals.json", atomically: true, encoding: .utf8)
 
         // The page in the panel, off the screen, as PanelPicturesTests draws it.
         let empty = URL(fileURLWithPath: base + "/none")
