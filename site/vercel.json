@@ -11,5 +11,15 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/ingest/array/(.*)",
+      "destination": "https://us-assets.i.posthog.com/array/$1"
+    },
+    {
+      "source": "/ingest/(.*)",
+      "destination": "https://us.i.posthog.com/$1"
+    }
   ]
 }

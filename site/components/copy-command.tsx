@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { announce } from '@/components/announcer';
+import { track } from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -22,8 +23,11 @@ export function CopyCommand({ children }: { children: React.ReactNode }) {
   async function copy() {
     clearTimeout(reset.current);
     let said = 'Copied';
+    const command = code.current!.textContent ?? '';
+    // The closest the site gets to counting installs.
+    track('command copied', { command });
     try {
-      await navigator.clipboard.writeText(code.current!.textContent ?? '');
+      await navigator.clipboard.writeText(command);
     } catch {
       getSelection()?.selectAllChildren(code.current!);
       said = /Mac|iPhone|iPad/.test(navigator.platform) ? 'Press ⌘C' : 'Press Ctrl+C';

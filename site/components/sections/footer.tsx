@@ -21,6 +21,8 @@ export function Footer() {
       </div>
       <div className="mt-8 flex flex-wrap justify-between gap-x-6 gap-y-1 border-t pt-5 text-[.8125rem]">
         <p>Made by morsechimwai</p>
+        {/* lib/analytics.ts; the app itself counts nothing. */}
+        <p>This page counts visits with PostHog. No cookies.</p>
         <p>Not affiliated with Anthropic.</p>
       </div>
     </footer>
