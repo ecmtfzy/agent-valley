@@ -1,3 +1,4 @@
+import { HuntPumpkin } from '@/components/hunt';
 import { Mascot, type Person } from '@/components/mascot';
 import { Reveal } from '@/components/reveal';
 import { Word } from '@/components/word';
@@ -31,6 +32,7 @@ export function Terminal() {
         </p>
         <p>One command from the app&apos;s settings sets it up. It keeps working with the app closed.</p>
         <p className="text-muted-foreground">We travel as a font, and we&apos;ve been seen in Terminal, iTerm2, Ghostty and Cursor.</p>
+        <HuntPumpkin n={2} />
       </div>
       <Reveal>
         <figure

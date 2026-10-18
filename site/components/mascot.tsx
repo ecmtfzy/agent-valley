@@ -25,11 +25,25 @@ export function Mascot({ who, pose, size, dot, className }: { who: Person; pose:
 }
 
 // Nothing running: a cup of coffee, steaming.
-export function Mug() {
+export function Mug({ className }: { className?: string }) {
   return (
-    <span className="m steam">
+    <span className={cn('m steam', className)}>
       <img src="/mascots/mug-0.svg" alt="" loading="lazy" />
       <img src="/mascots/mug-1.svg" alt="" loading="lazy" />
+    </span>
+  );
+}
+
+// Halloween: a carved pumpkin, its candle flickering on the mug's steam beat; unlit, only carved.
+export function Pumpkin({ lit = true, className }: { lit?: boolean; className?: string }) {
+  return lit ? (
+    <span className={cn('m steam', className)}>
+      <img src="/mascots/pumpkin-0.svg" alt="" loading="lazy" />
+      <img src="/mascots/pumpkin-1.svg" alt="" loading="lazy" />
+    </span>
+  ) : (
+    <span className={cn('m', className)}>
+      <img src="/mascots/pumpkin-off.svg" alt="" loading="lazy" />
     </span>
   );
 }

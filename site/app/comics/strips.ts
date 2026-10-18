@@ -136,4 +136,23 @@ export const STRIPS: Strip[] = [
       ['4', 'Felix reads a single card from the box while Walt scratches his head: “Something with a login button.”'],
     ],
   },
+  {
+    slug: 'tab-7',
+    title: 'Tab 7',
+    date: '2026-10-18',
+    starring: 'Pearl and Walt',
+    deck: 'Midnight, lights out. Pearl and Walt check the terminals, and one is still asking Sunny’s question from lunch on Tuesday.',
+    inside: 'Inside: how to find the tab that asked, and how to get back to the rest.',
+    alt: 'Four-panel comic. 11:58 PM, Pearl stands in a dark doorway with a flashlight: “Someone’s still in the building.” 11:59 PM, she walks past a row of dark terminals: “Tab 3, empty. Tab 5, empty.” 12:00 AM, one screen still glows beside a jack-o’-lantern, a dialog on it from Tuesday 12:01: “First, may I run npm install?” 12:00 AM, Walt, lit from below by his flashlight: “That’s Sunny’s, from lunch on Tuesday.” Pearl: “Poor thing. It’s still waiting.”',
+    headline: 'Tab 7: a Claude Code session still waiting since Tuesday',
+    description:
+      'A four-panel comic about a Claude Code tab that has waited for permission since Tuesday lunch, and how to find the tab that asked and get back to the rest.',
+    lead: 'Midnight in the office. Pearl and Walt walk the dark terminals with a flashlight, and one tab is still asking the question Sunny left at lunch on Tuesday.',
+    panels: [
+      ['11:58 PM', 'Pearl stands in a dark doorway with a flashlight: “Someone’s still in the building.”'],
+      ['11:59 PM', 'She walks past a row of dark terminals: “Tab 3, empty. Tab 5, empty.”'],
+      ['12:00 AM', 'One screen still glows beside a jack-o’-lantern, a dialog on it from Tuesday 12:01: “First, may I run npm install?”'],
+      ['12:00 AM', 'Walt, lit from below by his flashlight: “That’s Sunny’s, from lunch on Tuesday.” Pearl: “Poor thing. It’s still waiting.”'],
+    ],
+  },
 ];

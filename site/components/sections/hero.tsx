@@ -3,6 +3,7 @@ import { FloatingBits } from '@/components/floating-bits';
 import { HeroScreen } from '@/components/hero-screen';
 import { Icon } from '@/components/icons';
 import { Mascot } from '@/components/mascot';
+import { TrickOrTreat } from '@/components/trick-or-treat';
 
 export function Hero() {
   return (
@@ -64,16 +65,39 @@ export function OnPhone() {
   );
 }
 
+// Halloween night on the wallpaper, under the panel: a moon, three bats, and a spider let down on
+// its thread from under the notch, with a note in pen.
+function Night() {
+  return (
+    <div className="night hw" aria-hidden="true">
+      <i className="moon" />
+      {['b1', 'b2', 'b3'].map((b) => (
+        <span key={b} className={`m wave bat ${b}`}>
+          <img src="/mascots/bat-0.svg" alt="" loading="lazy" />
+          <img src="/mascots/bat-1.svg" alt="" loading="lazy" />
+        </span>
+      ))}
+      <span className="web">
+        <i className="silk" />
+        <img className="spider" src="/mascots/spider.svg" alt="" loading="lazy" />
+      </span>
+      <p className="spider-note">He moved in last week. Pays no rent.</p>
+    </div>
+  );
+}
+
 // The top of a MacBook screen: menu bar, the notch with the bar beside it, the panel under it, and
 // the crew standing in the valley below.
 function ScreenDrawing() {
   return (
     <>
-      <div className="menubar">
+      <div className="menubar" aria-hidden="true">
         <span className="menus"><i /><i /><i /></span>
         <span className="status"><i className="battery" /><span className="clock">Thu 9:41</span></span>
       </div>
+      <Night />
       <div className="panel">
+        <div className="draw" aria-hidden="true">
         <div className="p-top">
           <span className="p-left">
             <span className="seg"><b>ALL</b>STATUS</span>
@@ -85,8 +109,10 @@ function ScreenDrawing() {
           </span>
           <span className="p-icons"><Icon id="mute" /><Icon id="pin" /><Icon id="chart" /><Icon id="help" /><Icon id="gear" /></span>
         </div>
-        <div className="p-head"><em>1 needs you</em><span className="extra"> · 3 working</span></div>
-        <div className="p-card">
+        <div className="p-head wait-only"><em>1 needs you</em><span className="extra"> · 3 working</span></div>
+        <div className="p-head after-only">4 working</div>
+        </div>
+        <div className="p-card not-hw" aria-hidden="true">
           <Mascot who="guru" pose="wave" dot />
           <div>
             <p className="p-line">
@@ -98,7 +124,8 @@ function ScreenDrawing() {
             <span className="p-go">Go to Terminal</span>
           </div>
         </div>
-        <div className="p-card">
+        <TrickOrTreat />
+        <div className="p-card" aria-hidden="true">
           <Mascot who="walrus" pose="work" />
           <div>
             <p className="p-line"><b className="t">Refactor checkout flow <Icon id="out" /></b><span>3m 16s <span className="model">Opus 5.5</span></span></p>
@@ -116,13 +143,14 @@ function ScreenDrawing() {
             <p className="p-dim">&gt; Edit cart.test.ts · 4 steps</p>
           </div>
         </div>
+        <i className="lights hw" aria-hidden="true"><b /><b /></i>
       </div>
-      <div className="bar">
-        <span className="wing"><Mascot who="guru" pose="wave" /><span className="count">1</span></span>
+      <div className="bar" aria-hidden="true">
+        <span className="wing"><Mascot who="guru" pose="wave" className="wait-only" /><Mascot who="guru" pose="work" className="after-only" /><span className="count wait-only">1</span></span>
         <span className="lens" />
         <span className="wing"><span className="gauge" /></span>
       </div>
-      <div className="valley">
+      <div className="valley" aria-hidden="true">
         <Mascot who="guru" pose="wave" />
         <Mascot who="walrus" pose="work" />
         <Mascot who="afro" pose="work" />

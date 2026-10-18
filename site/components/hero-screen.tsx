@@ -1,12 +1,25 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useEffect, useRef, useState } from 'react';
 
-// The picture's words follow it: open, the panel; shut, the bar.
+// The picture's words follow it: open, the panel; shut, the bar. Once the Halloween row has its
+// answer (trick-or-treat.tsx), nobody waits any more.
 const TOLD = {
   open: 'The top of a MacBook screen. The AgentValley panel is open under the notch: one session needs you, another is working with two sub-agents. Below, the crew stands in the valley.',
   shut: 'The top of a MacBook screen. Beside the notch, a waving programmer and a red 1: an agent needs you. Below, the crew stands in the valley.',
 };
+const TOLD_ANSWERED = {
+  open: 'The top of a MacBook screen. The AgentValley panel is open under the notch: four agents are working, and nobody needs you. Below, the crew stands in the valley.',
+  shut: 'The top of a MacBook screen. Beside the notch, a working programmer: nobody needs you. Below, the crew stands in the valley.',
+};
+
+// What the panel's own parts may know of the picture: open or shut, and the Halloween row's answer.
+export type Answer = 'allow' | 'deny';
+export const ScreenContext = createContext<{ state: 'open' | 'shut'; answered: Answer | null; answer: (a: Answer) => void }>({
+  state: 'open',
+  answered: null,
+  answer: () => {},
+});
 
 // How long a mouse rests on the bar before the panel opens, as the app waits (EntryWatch.dwell):
 // one crossing the bar on its way elsewhere is gone by then.
@@ -21,7 +34,9 @@ const DWELL = 100;
 export function HeroScreen({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<'open' | 'shut'>('open');
   const [ready, setReady] = useState(false);
+  const [answered, setAnswered] = useState<Answer | null>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const figure = useRef<HTMLElement>(null);
   // Whether the mouse is in the panel or on the bar; whether resting on the bar may open it (not
   // right after it was Esc'd shut there); the wait before it opens; what last pressed the bar.
   const inside = useRef(false);
@@ -79,16 +94,25 @@ export function HeroScreen({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // An answered row's buttons go; a keyboard that was on one lands back on the notch.
+  const answer = (a: Answer) => {
+    const had = figure.current?.contains(document.activeElement);
+    setAnswered(a);
+    if (had) button.current?.focus();
+  };
+
   return (
     <figure
+      ref={figure}
       className="screen"
       data-state={state}
       data-ready={ready ? '' : undefined}
+      data-answered={answered ?? undefined}
       onPointerMove={(e) => track(e)}
       onPointerLeave={(e) => track(e, true)}
     >
-      <span role="img" aria-label={TOLD[state]} />
-      <div aria-hidden="true">{children}</div>
+      <span role="img" aria-label={(answered ? TOLD_ANSWERED : TOLD)[state]} />
+      {/* The notch comes first for the keyboard: the panel it opens follows it. */}
       <button
         ref={button}
         className="bar-hit"
@@ -104,6 +128,10 @@ export function HeroScreen({ children }: { children: React.ReactNode }) {
           presser.current = '';
         }}
       />
+      {/* The drawing hides its own parts from screen readers, all but the Halloween row's buttons. */}
+      <ScreenContext.Provider value={{ state, answered, answer }}>
+        <div>{children}</div>
+      </ScreenContext.Provider>
     </figure>
   );
 }

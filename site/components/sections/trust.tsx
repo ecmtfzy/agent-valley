@@ -1,3 +1,4 @@
+import { HuntPumpkin } from '@/components/hunt';
 import { Reveal } from '@/components/reveal';
 import { Word } from '@/components/word';
 
@@ -17,6 +18,7 @@ export function Trust() {
           <li>Never answers for you. Allow happens only when you choose it.</li>
           <li><Word id="open">Open source</Word>. Read every line on GitHub.</li>
         </ul>
+        <HuntPumpkin n={3} className="ml-auto" />
       </Reveal>
     </section>
   );

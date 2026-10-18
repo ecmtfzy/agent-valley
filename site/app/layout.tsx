@@ -3,9 +3,11 @@ import { GeistMono } from 'geist/font/mono';
 import { GeistSans } from 'geist/font/sans';
 import { Caveat } from 'next/font/google';
 import { Announcer } from '@/components/announcer';
+import { HalloweenTouches } from '@/components/halloween-touches';
 import { IconSprite } from '@/components/icons';
 import './globals.css';
 import { CSP } from '@/lib/csp';
+import { isHalloween } from '@/lib/halloween';
 import { FEED } from './comics/strips';
 
 // The hand the row's notes are written in; Next keeps a copy with the site, so nothing loads from Google.
@@ -61,9 +63,11 @@ const WEBSITE = { '@context': 'https://schema.org', '@type': 'WebSite', name: 'A
 // Before the first paint: js marks that scripts run, so a picture may wait to come up; a stop
 // chosen on an earlier visit holds from the start, not a moment later. If React has not arrived
 // 3 s later (a bundle blocked, failed or too slow), js goes again and the page stands as it does
-// without scripts.
+// without scripts. Then Halloween (lib/halloween.ts): on by the visitor's date, or by ?halloween,
+// which this browser remembers until ?halloween=0.
 const EARLY =
-  "var d=document.documentElement;d.classList.add('js');setTimeout(function(){d.hasAttribute('data-live')||d.classList.remove('js')},3000);try{localStorage.getItem('still')==='1'&&d.classList.add('still')}catch(e){}";
+  "var d=document.documentElement;d.classList.add('js');setTimeout(function(){d.hasAttribute('data-live')||d.classList.remove('js')},3000);try{localStorage.getItem('still')==='1'&&d.classList.add('still')}catch(e){}" +
+  `;var q=new URLSearchParams(location.search).get('halloween'),f=q!==null&&q!=='0';try{q==='0'?localStorage.removeItem('halloween'):f?localStorage.setItem('halloween','1'):f=localStorage.getItem('halloween')==='1'}catch(e){};(f||(${isHalloween.toString()})(new Date()))&&d.classList.add('halloween');try{JSON.parse(localStorage.getItem('pumpkins')||'[]').length===5&&(d.dataset.pumpkins='all')}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -79,6 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <IconSprite />
         {children}
         <Announcer />
+        <HalloweenTouches />
       </body>
     </html>
   );

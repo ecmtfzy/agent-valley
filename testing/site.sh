@@ -292,8 +292,8 @@ check)
         [ -e "site/out/${ref#/}" ] || { echo "missing file: $ref"; fail=1; }
     done < <(grep -oE '(src|href)="[^"#:]+"|url\([^):]+\)' "$page" | sed -E 's/^(src|href)="//; s/"$//; s/^url\(//; s/\)$//' | sort -u)
     # 3. Nothing is loaded from another site: links may leave, resources may not. The canonical
-    #    link names the page's own address and loads nothing.
-    if grep -oE '<[^>]+>' "$page" | grep -E '(src|srcset)="https?:|url\(["'"'"']?https?:|<link[^>]+href="https?:' | grep -v 'rel="canonical"'; then
+    #    link and the funnies' feed link name the site's own addresses and load nothing.
+    if grep -oE '<[^>]+>' "$page" | grep -E '(src|srcset)="https?:|url\(["'"'"']?https?:|<link[^>]+href="https?:' | grep -vE 'rel="(canonical|alternate)"'; then
         echo "external resource"; fail=1
     fi
     # 4. In a browser: the head and SEO, Copy, the notch, History, motion, no scripts, every

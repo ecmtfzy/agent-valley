@@ -1,4 +1,5 @@
 import { HistoryPanel } from '@/components/history-panel';
+import { HuntPumpkin } from '@/components/hunt';
 import { Word } from '@/components/word';
 
 export function Costs() {
@@ -10,6 +11,7 @@ export function Costs() {
         <p className="text-muted-foreground">
           At <Word id="api"><abbr title="application programming interface">API</abbr> prices</Word>. Kept on your Mac, even after Claude Code clears its old files.
         </p>
+        <HuntPumpkin n={1} />
       </div>
       <div className="grid min-w-0 [&>figure]:grid [&>figure]:min-w-0 [&>figure]:gap-3">
         <HistoryPanel />
