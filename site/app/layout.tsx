@@ -64,10 +64,10 @@ const WEBSITE = { '@context': 'https://schema.org', '@type': 'WebSite', name: 'A
 // chosen on an earlier visit holds from the start, not a moment later. If React has not arrived
 // 3 s later (a bundle blocked, failed or too slow), js goes again and the page stands as it does
 // without scripts. Then Halloween (lib/halloween.ts): on by the visitor's date, or by ?halloween,
-// which this browser remembers until ?halloween=0.
+// which this browser remembers until ?halloween=0 or the end of Halloween (2 November 2026).
 const EARLY =
   "var d=document.documentElement;d.classList.add('js');setTimeout(function(){d.hasAttribute('data-live')||d.classList.remove('js')},3000);try{localStorage.getItem('still')==='1'&&d.classList.add('still')}catch(e){}" +
-  `;var q=new URLSearchParams(location.search).get('halloween'),f=q!==null&&q!=='0';try{q==='0'?localStorage.removeItem('halloween'):f?localStorage.setItem('halloween','1'):f=localStorage.getItem('halloween')==='1'}catch(e){};(f||(${isHalloween.toString()})(new Date()))&&d.classList.add('halloween');try{JSON.parse(localStorage.getItem('pumpkins')||'[]').length===5&&(d.dataset.pumpkins='all')}catch(e){}`;
+  `;var q=new URLSearchParams(location.search).get('halloween'),f=q!==null&&q!=='0';try{q==='0'?localStorage.removeItem('halloween'):f?localStorage.setItem('halloween','1'):f=localStorage.getItem('halloween')==='1'&&new Date()<new Date(2026,10,2)}catch(e){};(f||(${isHalloween.toString()})(new Date()))&&d.classList.add('halloween');try{JSON.parse(localStorage.getItem('pumpkins')||'[]').length===5&&(d.dataset.pumpkins='all')}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -30,7 +30,7 @@ test.describe('the switch', () => {
   });
 
   test('?halloween turns it on any day and is remembered', async ({ page }) => {
-    await off(page);
+    await page.clock.setFixedTime(new Date('2026-10-18T12:00:00'));
     await page.goto('/?halloween');
     await expect(html(page)).toHaveClass(/\bhalloween\b/);
     await page.goto('/comics/');
@@ -39,6 +39,16 @@ test.describe('the switch', () => {
     await expect(html(page)).not.toHaveClass(/\bhalloween\b/);
     await page.goto('/comics/');
     await expect(html(page)).not.toHaveClass(/\bhalloween\b/);
+  });
+
+  test('a remembered ?halloween ends with Halloween', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('halloween', '1'));
+    await off(page);
+    await page.goto('/');
+    await expect(html(page)).toHaveAttribute('data-live', '');
+    await expect(html(page)).not.toHaveClass(/\bhalloween\b/);
+    await page.goto('/?halloween');
+    await expect(html(page)).toHaveClass(/\bhalloween\b/);
   });
 
   test('?halloween works with storage blocked', async ({ page }) => {
@@ -210,6 +220,31 @@ test.describe('Trick or treat', () => {
     await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
   });
 
+  test('Esc on an answer button shuts the panel and lands on the notch', async ({ page }) => {
+    await on(page);
+    await page.goto('/');
+    await openPanel(page);
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Allow once' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
+    await expect(page.getByRole('button', { name: NOTCH })).toBeFocused();
+  });
+
+  test('a pointer that shuts the panel under a focused answer button leaves focus on the notch', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await on(page);
+    await page.goto('/');
+    await openPanel(page);
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Allow once' })).toBeFocused();
+    const panel = (await page.locator('.screen .panel').boundingBox())!;
+    await page.mouse.move(panel.x + panel.width / 2, panel.y + panel.height / 2);
+    await page.mouse.move(panel.x + panel.width / 2, panel.y + panel.height + 300);
+    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
+    await expect(page.getByRole('button', { name: NOTCH })).toBeFocused();
+  });
+
   test('the shut picture says nobody needs you after an answer', async ({ page }) => {
     await on(page);
     await page.goto('/');
@@ -262,6 +297,17 @@ test.describe('Trick or treat, lights out', () => {
     expect(await lightsOut(page)).toBeGreaterThan(0);
     await page.waitForTimeout(2000);
     expect(await lightsOut(page)).toBe(0);
+  });
+
+  test('the crew still blink, any day: the blink frame turns its opacity', async ({ page }) => {
+    // The lights-out eyes once took the mascots' keyframes' name, and the crew stopped blinking.
+    await off(page);
+    await page.goto('/');
+    await expect(html(page)).toHaveAttribute('data-live', '');
+    const props = await page.evaluate(() =>
+      document.querySelector('.work img+img')!.getAnimations().flatMap((a) =>
+        (a.effect as KeyframeEffect).getKeyframes().flatMap((k) => Object.keys(k))));
+    expect(props).toContain('opacity');
   });
 
   test('Deny with Stop on shows only the words', async ({ page }) => {
@@ -474,6 +520,19 @@ test.describe('the pumpkin hunt', () => {
         expect(box.height).toBeGreaterThanOrEqual(44);
         await pumpkin(page, s).click();
       }
+    }
+  });
+
+  test('the finished counter is at least 44 by 44 on a phone', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('pumpkins', '[0,1,2,3,4]'));
+    for (const width of [320, 390, 639]) {
+      await page.setViewportSize({ width, height: 900 });
+      await on(page);
+      await page.goto('/');
+      await expect(html(page)).toHaveAttribute('data-live', '');
+      const box = (await page.getByRole('link', { name: '5 of 5 found' }).boundingBox())!;
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
     }
   });
 

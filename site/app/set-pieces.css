@@ -453,15 +453,16 @@ a.w:hover{text-decoration-style:solid}
 .lights b+b{left:calc(50% + 1.3em)}
 @media (prefers-reduced-motion:no-preference){
   html:not(.still) .screen[data-answered=deny] .lights{animation:lights-out 1.2s ease-in-out 1}
-  html:not(.still) .screen[data-answered=deny] .lights b{animation:blink 1.2s steps(1) 1}
+  html:not(.still) .screen[data-answered=deny] .lights b{animation:lids 1.2s steps(1) 1}
 }
 @keyframes lights-out{0%{opacity:0}30%,70%{opacity:.94}100%{opacity:0}}
-@keyframes blink{0%,100%{transform:none}50%{transform:scaleY(.15)}}
+/* Not "blink": that name is the crew's own blink above, and the later one would win. */
+@keyframes lids{0%,100%{transform:none}50%{transform:scaleY(.15)}}
 /* The pumpkin hunt (hunt.tsx): five small pumpkins down the page, each a 44-point button, and the
    count beside the top bar's links. */
 .hunt{display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:8px;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .hunt .m{--s:26px}
-.hunt-count{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding-inline:8px;color:var(--muted-foreground);white-space:nowrap}
+.hunt-count{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:44px;min-height:44px;padding-inline:8px;color:var(--muted-foreground);white-space:nowrap}
 .hunt-count .m{--s:18px}
 /* A phone's top bar has room for the pumpkin and its number only; the words are still read out. */
 @media (max-width:639px){.nav nav .hunt-count{gap:4px;padding-inline:4px}}

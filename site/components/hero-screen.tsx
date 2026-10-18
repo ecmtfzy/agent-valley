@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useEffect, useRef, useState } from 'react';
+import { createContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // The picture's words follow it: open, the panel; shut, the bar. Once the Halloween row has its
 // answer (trick-or-treat.tsx), nobody waits any more.
@@ -65,10 +65,17 @@ export function HeroScreen({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (state !== 'open') return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && (inside.current || document.activeElement === button.current)) shut();
+      if (e.key === 'Escape' && (inside.current || figure.current?.contains(document.activeElement))) shut();
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
+  }, [state]);
+
+  // However it shuts, a keyboard on the Halloween row's buttons lands back on the notch, before
+  // the hidden buttons would drop it to the page.
+  useLayoutEffect(() => {
+    const on = document.activeElement;
+    if (state === 'shut' && on !== button.current && figure.current?.contains(on)) button.current?.focus();
   }, [state]);
 
   const track = (e: React.PointerEvent<HTMLElement>, gone = false) => {
