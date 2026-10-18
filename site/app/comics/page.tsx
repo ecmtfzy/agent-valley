@@ -9,7 +9,7 @@ import './funnies.css';
 // An old Sunday paper: a blackletter name, and the rest in Newsreader, a serif drawn for reading
 // news on a screen. Next keeps a copy of both with the site, so nothing loads from Google.
 const masthead = UnifrakturMaguntia({ subsets: ['latin'], weight: '400', variable: '--font-masthead' });
-const news = Newsreader({ subsets: ['latin'], style: ['normal', 'italic'], axes: ['opsz'], variable: '--font-news' });
+const news = Newsreader({ subsets: ['latin'], style: ['normal', 'italic'], variable: '--font-news' });
 
 const PAGE = 'https://agentvalley.app/comics/';
 const TITLE = 'The Valley Funnies: comics about Claude Code';
