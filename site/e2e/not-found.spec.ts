@@ -1,0 +1,57 @@
+import { expect, test, type Page } from '@playwright/test';
+
+// The page a wrong link lands on, any day but Halloween's (the ghost: halloween.spec.ts). These
+// tests set the clock themselves, so the storage flag HALLOWEEN=1 puts in is cleared here.
+test.use({ storageState: { cookies: [], origins: [] } });
+
+const off = (page: Page) => page.clock.setFixedTime(new Date('2026-11-05T12:00:00'));
+const ALT = 'Faye, the Explore agent, stands in a desert of printouts holding up an empty folder.';
+
+test('on 5 November Faye says the page is not there', async ({ page }) => {
+  await off(page);
+  await page.goto('/404.html');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Faye looked everywhere.');
+  await expect(page.getByText('Every folder, twice. No page by that name.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Back to the valley' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('img', { name: ALT })).toBeVisible();
+  await expect(page.getByText('This page is a ghost.')).toBeHidden();
+});
+
+test("the tag sits on the picture's top left", async ({ page }) => {
+  await off(page);
+  await page.goto('/404.html');
+  const tag = (await page.getByText('Explore · 404 tool uses').boundingBox())!;
+  const art = (await page.getByRole('img', { name: ALT }).boundingBox())!;
+  expect(tag.x).toBeGreaterThanOrEqual(art.x);
+  expect(tag.y).toBeGreaterThanOrEqual(art.y);
+  expect(tag.x + tag.width).toBeLessThanOrEqual(art.x + art.width / 2);
+  expect(tag.y + tag.height).toBeLessThanOrEqual(art.y + art.height / 2);
+});
+
+test('a wide screen puts the words left of the picture', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await off(page);
+  await page.goto('/404.html');
+  const h1 = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
+  const art = (await page.getByRole('img', { name: ALT }).boundingBox())!;
+  expect(h1.x + h1.width).toBeLessThanOrEqual(art.x);
+});
+
+test('a phone puts the picture over the words', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await off(page);
+  await page.goto('/404.html');
+  const h1 = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
+  const art = (await page.getByRole('img', { name: ALT }).boundingBox())!;
+  expect(art.y + art.height).toBeLessThanOrEqual(h1.y);
+});
+
+test('the page stays out of search engines, under its own title', async ({ page }) => {
+  await off(page);
+  await page.goto('/404.html');
+  // Next's own robots line and ours: none of them may say index.
+  const robots = await page.locator('meta[name="robots"]').evaluateAll((all) => all.map((m) => m.getAttribute('content') ?? ''));
+  expect(robots.length).toBeGreaterThan(0);
+  for (const r of robots) expect(r).toMatch(/noindex/);
+  await expect(page).toHaveTitle('Page not found · AgentValley');
+});

@@ -418,7 +418,10 @@ a.w:hover{text-decoration-style:solid}
    the bar, so the spider's thread starts out of sight under the notch. The note is in the row's
    hand, in amber: the pen's orange is too faint on this black. */
 .night{position:absolute;inset:0;z-index:1;pointer-events:none}
-.moon{position:absolute;top:calc(var(--bar) + 16cqw);right:9cqw;width:11cqw;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 38% 36%,#ffe6a6,var(--amber) 72%);box-shadow:0 0 6cqw 1.5cqw rgba(255,176,0,.22)}
+/* The not-found page's caption over Faye's picture (not-found.tsx), in the comics' own box. */
+.tool-tag{position:absolute;top:3.5%;left:3%;padding:.2em .6em;border:2px solid #2a2118;background:#f6dc84;color:#1c1300;font:600 clamp(12px,1.5vw,17px)/1.3 var(--mono);white-space:nowrap}
+/* The moon is drawn in square pixels, as the bats and the spider are, its glow in two steps. */
+.moon{position:absolute;top:calc(var(--bar) + 13cqw);right:6cqw;width:17cqw;aspect-ratio:1;background:url(/mascots/moon.svg) center/contain no-repeat}
 .bat{--s:clamp(14px,5.5cqw,28px);position:absolute}
 .bat img{object-fit:contain}
 .bat.b1{top:calc(var(--bar) + 38cqw);right:27cqw}

@@ -104,6 +104,16 @@ test.describe('the hero at night', () => {
     expect(await note.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Caveat/);
   });
 
+  test('the moon is pixel art like the bats, with no soft glow', async ({ page }) => {
+    await on(page);
+    await page.goto('/');
+    const moon = page.locator('.screen .moon');
+    await expect(moon).toBeVisible();
+    const style = await moon.evaluate((el) => getComputedStyle(el));
+    expect(style.backgroundImage).toContain('/mascots/moon.svg');
+    expect(style.boxShadow).toBe('none');
+  });
+
   test('every night piece is hidden from screen readers', async ({ page }) => {
     await on(page);
     await page.goto('/');
@@ -391,16 +401,13 @@ test.describe('the small things', () => {
     expect(said.filter((t) => t.includes('Boo.'))).toHaveLength(0);
   });
 
-  test('the 404 page is a ghost', async ({ page }) => {
+  test('the 404 page is a ghost at Halloween', async ({ page }) => {
+    await on(page);
     await page.goto('/404.html');
-    await expect(page.locator('h1')).toHaveText('This page is a ghost.');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('This page is a ghost.');
     await expect(page.getByText('We looked under every desk.')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Back to the valley' })).toHaveAttribute('href', '/');
-    // Next's own robots line and ours: none of them may say index.
-    const robots = await page.locator('meta[name="robots"]').evaluateAll((all) => all.map((m) => m.getAttribute('content') ?? ''));
-    expect(robots.length).toBeGreaterThan(0);
-    for (const r of robots) expect(r).toMatch(/noindex/);
-    await expect(page).toHaveTitle('Page not found · AgentValley');
+    await expect(page.getByRole('img', { name: /^Faye/ })).toBeHidden();
   });
 });
 
