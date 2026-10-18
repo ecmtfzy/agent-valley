@@ -3,7 +3,7 @@ import { Newsreader, UnifrakturMaguntia } from 'next/font/google';
 import { Reveal } from '@/components/reveal';
 import { Footer } from '@/components/sections/footer';
 import { Nav } from '@/components/sections/nav';
-import { STRIPS } from './strips';
+import { FEED, STRIPS } from './strips';
 import './funnies.css';
 
 // An old Sunday paper: a blackletter name, and the rest in Newsreader, a serif drawn for reading
@@ -19,13 +19,13 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: PAGE },
+  alternates: { canonical: PAGE, types: FEED },
   openGraph: {
     type: 'website',
     url: PAGE,
     title: TITLE,
     description: DESCRIPTION,
-    images: [{ url: 'https://agentvalley.app/comics/lunch-break-og.jpg', width: 1200, height: 630 }],
+    images: [{ url: 'https://agentvalley.app/comics/funnies-og.jpg', width: 1200, height: 630 }],
   },
   twitter: { card: 'summary_large_image' },
 };
@@ -86,31 +86,31 @@ export default function Funnies() {
           </header>
 
           <ol className="f-strips" role="list">
-            {STRIPS.map((s, i) => (
-              <li key={s.slug}>
-                <Reveal>
-                  {/* The whole card is the way in: the headline's link stretches over it. */}
-                  <article className="f-card" aria-labelledby={s.slug}>
-                    <p className="f-kicker">No. {i + 1} · Starring {s.starring}</p>
-                    <h2 id={s.slug} className="f-head">
-                      <a href={`/comics/${s.slug}/`}>{s.title}</a>
-                    </h2>
-                    <img
-                      className="f-strip"
-                      src={`/comics/${s.slug}-1024.webp`}
-                      srcSet={`/comics/${s.slug}-1024.webp 1024w, /comics/${s.slug}.webp 2048w`}
-                      sizes="(min-width: 1180px) 480px, (min-width: 768px) calc(50vw - 90px), calc(100vw - 66px)"
-                      width={2048}
-                      height={2144}
-                      loading={i < 2 ? 'eager' : 'lazy'}
-                      alt={s.alt}
-                    />
-                    <p className="f-deck">{s.deck}</p>
-                    <p className="f-inside">{s.inside}</p>
-                  </article>
-                </Reveal>
-              </li>
-            ))}
+            {STRIPS.map((s, i) => {
+              // The first row is on screen at once, so it stands from the start; later cards print in.
+              const card = (
+                <article className="f-card" aria-labelledby={s.slug}>
+                  <p className="f-kicker">No. {i + 1} · Starring {s.starring}</p>
+                  <h2 id={s.slug} className="f-head">
+                    <a href={`/comics/${s.slug}/`}>{s.title}</a>
+                  </h2>
+                  <img
+                    className="f-strip"
+                    src={`/comics/${s.slug}-1024.webp`}
+                    srcSet={`/comics/${s.slug}-640.webp 640w, /comics/${s.slug}-1024.webp 1024w, /comics/${s.slug}.webp 2048w`}
+                    sizes="(min-width: 1180px) 480px, (min-width: 768px) calc(50vw - 90px), calc(100vw - 66px)"
+                    width={2048}
+                    height={2144}
+                    loading={i < 2 ? 'eager' : 'lazy'}
+                    fetchPriority={i === 0 ? 'high' : undefined}
+                    alt={s.alt}
+                  />
+                  <p className="f-deck">{s.deck}</p>
+                  <p className="f-inside">{s.inside}</p>
+                </article>
+              );
+              return <li key={s.slug}>{i < 2 ? card : <Reveal>{card}</Reveal>}</li>;
+            })}
           </ol>
         </div>
       </main>

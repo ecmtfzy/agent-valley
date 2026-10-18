@@ -4,7 +4,7 @@
 </picture>
 
 A small valley of programmers in your notch.<br>
-Only for Claude Code, on Mac · Free · Open source · [agentvalley.app](https://agentvalley.app)
+Only for Claude Code, on Mac · Free · Open source · [agentvalley.app](https://agentvalley.app) · [Comics](https://agentvalley.app/comics/)
 
 # Every agent, at a glance, right in your notch.
 

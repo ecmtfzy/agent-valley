@@ -20,10 +20,11 @@ test('the head carries the old title, description, canonical, preview image and 
   await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', '/apple-touch-icon.png');
 });
 
-test('the structured data describes the app as software', async ({ page }) => {
+test('the structured data names the site and describes the app as software', async ({ page }) => {
   await page.goto('/');
-  const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent() ?? '{}');
-  expect(ld['@type']).toBe('SoftwareApplication');
+  const all = (await page.locator('script[type="application/ld+json"]').allTextContents()).map((t) => JSON.parse(t));
+  expect(all.find((d) => d['@type'] === 'WebSite')).toMatchObject({ name: 'AgentValley', url: 'https://agentvalley.app/' });
+  const ld = all.find((d) => d['@type'] === 'SoftwareApplication');
   expect(ld.name).toBe('AgentValley');
   expect(ld.operatingSystem).toBe('macOS 15 or later');
   expect(ld.offers).toEqual({ '@type': 'Offer', price: '0', priceCurrency: 'USD' });
@@ -77,4 +78,34 @@ test('every page reaches the funnies from its foot', async ({ page }) => {
     await page.goto(path);
     await expect(page.locator('footer a[href="/comics/"]')).toHaveCount(1);
   }
+});
+
+test('the funnies have an RSS feed, newest first, that every page names', async ({ page, request }) => {
+  const feed = await (await request.get('/comics/feed.xml')).text();
+  const links = [...feed.matchAll(/<link>([^<]+)<\/link>/g)].map((m) => m[1]).slice(1);
+  expect(links).toEqual([...STRIPS].reverse().map((s) => `https://agentvalley.app/comics/${s.slug}/`));
+  for (const path of ['/', '/comics/', `/comics/${STRIPS[0].slug}/`]) {
+    await page.goto(path);
+    await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute('href', 'https://agentvalley.app/comics/feed.xml');
+  }
+});
+
+test('search engines may show large pictures, and the sitemap names each strip picture', async ({ page, request }) => {
+  await page.goto('/');
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /max-image-preview:large/);
+  const map = await (await request.get('/sitemap.xml')).text();
+  for (const s of STRIPS) expect(map).toContain(`<image:loc>https://agentvalley.app/comics/${s.slug}.webp</image:loc>`);
+});
+
+test('llms.txt sums up the site and lists every strip', async ({ request }) => {
+  const text = await (await request.get('/llms.txt')).text();
+  expect(text.startsWith('# AgentValley')).toBe(true);
+  for (const s of STRIPS) expect(text).toContain(`https://agentvalley.app/comics/${s.slug}/`);
+});
+
+test('the funnies share their own front page, and IndexNow can find its key', async ({ page, request }) => {
+  await page.goto('/comics/');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://agentvalley.app/comics/funnies-og.jpg');
+  expect((await request.get('/comics/funnies-og.jpg')).ok()).toBe(true);
+  expect(await (await request.get('/indexnow.txt')).text()).toMatch(/^[0-9a-f]{32}$/);
 });

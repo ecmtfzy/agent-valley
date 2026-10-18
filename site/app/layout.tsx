@@ -6,6 +6,7 @@ import { Announcer } from '@/components/announcer';
 import { IconSprite } from '@/components/icons';
 import './globals.css';
 import { CSP } from '@/lib/csp';
+import { FEED } from './comics/strips';
 
 // The hand the row's notes are written in; Next keeps a copy with the site, so nothing loads from Google.
 const hand = Caveat({ subsets: ['latin'], weight: '600', variable: '--font-hand' });
@@ -18,7 +19,9 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://agentvalley.app'),
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: 'https://agentvalley.app/' },
+  alternates: { canonical: 'https://agentvalley.app/', types: FEED },
+  // Search engines may show the pictures large, and the snippets as long as they like.
+  robots: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
   openGraph: {
     type: 'website',
     url: 'https://agentvalley.app/',
@@ -52,6 +55,9 @@ const SOFTWARE = {
   sameAs: ['https://github.com/morsechimwai/agent-valley'],
 };
 
+// The site's own name, for the name search engines put above its results.
+const WEBSITE = { '@context': 'https://schema.org', '@type': 'WebSite', name: 'AgentValley', url: 'https://agentvalley.app/' };
+
 // Before the first paint: js marks that scripts run, so a picture may wait to come up; a stop
 // chosen on an earlier visit holds from the start, not a moment later. If React has not arrived
 // 3 s later (a bundle blocked, failed or too slow), js goes again and the page stands as it does
@@ -67,6 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta httpEquiv="Content-Security-Policy" content={CSP} />
         <script dangerouslySetInnerHTML={{ __html: EARLY }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(SOFTWARE) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE) }} />
       </head>
       <body>
         <IconSprite />

@@ -1,3 +1,6 @@
+// The funnies' RSS feed, named in the head of every page so readers can find it.
+export const FEED = { 'application/rss+xml': [{ url: 'https://agentvalley.app/comics/feed.xml', title: 'The Valley Funnies' }] };
+
 // Every crew comic, oldest first. The funnies page, each story page, the sitemap and the edition
 // line all read this; a story page adds its own article under the strip.
 export type Strip = {

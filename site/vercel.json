@@ -21,5 +21,18 @@
       "source": "/ingest/(.*)",
       "destination": "https://us.i.posthog.com/$1"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "agent-valley-eight.vercel.app"
+        }
+      ],
+      "destination": "https://agentvalley.app/$1",
+      "permanent": true
+    }
   ]
 }

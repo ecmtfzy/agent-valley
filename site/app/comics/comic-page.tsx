@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Footer } from '@/components/sections/footer';
 import { Nav } from '@/components/sections/nav';
-import { STRIPS } from './strips';
+import { FEED, STRIPS } from './strips';
 
 // One strip's own page: the strip, its words, the story behind it (the page's children), the way
 // to the strips either side, and the same in schema.org terms for search engines.
@@ -18,7 +18,7 @@ export function comicMetadata(slug: string): Metadata {
   return {
     title: s.headline,
     description: s.description,
-    alternates: { canonical: at(slug) },
+    alternates: { canonical: at(slug), types: FEED },
     openGraph: {
       type: 'article',
       url: at(slug),
@@ -74,10 +74,11 @@ export function ComicPage({ slug, children }: { slug: string; children: React.Re
             <img
               className="w-full rounded-lg border"
               src={`/comics/${slug}-1024.webp`}
-              srcSet={`/comics/${slug}-1024.webp 1024w, /comics/${slug}.webp 2048w`}
+              srcSet={`/comics/${slug}-640.webp 640w, /comics/${slug}-1024.webp 1024w, /comics/${slug}.webp 2048w`}
               sizes="(min-width: 760px) 704px, calc(100vw - 32px)"
               width={2048}
               height={2144}
+              fetchPriority="high"
               alt={`Four-panel pixel-art comic starring ${s.starring}. The words are below.`}
             />
             <figcaption className="mt-6">
