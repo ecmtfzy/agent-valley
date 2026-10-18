@@ -30,6 +30,8 @@
   --ring: #723a00;
   --radius: 0.5rem;
   --amber: #ffb000;
+  /* The row's pen: an orange that reads on the page and on the panel's black alike (4.5:1 on both). */
+  --pen: #b85a00;
   --on-amber: #1c1300;
   /* --red fills the count and the dot under black text; --red-text is the same red lifted to 7:1 on black. */
   --red: #ff6359;
@@ -97,6 +99,7 @@
   --sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
   --app: ui-monospace, "SF Mono", Menlo, monospace;
+  --hand: var(--font-hand), "Bradley Hand", "Segoe Print", cursive;
   --horizon: linear-gradient(180deg, var(--hz1) 0 20%, var(--hz2) 20% 40%, var(--hz3) 40% 60%, var(--hz4) 60% 80%, var(--hz5) 80%);
 }
 

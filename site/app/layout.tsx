@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import { GeistMono } from 'geist/font/mono';
 import { GeistSans } from 'geist/font/sans';
+import { Caveat } from 'next/font/google';
 import { Announcer } from '@/components/announcer';
 import { IconSprite } from '@/components/icons';
 import './globals.css';
 import { CSP } from '@/lib/csp';
+
+// The hand the row's notes are written in; Next keeps a copy with the site, so nothing loads from Google.
+const hand = Caveat({ subsets: ['latin'], weight: '600', variable: '--font-hand' });
 
 const TITLE = 'AgentValley — Every Claude Code agent in your notch';
 const DESCRIPTION =
@@ -58,7 +62,7 @@ const EARLY =
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // The early script changes <html>'s classes before React arrives; that difference is expected.
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${hand.variable}`} suppressHydrationWarning>
       <head>
         <meta httpEquiv="Content-Security-Policy" content={CSP} />
         <script dangerouslySetInnerHTML={{ __html: EARLY }} />

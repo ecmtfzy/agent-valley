@@ -158,25 +158,38 @@ html{scroll-padding-top:80px}
 .term pre{margin:0;padding:10px 12px;font:inherit;white-space:pre-wrap}
 .term.wait{border-color:var(--term-wait)}
 
-/* One row, taken out of the panel and labelled part by part */
-.anatomy{padding:clamp(20px,4vw,40px);border-radius:18px;background:var(--ink);color:var(--app-fg);font:400 clamp(.82rem,1.7vw,1.02rem)/1.5 var(--app)}
+/* One row, taken out of the panel and marked up part by part in pen: room above and below the
+   box for the notes, which stand on the page, in the page's own orange. */
+.notes{container-type:inline-size;display:flow-root;margin:0;font:400 clamp(.82rem,1.7vw,1.02rem)/1.5 var(--app)}
+/* Sized by the picture's width, so each line of the row stays one line and the pens meet it;
+   above and below, room for a note: its line reaches 6 sizes past the part, less the padding. */
+.anatomy{--size:clamp(.82rem,3cqw,1.02rem);--pad:clamp(20px,4vw,40px);margin-block:calc(var(--size) * 6 - var(--pad) + 6px);padding:var(--pad);border-radius:18px;background:var(--ink);color:var(--app-fg);font-size:var(--size)}
 .anatomy .row{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:.7em}
 /* Enlarged, the row may wrap rather than cut its words: here they are the point. */
 .anatomy .p-line{flex-wrap:wrap;column-gap:1em}
-.anatomy .p-line b{white-space:normal}
+.anatomy .p-line b{overflow:visible;white-space:normal}
 .anatomy .p-line>span:last-child{margin-left:auto}
-.callouts{display:flex;justify-content:space-between;gap:1em;margin-left:2.9em;color:var(--amber);font:400 .78em/1.2 var(--mono)}
-.callouts span{padding:0 0 .5em;border-left:1px solid var(--amber-line);padding-left:.5em}
-.callouts span:last-child{border-left:0;border-right:1px solid var(--amber-line);padding:0 .5em .5em 0;text-align:right}
-.callouts.below span{padding-top:.5em;padding-bottom:0}
-.callouts.below span:last-child{padding:.5em .5em 0 0}
-/* Too narrow for pointers: each part on its own line, its label above it. */
+.anatomy [data-part]{position:relative}
+.note{position:absolute;width:4.5em;height:5em;color:var(--accent-text);font:400 var(--size)/1 var(--app);pointer-events:none}
+.note svg{display:block;width:100%;height:100%;overflow:visible}
+.note path{fill:none;stroke:var(--pen);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1 2;stroke-dashoffset:0}
+.note-label{position:absolute;font:600 1.4em/1 var(--hand);white-space:nowrap}
+/* Too narrow for pens: each part on its own line, its label above it. */
 @media (max-width:559px){
-  .anatomy .callouts{display:none}
+  .anatomy{margin-block:0}
+  .note{display:none}
   .anatomy .p-line,.anatomy .p-line>span{display:block;margin:0;white-space:normal}
   .anatomy [data-part]{display:block;margin-top:.7em}
   .anatomy .p-line:first-child [data-part]:first-child{margin-top:0}
   .anatomy [data-part]::before{content:attr(data-part);display:block;color:var(--amber);font:400 .78em/1.4 var(--mono)}
+}
+/* As the row comes into view, each line is drawn, then its head; one note after another. */
+@media screen and (prefers-reduced-motion:no-preference){
+  .note path{transition:stroke-dashoffset .45s cubic-bezier(.5,0,.3,1) calc(.4s + var(--i) * .22s)}
+  .note path.head{transition-duration:.2s;transition-delay:calc(.85s + var(--i) * .22s)}
+  /* A hair past the end, or the round cap of the hidden line shows as a dot. */
+  .js:not(.still) .reveal:not(.shown) .note path{stroke-dashoffset:1.05}
+  .still .note path{transition:none}
 }
 
 /* Claude Code under its prompt with the crew in: the status line, then the sub-agent rows. The

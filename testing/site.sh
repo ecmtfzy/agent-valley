@@ -17,6 +17,8 @@
 #                             footer lays them out. The dark copy has light letters for GitHub's dark theme.
 #   testing/site.sh photo     Writes docs/crew-photo.webp, the crew photo framed as the site shows it,
 #                             for the README.
+#   testing/site.sh rows      Builds the site and writes docs/row-notes.png, the enlarged row with its
+#                             notes in pen as the site draws it, for the README.
 #   testing/site.sh report    Draws the report motion from the app: the History page and the two
 #                             PDFs of a made-up September (ReportMotionAssetsTests), their totals
 #                             in site/motion; then, with Remotion, the first page's head that the
@@ -109,6 +111,42 @@ HTML
     python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).save(sys.argv[2], quality=86, method=6)' \
         "$work/photo.png" docs/crew-photo.webp
     ls -l docs/crew-photo.webp
+    ;;
+rows)
+    # At twice its size, on the page's cream with round corners: it reads on GitHub's dark theme too.
+    npm --prefix site run build >/dev/null
+    serve_out 8766 >/dev/null 2>&1 &
+    server=$!
+    disown "$server"
+    work=$(mktemp -d)
+    trap 'kill $server; rm -rf "$work"' EXIT
+    sleep 1
+    (cd site && OUT="$work/rows.png" node --input-type=module - <<'JS'
+import { chromium } from '@playwright/test';
+const browser = await chromium.launch({ channel: 'chrome' });
+// Reduced motion: the arrows stand drawn from the start.
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+await page.goto('http://127.0.0.1:8766/');
+const figure = page.locator('figure.notes');
+await figure.scrollIntoViewIfNeeded();
+await page.evaluate(() => document.fonts.ready);
+const box = await figure.boundingBox();
+// As much cream beside the black box as above and below it.
+await page.screenshot({ path: process.env.OUT, clip: { x: box.x - 32, y: box.y, width: box.width + 64, height: box.height } });
+await browser.close();
+JS
+    )
+    python3 -I - "$work/rows.png" docs/row-notes.png <<'PY'
+import sys
+from PIL import Image, ImageDraw
+picture = Image.open(sys.argv[1]).convert('RGBA')
+corners = Image.new('L', picture.size, 0)
+ImageDraw.Draw(corners).rounded_rectangle((0, 0, *picture.size), radius=36, fill=255)
+picture.putalpha(corners)
+picture.save(sys.argv[2], optimize=True)
+PY
+    ls -l docs/row-notes.png
+    sips -g pixelWidth -g pixelHeight docs/row-notes.png | tail -2
     ;;
 report)
     work=$(mktemp -d)
