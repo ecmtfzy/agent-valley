@@ -34,7 +34,8 @@
    the headline; the keyboard gets the same, with a ring round the card. */
 .f-card{position:relative}
 .f-head a{text-decoration:none}
-.f-head a::after{content:"";position:absolute;inset:-8px}
+/* z-index keeps the link over the strip: the lift's transform would otherwise paint the strip on top. */
+.f-head a::after{content:"";position:absolute;inset:-8px;z-index:1}
 .f-head a:focus-visible{outline:none}
 .f-card:has(a:focus-visible){outline:2px solid var(--f-ink);outline-offset:6px;border-radius:2px}
 .f-card:is(:hover,:focus-within) .f-head a{text-decoration:underline}

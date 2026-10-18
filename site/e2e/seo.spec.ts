@@ -73,6 +73,20 @@ test('the funnies page lists every strip, links each story, and is in the sitema
   expect(await (await request.get('/sitemap.xml')).text()).toContain(`<loc>${url}</loc>`);
 });
 
+test('clicking a strip picture opens its story, even while it lifts', async ({ page }) => {
+  for (const s of [STRIPS[0], STRIPS[STRIPS.length - 1]]) {
+    await page.goto('/comics/');
+    const img = page.locator(`#${s.slug} ~ img`);
+    await img.scrollIntoViewIfNeeded();
+    await expect(img).toBeVisible();
+    const box = (await img.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(600);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page).toHaveURL(new RegExp(`/comics/${s.slug}/$`));
+  }
+});
+
 test('every page reaches the funnies from its foot', async ({ page }) => {
   for (const path of ['/', ...STRIPS.map((s) => `/comics/${s.slug}/`)]) {
     await page.goto(path);
