@@ -1,3 +1,4 @@
+import { STRIPS } from '../app/comics/strips';
 import { expect, test } from '@playwright/test';
 
 // The head the old page gave search engines and link previews, kept word for word.
@@ -43,13 +44,37 @@ test('nothing is fetched from another site', async ({ page, baseURL }) => {
   expect(elsewhere).toEqual([]);
 });
 
-test('the Lunch break comic page has its own head and is in the sitemap', async ({ page, request }) => {
-  const url = 'https://agentvalley.app/comics/lunch-break/';
-  await page.goto('/comics/lunch-break/');
-  await expect(page).toHaveTitle('Lunch break: Claude Code waits for permission while you eat');
+for (const strip of STRIPS) {
+  test(`the ${strip.title} page has its own head, its place in the site, and is in the sitemap`, async ({ page, request }) => {
+    const url = `https://agentvalley.app/comics/${strip.slug}/`;
+    await page.goto(`/comics/${strip.slug}/`);
+    await expect(page).toHaveTitle(strip.headline);
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', strip.description);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', url);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `https://agentvalley.app/comics/${strip.slug}-og.jpg`);
+    await expect(page.locator('h1')).toHaveText(strip.title);
+    const graphs = await page.locator('script[type="application/ld+json"]').allTextContents();
+    const types = graphs.flatMap((g) => (JSON.parse(g)['@graph'] ?? []).map((n: { '@type': string }) => n['@type']));
+    expect(types).toEqual(expect.arrayContaining(['Article', 'BreadcrumbList']));
+    expect((await request.get(`/comics/${strip.slug}-og.jpg`)).ok()).toBe(true);
+    expect(await (await request.get('/sitemap.xml')).text()).toContain(`<loc>${url}</loc>`);
+  });
+}
+
+test('the funnies page lists every strip, links each story, and is in the sitemap', async ({ page, request }) => {
+  const url = 'https://agentvalley.app/comics/';
+  await page.goto('/comics/');
+  await expect(page).toHaveTitle('The Valley Funnies: comics about Claude Code');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', url);
-  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', url);
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://agentvalley.app/comics/lunch-break-og.jpg');
-  await expect(page.locator('h1')).toHaveText('Lunch break');
+  await expect(page.locator('h1')).toHaveText('The Valley Funnies');
+  await expect(page.locator('h2')).toHaveText(STRIPS.map((s) => s.title));
+  for (const s of STRIPS) await expect(page.locator(`main a[href="/comics/${s.slug}/"]`)).toHaveCount(1);
   expect(await (await request.get('/sitemap.xml')).text()).toContain(`<loc>${url}</loc>`);
+});
+
+test('every page reaches the funnies from its foot', async ({ page }) => {
+  for (const path of ['/', ...STRIPS.map((s) => `/comics/${s.slug}/`)]) {
+    await page.goto(path);
+    await expect(page.locator('footer a[href="/comics/"]')).toHaveCount(1);
+  }
 });

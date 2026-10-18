@@ -14,7 +14,9 @@ export function Nav({ sub = false }: { sub?: boolean }) {
         <Wordmark />
       </a>
       <nav aria-label="Main">
-        {/* Words on this page is reached from every dotted word. A phone keeps the bar to one row: GitHub is in the hero and at the foot. */}
+        {/* Words on this page is reached from every dotted word. A phone keeps the bar to one row: GitHub is in the hero and at the foot,
+            and on the home page Comics is at the foot, since the motion toggle takes its room. */}
+        <a className={sub ? undefined : 'max-[559px]:hidden'} href="/comics/">Comics</a>
         <a className="max-[479px]:hidden" href="https://github.com/morsechimwai/agent-valley" aria-label="AgentValley on GitHub">GitHub</a>
         {!sub && <StillToggle />}
         <Button asChild className="to-install h-11 rounded-lg border-0 px-3.5 font-mono text-primary-foreground hover:bg-primary/85 hover:text-primary-foreground min-[400px]:px-4">

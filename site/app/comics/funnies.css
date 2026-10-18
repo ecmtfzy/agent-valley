@@ -1,0 +1,46 @@
+/* The funnies page as an old Sunday paper: a sheet of newsprint, the name in blackletter between
+   two boxed ears, a dateline between rules, and the strips in two ruled columns. Every text colour
+   here is 7:1 or more on the newsprint. */
+@layer components {
+.funnies{--f-ink:#1c1915;--f-dim:#4a4136;--f-rule:#8a7a60;max-width:72rem;margin-inline:auto;padding:20px 16px 8px;background:var(--paper);color:var(--f-ink);font-family:var(--font-news),Georgia,"Times New Roman",serif;border:1px solid #d9ccb0;box-shadow:0 22px 44px -28px rgba(60,40,10,.45)}
+@media (min-width:768px){.funnies{padding:32px 40px 16px}}
+.funnies a{color:inherit;text-decoration-thickness:1px;text-underline-offset:4px}
+
+.f-top{display:grid;align-items:center;gap:20px}
+@media (min-width:1024px){.f-top{grid-template-columns:11rem 1fr 11rem}}
+.f-ear{display:none;padding:8px 10px;border:1px solid var(--f-ink);font-size:.875rem;line-height:1.35;text-align:center}
+.f-ear b{display:block;margin-bottom:2px;font-size:.9375rem;font-variant:small-caps;letter-spacing:.08em}
+@media (min-width:1024px){.f-ear{display:block}}
+.f-name{font-family:var(--font-masthead),"Old English Text MT",serif;font-weight:400;font-size:clamp(2.75rem,8.4vw,5.75rem);line-height:1;letter-spacing:0;text-align:center}
+.f-motto{margin-top:10px;font-style:italic;text-align:center}
+.f-date{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 24px;margin-top:14px;padding:6px 0 5px;border-top:1px solid var(--f-ink);border-bottom:4px double var(--f-ink);font-size:.8125rem;letter-spacing:.08em;text-transform:uppercase}
+@media (min-width:640px){.f-date{justify-content:space-between}}
+
+.f-strips>li{padding-block:24px}
+.f-strips>li+li{border-top:1px solid var(--f-rule)}
+@media (min-width:768px){
+  .f-strips{display:grid;grid-template-columns:1fr 1fr}
+  .f-strips>li:nth-child(2){border-top:0}
+  .f-strips>li:nth-child(odd){padding-right:24px}
+  .f-strips>li:nth-child(even){padding-left:24px;border-left:1px solid var(--f-rule)}
+}
+.f-kicker{color:var(--f-dim);font-size:1rem;font-style:italic}
+.f-head{margin-top:2px;font-family:var(--font-news),Georgia,serif;font-size:clamp(1.625rem,3vw,2.125rem);font-weight:800;line-height:1.05;letter-spacing:.01em;text-transform:uppercase}
+.f-strip{display:block;width:100%;height:auto;margin-top:14px;border:1px solid var(--f-ink)}
+.f-deck{margin-top:12px;font-size:1.125rem;line-height:1.5}
+.f-inside{margin-top:6px;color:var(--f-dim);font-style:italic}
+
+/* A card is one link. Pointing at it lifts the strip off the page like a clipping and underlines
+   the headline; the keyboard gets the same, with a ring round the card. */
+.f-card{position:relative}
+.f-head a{text-decoration:none}
+.f-head a::after{content:"";position:absolute;inset:-8px}
+.f-head a:focus-visible{outline:none}
+.f-card:has(a:focus-visible){outline:2px solid var(--f-ink);outline-offset:6px;border-radius:2px}
+.f-card:is(:hover,:focus-within) .f-head a{text-decoration:underline}
+@media screen and (prefers-reduced-motion:no-preference){
+  .f-strip{transition:transform .45s cubic-bezier(.3,1.5,.6,1),box-shadow .45s ease}
+  html:not(.still) .f-card:is(:hover,:focus-within) .f-strip{transform:translateY(-6px) rotate(-.7deg);box-shadow:0 22px 30px -18px rgba(40,25,5,.6)}
+  html:not(.still) .f-strips>li:nth-child(even) .f-card:is(:hover,:focus-within) .f-strip{transform:translateY(-6px) rotate(.7deg)}
+}
+}
