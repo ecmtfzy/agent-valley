@@ -95,4 +95,42 @@ export const STRIPS: Strip[] = [
       ['4', 'Faye: “ContentView.swift, line 12.” Sunny points at his screen: “That’s the file I have open.”'],
     ],
   },
+  {
+    slug: 'plan-mode',
+    title: 'Plan mode',
+    date: '2026-10-18',
+    starring: 'Sunny and Judy',
+    deck: 'Sunny wants one button renamed. Judy, the Plan agent, brings a 38-step plan, and step 38 is the rename.',
+    inside: 'Inside: when a plan pays off, and when to skip it.',
+    alt: 'Four-panel comic. Sunny, at his terminal, to Judy: “Rename one button. Just do it.” Judy at a blank chalkboard, chalk raised: “First, a plan.” A chalk flowchart covers the whole wall, tagged “Plan · 38 steps”, while Judy adds a box from a stepladder. Sunny reads the last box: “Step 38: rename the button.” Judy holds out the chalk: “Approve?”',
+    headline: 'Plan mode: a 38-step plan to rename one button in Claude Code',
+    description:
+      'A four-panel comic about Claude Code planning a one-button rename in 38 steps, and when plan mode is worth it and when to just ask for the change.',
+    lead: 'Sunny asks for one renamed button. Judy, the Plan agent, wants a plan first, and the plan takes the whole wall.',
+    panels: [
+      ['1', 'Sunny, at his terminal, to Judy: “Rename one button. Just do it.”'],
+      ['2', 'Judy at a blank chalkboard, chalk raised: “First, a plan.”'],
+      ['3', 'A chalk flowchart covers the wall. The tag reads “Plan · 38 steps”. Judy adds one more box from a stepladder.'],
+      ['4', 'Sunny reads the last box: “Step 38: rename the button.” Judy holds out the chalk: “Approve?”'],
+    ],
+  },
+  {
+    slug: 'compact',
+    title: 'Compact',
+    date: '2026-10-18',
+    starring: 'Walt and Felix',
+    deck: 'Context at 99 percent. Felix boxes the whole conversation into a summary, and the summary remembers a login button.',
+    inside: 'Inside: what compaction keeps, and how to keep the rest.',
+    alt: 'Four-panel comic. Walt points at a gauge in the red: “Context at 99 percent.” Felix pushes a mountain of printouts into one small box. The box sits taped shut on a desk, tagged “Compacted”, and Walt’s voice asks: “So, what were we building?” Felix reads a single card from the box while Walt scratches his head: “Something with a login button.”',
+    headline: 'Compact: what Claude Code keeps when the context fills up',
+    description:
+      'A four-panel comic about a whole conversation compacted onto one card, and how to steer what Claude Code keeps when the context window fills up.',
+    lead: 'The context is at 99 percent, so the whole conversation goes into one small box. Afterwards, nobody can quite say what they were building.',
+    panels: [
+      ['1', 'Walt points at a gauge in the red: “Context at 99 percent.”'],
+      ['2', 'Felix pushes a mountain of printouts into one small box.'],
+      ['3', 'The box sits taped shut on a desk. The tag reads “Compacted”. Walt, from outside the panel: “So, what were we building?”'],
+      ['4', 'Felix reads a single card from the box while Walt scratches his head: “Something with a login button.”'],
+    ],
+  },
 ];
