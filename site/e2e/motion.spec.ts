@@ -2,20 +2,24 @@ import { expect, test } from '@playwright/test';
 
 test.describe('reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
-  test('nothing moves and the panel stays open', async ({ page }) => {
+  test('nothing moves and the panel waits shut', async ({ page }) => {
     await page.goto('/');
     await page.waitForTimeout(800);
-    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
+    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
     expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running').length)).toBe(0);
+  });
+  test('before the scripts arrive the panel is drawn shut already', async ({ page }) => {
+    await page.route((url) => url.pathname.endsWith('.js'), (route) => route.abort());
+    await page.goto('/');
+    expect(await page.locator('.screen .panel').evaluate((el) => getComputedStyle(el).clipPath)).toContain('22.34%');
   });
 });
 
-test('the panel opens once on load and stays open', async ({ page }) => {
+test('the panel waits shut from the start, and nothing opens it on its own', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.screen')).toHaveAttribute('data-opened', '', { timeout: 2000 });
-  await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
+  await expect(page.locator('.screen')).toHaveAttribute('data-ready', '');
   await page.waitForTimeout(1500);
-  await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
+  await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
 });
 
 test('the floating bits are hidden from screen readers', async ({ page }) => {
@@ -27,7 +31,7 @@ test('the floating bits are hidden from screen readers', async ({ page }) => {
 
 test('a picture comes up as it scrolls into view', async ({ page }) => {
   await page.goto('/');
-  const terms = page.locator('.reveal:has(.terms)');
+  const terms = page.locator('.reveal:has(.anatomy)');
   // Past the layout's 3 s failsafe: with React here, the picture still waits.
   await page.waitForTimeout(3500);
   await expect(terms).not.toHaveClass(/shown/);
@@ -52,11 +56,23 @@ test('a waving face keeps its two frames in turn', async ({ page }) => {
   for (const [first, second] of delays) expect(first).toBe(second);
 });
 
+test('scripts that come after the page gave up on them leave the panel open', async ({ page }) => {
+  await page.route((url) => url.pathname.endsWith('.js'), async (route) => {
+    await new Promise((done) => setTimeout(done, 3500));
+    await route.continue();
+  });
+  await page.goto('/');
+  await expect(page.locator('.screen')).toHaveAttribute('data-ready', '', { timeout: 15000 });
+  await page.waitForTimeout(500);
+  await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
+});
+
 test('a page whose scripts never arrive still shows everything', async ({ page }) => {
   await page.route('**/_next/static/chunks/*.js', (route) => route.abort());
   await page.goto('/');
   await page.waitForTimeout(3500);
   expect(await page.locator('.panel').evaluate((el) => getComputedStyle(el).clipPath)).not.toContain('22.34%');
+  expect(await page.locator('.term').evaluateAll((all) => all.map((t) => getComputedStyle(t).opacity))).toEqual(['1', '1', '1', '1', '1']);
   for (const shown of await page.locator('.reveal').all()) {
     await shown.scrollIntoViewIfNeeded();
     expect(await shown.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
@@ -95,7 +111,7 @@ test('a picture still waiting shows at once when Stop is pressed', async ({ page
   await page.goto('/');
   await page.waitForTimeout(500);
   await page.getByRole('button', { name: 'Stop the animations' }).click();
-  expect(await page.locator('.reveal:has(.terms)').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+  expect(await page.locator('.reveal:has(.anatomy)').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
 });
 
 test("only the hero's pictures load ahead", async ({ page }) => {

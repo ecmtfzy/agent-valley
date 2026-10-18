@@ -82,3 +82,41 @@ test('the arrows draw in as the row comes into view, even well after the page lo
   await page.locator('.anatomy').scrollIntoViewIfNeeded();
   await expect.poll(async () => Math.max(...(await offsets())), { timeout: 4000 }).toBe(0);
 });
+
+// The row's time runs, as the app's does, while the page may move.
+const time = (page: Page) => page.locator('.anatomy [data-part="time · model"] .clock').textContent();
+
+test.describe('the running time', () => {
+  test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'no-preference' });
+
+  test('counts up a second at a time from 2m 56s', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.anatomy').scrollIntoViewIfNeeded();
+    await expect.poll(() => time(page), { timeout: 4000 }).toBe('2m 58s');
+  });
+
+  test('holds when Stop is pressed', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Stop the animations' }).click();
+    const held = await time(page);
+    await page.waitForTimeout(2200);
+    expect(await time(page)).toBe(held);
+  });
+});
+
+test.describe('with motion reduced', () => {
+  test.use({ reducedMotion: 'reduce' });
+  test('the running time holds at 2m 56s', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(2200);
+    expect(await time(page)).toBe('2m 56s');
+  });
+});
+
+test.describe('without scripts', () => {
+  test.use({ javaScriptEnabled: false });
+  test('the running time reads 2m 56s', async ({ page }) => {
+    await page.goto('/');
+    expect(await time(page)).toBe('2m 56s');
+  });
+});

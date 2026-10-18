@@ -1,3 +1,4 @@
+import { Clock } from '@/components/clock';
 import { Mascot } from '@/components/mascot';
 import { Reveal } from '@/components/reveal';
 import { Word } from '@/components/word';
@@ -95,7 +96,7 @@ export function Rows() {
               <div>
                 <p className="p-line">
                   <b data-part="task">Map payment call sites<Note part="task" order={0} /></b>
-                  <span data-part="time · model">2m 56s <span className="model">Haiku 5.5</span><Note part="time · model" order={1} /></span>
+                  <span data-part="time · model"><Clock from={176} /> <span className="model">Haiku 5.5</span><Note part="time · model" order={1} /></span>
                 </p>
                 <p className="p-line p-dim">
                   <span data-part="latest step · steps so far">&gt; Grep PaymentIntent · 1 step<Note part="latest step · steps so far" order={2} /></span>

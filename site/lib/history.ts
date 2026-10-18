@@ -2,11 +2,12 @@
 // reader's own calendar: three months of them, up to now.
 
 export type Span = 'Day' | 'Week' | 'Month';
-export type Pick = { span: Span; anchor: Date; project: number | null; day: Date | null; hour: number | null };
+// `first`: the day a week starts on, 0 for Sunday, as the reader's region has it.
+export type Pick = { span: Span; anchor: Date; project: number | null; day: Date | null; hour: number | null; first: number };
 export type Action = { a: 'span' | 'step' | 'day' | 'hour' | 'project' | 'up'; v: string };
 
 export type Bar = { key: number; label: string; price: string; height: string; future: boolean };
-export type Bars = { kind: 'day' | 'hour'; list: Bar[]; picked: number | null; all: string; small: boolean };
+export type Bars = { kind: 'day' | 'hour'; list: Bar[]; picked: number | null; small: boolean };
 export type Split = { parts: { flex: number; color: string }[]; text: string };
 export type Row = { key: number | string; name: string; price: string };
 export type HistoryView = {
@@ -18,6 +19,8 @@ export type HistoryView = {
   canLater: boolean;
   bars: Bars;
   hourBars: Bars | null;
+  // The orange line under the bars once one is picked; its ✕ lets go of an hour, then of the day.
+  pickLine: { text: string; clear: Action; label: string } | null;
   models: Split | null;
   agents: Split | null;
   quiet: boolean;
@@ -26,10 +29,10 @@ export type HistoryView = {
   announce: string;
 };
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-// Months and days in full: a reader should not have to know an abbreviation.
-const mon = (d: Date) => MONTHS[d.getMonth()];
+export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// Short, as the app writes them; the page spells each one out (components/history-panel.tsx).
+const mon = (d: Date) => MONTHS[d.getMonth()].slice(0, 3);
 const hh = (h: number) => String(h).padStart(2, '0') + ':00';
 const cents = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const whole = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -55,8 +58,18 @@ export function noise(...keys: number[]): number {
   return (h >>> 0) / 4294967296;
 }
 
-export const startOf = (span: Span, d: Date) => span === 'Month' ? new Date(d.getFullYear(), d.getMonth(), 1)
-  : new Date(d.getFullYear(), d.getMonth(), d.getDate() - (span === 'Week' ? (d.getDay() + 6) % 7 : 0));
+// The day a week starts on where `lang` is spoken, 0 for Sunday: the app takes the Mac's.
+export function weekStart(lang: string): number {
+  try {
+    const l = new Intl.Locale(lang) as Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } };
+    return ((l.getWeekInfo?.() ?? l.weekInfo)?.firstDay ?? 1) % 7;
+  } catch {
+    return 1;
+  }
+}
+
+export const startOf = (span: Span, d: Date, first: number) => span === 'Month' ? new Date(d.getFullYear(), d.getMonth(), 1)
+  : new Date(d.getFullYear(), d.getMonth(), d.getDate() - (span === 'Week' ? (d.getDay() - first + 7) % 7 : 0));
 export const step = (span: Span, d: Date, by: number) => span === 'Month' ? new Date(d.getFullYear(), d.getMonth() + by, 1)
   : new Date(d.getFullYear(), d.getMonth(), d.getDate() + by * (span === 'Week' ? 7 : 1));
 const daysIn = (start: Date, end: Date) => {
@@ -67,7 +80,7 @@ const daysIn = (start: Date, end: Date) => {
 const dayTitle = (d: Date) => `${mon(d)} ${d.getDate()}`;
 export function spanTitle(span: Span, start: Date, end: Date): string {
   if (span === 'Month') return `${MONTHS[start.getMonth()]} ${start.getFullYear()}`;
-  if (span === 'Day') return `${DAYS[start.getDay()]}, ${dayTitle(start)}, ${start.getFullYear()}`;
+  if (span === 'Day') return `${DAYS[start.getDay()].slice(0, 3)}, ${dayTitle(start)}, ${start.getFullYear()}`;
   const last = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
   return `${dayTitle(start)} – ${last.getMonth() === start.getMonth() ? last.getDate() : dayTitle(last)}, ${last.getFullYear()}`;
 }
@@ -123,10 +136,10 @@ export function historyView(pick: Pick, now: Date): HistoryView {
     return out;
   };
   type Raw = { key: number; cost: number; future: boolean; label: string };
-  const bars = (list: Raw[], picked: number | null, kind: 'day' | 'hour', small: boolean, all: string): Bars => {
+  const bars = (list: Raw[], picked: number | null, kind: 'day' | 'hour', small: boolean): Bars => {
     const top = Math.max(...list.map((b) => b.cost));
     return {
-      kind, picked, small, all,
+      kind, picked, small,
       list: list.map((b) => ({
         key: b.key, label: b.label, price: dollars(b.cost), future: b.future,
         height: b.future || !top ? '2px' : `max(2px,${(b.cost / top) * 100}%)`,
@@ -139,7 +152,7 @@ export function historyView(pick: Pick, now: Date): HistoryView {
   });
 
   const { span, project } = pick;
-  const start = startOf(span, pick.anchor), end = step(span, start, 1);
+  const start = startOf(span, pick.anchor, pick.first), end = step(span, start, 1);
   const days = daysIn(start, end);
   const title = spanTitle(span, start, end);
   const all = hours(days, project, null);
@@ -159,21 +172,26 @@ export function historyView(pick: Pick, now: Date): HistoryView {
     total: dollars(sum(all)),
     canEarlier: start > since,
     canLater: end <= now,
-    bars: bars(daily, span === 'Day' ? pick.hour : pick.day && pick.day.getTime(), span === 'Day' ? 'hour' : 'day', false, title),
-    hourBars: span !== 'Day' && pick.day ? bars(hourBars(pick.day), pick.hour, 'hour', true, dayTitle(pick.day)) : null,
+    bars: bars(daily, span === 'Day' ? pick.hour : pick.day && pick.day.getTime(), span === 'Day' ? 'hour' : 'day', false),
+    hourBars: span !== 'Day' && pick.day ? bars(hourBars(pick.day), pick.hour, 'hour', true) : null,
+    pickLine: picked ? {
+      text: `${pickTitle} · ${dollars(sum(focus))}`,
+      clear: pick.hour !== null ? { a: 'hour', v: '' } : { a: 'day', v: '' },
+      label: `Show all of ${pick.hour !== null && pick.day ? dayTitle(pick.day) : title}`,
+    } : null,
     models: split(lines(focus, (x) => Object.entries(PROJECTS[x.p].models))),
     agents: split(lines(focus, (x) => Object.entries(PROJECTS[x.p].agents))),
     quiet: !focus.length,
     rows,
-    since: `History since ${dayTitle(since)}, ${since.getFullYear()}`,
+    since: `History since ${dayTitle(since)}, ${since.getFullYear()} · API prices as of Oct 15, 2026`,
     announce: `${title}${project !== null ? ', ' + PROJECTS[project].name : ''}, ${dollars(sum(all))}${picked ? `; ${pickTitle}, ${dollars(sum(focus))}` : ''}`,
   };
 }
 
-// A bar clicked twice lets go; the list's first choice, All of …, sends an empty value.
+// A bar clicked twice lets go, and so does an empty value, the pick line's ✕.
 export function nextPick(pick: Pick, { a, v }: Action): Pick {
-  const start = startOf(pick.span, pick.anchor);
-  if (a === 'span') return { span: v as Span, anchor: pick.day || pick.anchor, project: pick.project, day: null, hour: null };
+  const start = startOf(pick.span, pick.anchor, pick.first);
+  if (a === 'span') return { ...pick, span: v as Span, anchor: pick.day || pick.anchor, day: null, hour: null };
   if (a === 'step') return { ...pick, anchor: step(pick.span, start, +v), day: null, hour: null };
   if (a === 'day') return { ...pick, day: v === '' || (pick.day && pick.day.getTime() === +v) ? null : new Date(+v), hour: null };
   if (a === 'hour') return { ...pick, hour: v === '' || pick.hour === +v ? null : +v };

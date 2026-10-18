@@ -92,8 +92,10 @@ html{scroll-padding-top:80px}
 .bar-hit:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
 .bar-hit[hidden]{display:none}
 /* Above the picture, a line down to the notch: the bar is the thing to press. */
-.notch-note{margin:0 0 6px;color:var(--accent-text);font:400 .8125rem/1.5 var(--mono);text-align:center}
-.notch-note::after{content:"";display:block;width:1px;height:16px;margin:6px auto 0;background:var(--accent-text)}
+/* Written in pen above it, as the row's notes are: the arrow's head, 42px into it, on the notch. */
+.notch-note{margin:0 0 10px;color:var(--accent-text);font:600 1.375rem/1.15 var(--hand);text-align:center;text-wrap:balance}
+.notch-note svg{display:block;width:54px;height:60px;margin:4px 0 0 calc(50% - 42px);overflow:visible}
+.notch-note path{fill:none;stroke:var(--pen);stroke-width:2.2px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .screen>[role=img]{position:absolute;inset:0;pointer-events:none}
 /* A phone keeps the sub-agent rows, the point of the app: the screen grows taller to hold both cards. */
 @media (max-width:599px){.screen{aspect-ratio:4/5}.panel .extra{display:none}}
@@ -157,6 +159,23 @@ html{scroll-padding-top:80px}
 .term header b{margin-left:auto;color:var(--red-text);font-weight:600}
 .term pre{margin:0;padding:10px 12px;font:inherit;white-space:pre-wrap}
 .term.wait{border-color:var(--term-wait)}
+/* The pile grows with the scroll (pile.tsx): each terminal springs up as it is called, the ones
+   not yet called wait out of sight. On a screen wide and tall enough the section is the length of
+   the scroll and its stage is held under the top bar meanwhile; Stop leaves it so, or the page
+   would jump a screen and a half under the reader. Without scripts, with motion reduced or
+   stopped, or on paper, the pile stands whole. */
+@media screen and (prefers-reduced-motion:no-preference){
+  .js:not(.still) .term{transition:opacity .2s ease,transform .55s cubic-bezier(.34,1.56,.64,1)}
+  .js:not(.still) :is(.terms:not([data-n]),.terms[data-n="0"]) .term,
+  .js:not(.still) .terms[data-n="1"] .term:nth-child(n+2),
+  .js:not(.still) .terms[data-n="2"] .term:nth-child(n+3),
+  .js:not(.still) .terms[data-n="3"] .term:nth-child(n+4),
+  .js:not(.still) .terms[data-n="4"] .term:nth-child(n+5){opacity:0;transform:translateY(36px) scale(.92)}
+}
+@media screen and (prefers-reduced-motion:no-preference) and (min-width:900px) and (min-height:640px){
+  .js .problem{height:240vh}
+  .js .problem-stage{position:sticky;top:64px;min-height:calc(100vh - 64px)}
+}
 
 /* One row, taken out of the panel and marked up part by part in pen: room above and below the
    box for the notes, which stand on the page, in the page's own orange. */
@@ -220,14 +239,20 @@ html{scroll-padding-top:80px}
 :where(.hist) button{all:unset;box-sizing:border-box;cursor:pointer}
 .hist button:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
 .hist button:disabled{cursor:default}
-.h-top,.h-stretch,.h-back{display:flex;align-items:center;gap:.4em}
+.h-top,.h-stretch{display:flex;align-items:center;gap:.4em}
 .h-top{flex-wrap:wrap}
-.h-back{min-height:44px;border:1px solid transparent}
+.h-back,.h-pdf{display:flex;align-items:center;gap:.4em;min-height:44px;border:1px solid transparent;color:inherit;text-decoration:none}
+.h-back:focus-visible,.h-pdf:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
+.h-pdf{margin-left:auto}
+.hist abbr{text-decoration:none}
 .h-stretch{align-items:flex-start;gap:.25em}
-.h-seg{display:flex;gap:4px;margin-left:auto;padding:.15em;border-radius:.55em;background:var(--app-fill)}
+.h-seg{display:flex;gap:4px;padding:.15em;border-radius:.55em;background:var(--app-fill)}
 .h-seg button{display:inline-grid;place-items:center;min-width:44px;min-height:44px;padding:0 .75em;border:1px solid transparent;border-radius:.4em;color:var(--app-tab)}
 .h-seg button[aria-pressed=true]{background:var(--app-fg);color:var(--ink)}
 .h-step{display:grid;flex:none;place-items:center;width:44px;height:44px;border:1px solid transparent;opacity:.8}
+/* The app's arrows hug the title; each keeps a 44px target, its edges over the title's empty
+   margin. */
+.h-step{position:relative;margin:-10px -12px}
 .h-step:disabled{opacity:.25}
 .h-title{min-width:0;font-weight:700;line-height:1.4}
 .h-total{display:grid;flex:none;justify-items:end;margin-left:auto}
@@ -241,14 +266,11 @@ html{scroll-padding-top:80px}
 .h-bars.picking i{background:var(--h-bar-dim)}
 .h-bars .on i{background:var(--pick)}
 .h-bars .future i{background:var(--h-bar-later)}
+.h-bars:focus-visible{outline:2px solid var(--amber);outline-offset:4px;border-radius:4px}
+.h-pick{display:flex;align-items:center;color:var(--pick)}
+/* Its target starts where the words end, so a press on them does nothing. */
+.h-clear{display:grid;flex:none;place-items:center;width:44px;height:44px;margin:-10px 0;border:1px solid transparent}
 .h-axis{display:flex;justify-content:space-between;margin-top:-.5em;color:var(--app-soft);font-size:.8em}
-/* The bars are small, so each choice they offer is also in a list at least 44 points tall. */
-.h-sel{position:relative;display:flex}
-.h-sel select{flex:1;min-width:0;min-height:44px;padding:0 2.4em 0 .8em;border:1px solid transparent;border-radius:.55em;background:var(--app-fill);color:var(--app-fg);font:inherit;text-overflow:ellipsis;cursor:pointer;appearance:none}
-.h-sel select:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
-.h-sel::after{content:"";position:absolute;top:50%;right:1em;width:.45em;height:.45em;border:solid var(--app-dim);border-width:0 1.5px 1.5px 0;transform:translateY(-70%) rotate(45deg);pointer-events:none}
-/* A phone zooms into a list whose letters are under 16 points. */
-@media (pointer:coarse){.h-sel select{font-size:16px}}
 .h-split{display:grid;gap:.25em}
 .h-split p{display:flex;gap:1px;height:.46em;overflow:hidden;border-radius:.23em}
 .h-head{margin-top:.3em;color:var(--app-soft);font:600 .86em/1.5 var(--app);letter-spacing:0}
@@ -366,12 +388,10 @@ a.w:hover{text-decoration-style:solid}
   .still .reveal{transition:none}
 }
 
-/* With scripts the hero's panel waits shut for a moment, then opens once; without them, or with
-   motion reduced or stopped, or on paper, it stands open from the first paint. */
-@media screen and (prefers-reduced-motion:no-preference){
-  .js:not(.still) .screen:not([data-opened]) .panel{clip-path:inset(0 22.34% calc(100% - var(--bar)) 22.34% round 0 0 2.2cqw 2.2cqw);transition:none}
-  .js:not(.still) .screen:not([data-opened]) .bar .wing{opacity:1}
-}
+/* With scripts the hero's panel is shut from the first paint, before React is here to say so;
+   without them it stands open. */
+.js .screen:not([data-ready]) .panel{clip-path:inset(0 22.34% calc(100% - var(--bar)) 22.34% round 0 0 2.2cqw 2.2cqw);transition:none}
+.js .screen:not([data-ready]) .bar .wing{opacity:1}
 
 /* A face standing still waves when a pointer comes by, as the crew does when one needs you. */
 .face{position:relative;display:inline-block;flex:none}

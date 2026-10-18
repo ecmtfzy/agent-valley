@@ -8,7 +8,7 @@ Only for Claude Code, on Mac · Free · Open source · [agentvalley.app](https:/
 
 # Every agent, at a glance, right in your notch.
 
-Each agent, sub-agents too, gets its own row and its own little programmer. See who is working, on which model, and who needs you, without leaving your app.
+Five agents running. Which one is waiting for you? Each agent, sub-agents too, gets its own row and its own little programmer. See who is working, on which model, and who needs you, without leaving your app.
 
 <img src="docs/panel.png" alt="The AgentValley panel open under the notch: three sessions need you, one is working with two sub-agents, each with its own pixel programmer, model and latest step." width="544">
 
@@ -18,7 +18,7 @@ Each agent, sub-agents too, gets its own row and its own little programmer. See 
 brew install morsechimwai/tap/agent-valley
 ```
 
-Homebrew builds the app on your Mac from the source. It takes a minute or so. Needs macOS 15 or later, Homebrew, and Claude Code. Made for MacBooks with a notch.
+Homebrew builds the app on your Mac from the source. It takes a minute or so. Needs macOS 15 or later, Homebrew, and Claude Code. Made for MacBooks with a notch. No Homebrew yet? Get it at [brew.sh](https://brew.sh).
 
 Open it:
 
@@ -39,15 +39,17 @@ To remove: first take out what you added yourself. For the plugin, run `claude p
 
 ## What it does
 
-- **Every agent gets a row.** Sessions get a card. Sub-agents get rows under it. Each row shows the task, the model and the latest step. Sub-agent rows count their steps too.<br>
+- **Every agent gets a row.** Sessions get a card. Sub-agents get rows under it. Each row shows the task, the model and the latest step. Sub-agent rows count their steps too. Every session in one list, whichever terminal it runs in.<br>
   <img src="docs/row-notes.png" alt="One sub-agent row, enlarged, with arrows drawn in pen to each part: the task, the time and model, the latest step with the step count, and the agent's type." width="544">
-- **Know the moment one needs you.** When an agent asks a question or waits for permission, a red count appears beside the notch. Open the panel to read the question or the command.
+- **Know the moment one needs you.** When an agent asks a question or waits for permission, a red count appears beside the notch. Open the panel to read the question or the command.<br>
+  <img src="docs/needs-you.gif" alt="The top of a Mac screen. An agent works in a terminal while the crew stands in the valley. It asks to run git push origin preview: the terminal waits, a red 1 appears beside the notch, and the one who asks waves. The pointer opens the panel over the terminal and presses Allow once. The panel shuts and the push goes through." width="544">
 - **Jump to its app in one click.** Turn on Go to the session's tab, and Terminal and iTerm2 open the exact tab. Ghostty does too, unless two sessions run in the same folder.
 - **Answer from the notch.** Allow once or Deny, using a plugin you install yourself: turn on `Answer from the notch` in the settings, run the command it shows, then start Claude Code again.
 - **See what each project cost.** History by day, week or month, at API prices. Open it from the chart button at the top of the panel. Kept on your Mac, even after Claude Code clears its old files. Export PDF writes a statement of work: every project for you, or one for your team or a client.<br>
   <img src="docs/report-motion.gif" alt="The History page in the notch panel. Export PDF prints a statement of work for every project, then the panel picks shop-web and prints one for that project alone. Each page opens with its total." width="544">
-- **The crew in your terminal too.** Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. One command from the app's Actions settings sets it up, and it keeps working with the app closed.<br>
+- **The crew in your terminal too.** Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. One command from the app's Actions settings sets it up, and it keeps working with the app closed. The crew travels as a font, and has been seen in Terminal, iTerm2, Ghostty and Cursor.<br>
   <img src="docs/terminal.png" alt="Claude Code in a terminal. Under the prompt, the status line shows Sunny's face, Opus 5.5 and Max 20x, then bars for context, the 5-hour limit and the weekly limit. Below it, two sub-agent rows, each with a little face, its task, time, model, folder, branch and current step." width="544">
+- **Token use.** Tokens for the last 5 hours and today, with a 12-hour chart.
 - **Plan limits.** Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on.
 
 No guessed progress bars. If an agent goes quiet, AgentValley says so. Sounds stay off until you turn them on.
@@ -69,6 +71,8 @@ The first four run sessions. Start Claude Code and one of them takes the session
 <tr><td width="76"><img src="site/public/mascots/afro-working.svg" alt="" width="48"></td><td><b>Faye</b> · the Explore sub-agent<br>Faye reads every file until she finds the one you meant. On weekends she disappears into the desert and always comes back with new ideas. What she found out there, she has never said.</td></tr>
 <tr><td width="76"><img src="site/public/mascots/beatnik-working.svg" alt="" width="48"></td><td><b>Felix</b> · the General-purpose sub-agent<br>Any job without a name goes to Felix. On Thursday nights he reads poetry in a basement coffeehouse, and he plays the bongos while the machine runs. For every other kind of sub-agent he turns up in a different shirt.</td></tr>
 </table>
+
+How we stand tells you how the agent is doing. Working, we bob and blink. Needs you, we wave. Quiet, we look away. Done, our eyes close. Nothing running? Just a cup of coffee.
 
 ## It reads. It doesn't touch.
 

@@ -12,43 +12,39 @@ const TOLD = {
 // one crossing the bar on its way elsewhere is gone by then.
 const DWELL = 100;
 
-// The hero's panel stands open; the bar beside the notch shuts and opens it, by click, tap or
-// keyboard. Without scripts the panel stays open and the button stays hidden. With them it waits
-// shut for 400 ms and opens once (set-pieces.css), so the reader sees where it comes from; it
-// never opens and shuts on its own again. A mouse works it as on a Mac: resting on the bar opens
-// it, and once in, leaving the panel shuts it; Esc shuts it too.
+// The hero's panel, under the bar beside the notch. Without scripts it stands open, as nothing
+// could open it, and the button stays hidden. With them it waits shut from the first paint
+// (set-pieces.css), as the app's notch rests. A mouse works it as on a Mac: resting on the bar opens
+// it, and once in, leaving the panel shuts it; Esc shuts it too. A press with the mouse only opens
+// it, so one pressing the bar the pointer has just opened does not shut it again. Keys and a
+// finger, which cannot rest on it, open and shut it by pressing.
 export function HeroScreen({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<'open' | 'shut'>('open');
   const [ready, setReady] = useState(false);
-  const [opened, setOpened] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   // Whether the mouse is in the panel or on the bar; whether resting on the bar may open it (not
-  // right after it was pressed or Esc'd shut there); and the wait before it opens.
+  // right after it was Esc'd shut there); the wait before it opens; what last pressed the bar.
   const inside = useRef(false);
   const armed = useRef(true);
   const dwell = useRef(0);
+  const presser = useRef('');
 
-  const show = (next: 'open' | 'shut') => {
-    setOpened(true);
-    setState(next);
-  };
   // Shut by hand: the resting mouse does not open it again until it goes and comes back.
   const shut = () => {
     armed.current = false;
     clearTimeout(dwell.current);
     dwell.current = 0;
-    show('shut');
+    setState('shut');
   };
 
   useEffect(() => {
     // React is here: the layout's first script keeps js, so the pictures wait for their moment.
+    // Come after that script gave up on it (3 s), the reader has seen the panel open: it stays so.
+    const late = !document.documentElement.classList.contains('js');
     document.documentElement.dataset.live = '';
+    if (!late) setState('shut');
     setReady(true);
-    const open = setTimeout(() => setOpened(true), 400);
-    return () => {
-      clearTimeout(open);
-      clearTimeout(dwell.current);
-    };
+    return () => clearTimeout(dwell.current);
   }, []);
 
   useEffect(() => {
@@ -61,8 +57,7 @@ export function HeroScreen({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   const track = (e: React.PointerEvent<HTMLElement>, gone = false) => {
-    // Not before the first opening: until then the panel is drawn shut whatever the state says.
-    if (e.pointerType !== 'mouse' || !opened) return;
+    if (e.pointerType !== 'mouse') return;
     const over = (el: Element | null) => {
       const box = el?.getBoundingClientRect();
       return !!box && e.clientX >= box.left && e.clientX < box.right && e.clientY >= box.top && e.clientY < box.bottom;
@@ -74,12 +69,12 @@ export function HeroScreen({ children }: { children: React.ReactNode }) {
       dwell.current = 0;
       armed.current = true;
     }
-    if (state === 'open' && inside.current && !now) show('shut');
+    if (state === 'open' && inside.current && !now) setState('shut');
     inside.current = now;
     if (state === 'shut' && onBar && armed.current && !dwell.current) {
       dwell.current = window.setTimeout(() => {
         dwell.current = 0;
-        show('open');
+        setState('open');
       }, DWELL);
     }
   };
@@ -88,7 +83,7 @@ export function HeroScreen({ children }: { children: React.ReactNode }) {
     <figure
       className="screen"
       data-state={state}
-      data-opened={opened ? '' : undefined}
+      data-ready={ready ? '' : undefined}
       onPointerMove={(e) => track(e)}
       onPointerLeave={(e) => track(e, true)}
     >
@@ -101,7 +96,13 @@ export function HeroScreen({ children }: { children: React.ReactNode }) {
         aria-expanded={state === 'open'}
         aria-label="The notch: the AgentValley panel"
         hidden={!ready}
-        onClick={() => (state === 'open' ? shut() : show('open'))}
+        onPointerDown={(e) => (presser.current = e.pointerType)}
+        onClick={(e) => {
+          if (state === 'shut') setState('open');
+          // A click from the keyboard has no detail, and one from a screen reader no press before it.
+          else if (!e.detail || presser.current !== 'mouse') shut();
+          presser.current = '';
+        }}
       />
     </figure>
   );

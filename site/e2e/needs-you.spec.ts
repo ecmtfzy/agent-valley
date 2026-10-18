@@ -2,12 +2,28 @@ import { expect, type Page, test } from '@playwright/test';
 
 // The needs-you motion plays on its own, round and round, over its still.
 const looks = (page: Page) => page.locator('.s-figure').screenshot();
+// The largest step of any colour of any pixel between two pictures, read by the page itself.
+const apart = (page: Page, a: Buffer, b: Buffer) =>
+  page.evaluate(async (both) => {
+    const pixels = async (png: string) => {
+      const picture = await createImageBitmap(new Blob([Uint8Array.from(atob(png), (c) => c.charCodeAt(0))]));
+      const pen = new OffscreenCanvas(picture.width, picture.height).getContext('2d')!;
+      pen.drawImage(picture, 0, 0);
+      return pen.getImageData(0, 0, picture.width, picture.height).data;
+    };
+    const [x, y] = await Promise.all(both.map(pixels));
+    if (x.length !== y.length) return Infinity;
+    let most = 0;
+    for (let i = 0; i < x.length; i++) most = Math.max(most, Math.abs(x[i] - y[i]));
+    return most;
+  }, [a.toString('base64'), b.toString('base64')]);
 // Whether the figure changes within 2.4 s, longer than the motion ever rests between beats.
+// Chrome paints a still picture a shade off now and then, never more than a step or two.
 const moves = async (page: Page) => {
   const first = await looks(page);
   for (let i = 0; i < 6; i++) {
     await page.waitForTimeout(400);
-    if (!(await looks(page)).equals(first)) return true;
+    if ((await apart(page, first, await looks(page))) > 8) return true;
   }
   return false;
 };
@@ -19,7 +35,7 @@ const reach = async (page: Page) => {
 test('the needs-you section shows the panel the app draws, with its still', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Know the moment one needs you.' })).toBeVisible();
-  await expect(page.getByRole('img', { name: /^The bar beside the notch, while three agents work\./ })).toBeVisible();
+  await expect(page.getByRole('img', { name: /^The top of a Mac screen\. An agent works in a terminal/ })).toBeVisible();
   await page.locator('.s-still').scrollIntoViewIfNeeded();
   await expect.poll(() => page.locator('.s-still').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1500);
 });

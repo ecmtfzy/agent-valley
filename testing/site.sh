@@ -28,7 +28,7 @@
 #                             while three made-up sessions work, shut with the red 1, open on the
 #                             request and open once it is allowed (NeedsYouMotionAssetsTests), as
 #                             WebP in site/public/needs-you; then, with Remotion, the still the
-#                             site shows where nothing moves.
+#                             site shows where nothing moves, and docs/needs-you.gif for the README.
 #   testing/site.sh check     Installs, tests and builds the site; every line of the spec's copy is
 #                             on the page, every file it points to is there, nothing is loaded
 #                             from another site, and the browser tests pass.
@@ -208,12 +208,19 @@ for n, picture in pictures.items():
 PY
     # The entry loads the report's font for every composition.
     cp site/public/needs-you/shut-*.webp site/public/needs-you/open-*.webp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
-    # The panel open on the request, the pointer on the notch (BEATS.toCard's start).
-    (cd site && npx remotion still motion/index.tsx NeedsYouMotion "$work/still.png" --frame=100 --scale=1.25 \
+    mkdir -p "$work/public/mascots" && cp site/public/mascots/*.svg "$work/public/mascots/"
+    # The terminal waiting, the red 1 and the pointer on the notch (BEATS.pointIn's end).
+    (cd site && npx remotion still motion/index.tsx NeedsYouMotion "$work/still.png" --frame=58 --scale=1.25 \
         --props='{"base":""}' --public-dir="$work/public" --log=error)
     python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("RGB").save(sys.argv[2], quality=86, method=6)' \
         "$work/still.png" site/public/needs-you/still.webp
-    ls -l site/public/needs-you
+    (cd site && npx remotion render motion/index.tsx NeedsYouMotion ../docs/needs-you.gif --codec=gif --every-nth-frame=2 --scale=0.5 \
+        --props='{"base":""}' --public-dir="$work/public" --log=error --overwrite)
+    ls -l site/public/needs-you docs/needs-you.gif
+    if [ "$(stat -f %z docs/needs-you.gif)" -gt 5242880 ]; then
+        echo "docs/needs-you.gif is over 5 MB: lower its --scale." >&2
+        exit 1
+    fi
     ;;
 logo)
     # The crew (16×13) and the name (88×12) in one drawing, bottom edges level and four mark pixels

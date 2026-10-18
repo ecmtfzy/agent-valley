@@ -4,7 +4,7 @@ import { Word } from '@/components/word';
 // report motion, the camera on the page's head, drawn on nothing (testing/site.sh report).
 export function Report() {
   return (
-    <section className="wrap section split report [--cols:minmax(0,4fr)_minmax(0,7fr)]">
+    <section className="wrap section split report [--cols:minmax(0,4fr)_minmax(0,7fr)]" id="report">
       <div className="stack">
         <h2>Hand the month over as a PDF.</h2>
         <p className="lead">

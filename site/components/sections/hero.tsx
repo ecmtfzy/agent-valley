@@ -39,7 +39,14 @@ export function Hero() {
       </div>
       {/* Stacked, the heading and the copy below it are one block; the picture keeps its distance. */}
       <div className="mt-8 min-[900px]:mt-0 min-[900px]:[grid-area:screen]">
-        <p className="notch-note" aria-hidden="true">The notch. Point at it or press it to open the panel.</p>
+        <p className="notch-note" aria-hidden="true">
+          The notch. Point at it or press it to open the panel.
+          {/* The pen of the row's note on the task (sections/rows.tsx). */}
+          <svg viewBox="0 0 72 80">
+            <path className="line" d="M3 6 C14 5 27 3 38 7 C50 12 57 30 56.5 47 C56.2 58 56 68 56 77" />
+            <path d="M48 66 C51 70 54 74 56 77.5 C58.5 73 61 69 65 65" />
+          </svg>
+        </p>
         <HeroScreen>
           <ScreenDrawing />
         </HeroScreen>

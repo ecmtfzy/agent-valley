@@ -1,10 +1,12 @@
 import type React from 'react';
 import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from 'remotion';
 
-// The bar beside the notch while three agents work; one asks to push, the bar shows a red 1, the
-// pointer opens the panel, Allow once, and the agent goes back to work. The four pictures are
-// the app's own panel, drawn by testing/site.sh needs-you. The site plays it round and round:
-// it ends on the bar it starts on.
+// The top of a Mac screen, as the hero draws one: an agent at work in a terminal, the crew in the
+// valley below. It asks to push: the terminal waits on it, the bar beside the notch shows a red 1
+// and the one who asks waves. The pointer opens the panel over the terminal, presses Allow once,
+// the panel shuts and the push goes through. The four pictures of the bar and the panel are the
+// app's own, drawn by testing/site.sh needs-you. The site plays it round and round: it ends on
+// the empty terminal it starts on.
 export type NeedsYouMotionProps = { readonly base: string };
 
 const PICTURE = {
@@ -13,13 +15,24 @@ const PICTURE = {
   open: 'open-asking.webp',
   allowed: 'open-allowed.webp',
 } as const;
+// The crew in the valley; the first is the one who asks.
+const CREW = ['guru', 'walrus', 'afro', 'beatnik'] as const;
+const MASCOT = { work: (who: string) => `${who}-working.svg`, wave: (who: string, n: number) => `${who}-wave${n}.svg` };
 /** What the motion draws from, for the site to have ready before the player covers its still. */
 export const PICTURES = Object.values(PICTURE);
+export const MASCOTS = [...CREW.map(MASCOT.work), MASCOT.wave(CREW[0], 0), MASCOT.wave(CREW[0], 1)];
 
 const W = 1200;
-const BG = '#f3f2ed';
+const H = 900;
 const AMBER = '#ffb000';
 const RED = '#f0503c';
+// The hero's screen (globals.css): wallpaper, glow, horizon, menu bar, terminal.
+const WALL = '#1b110a';
+const GLOW = 'rgba(229,160,58,.3)';
+const HORIZON = ['#e5a03a', '#d9772e', '#b4501f', '#7a3417', '#3d1f10'];
+const MENU = '255,236,210';
+const TERM = { bg: '#16120f', head: '#221c17', edge: '#3a322b', fg: '#d9d2c3', dim: '#bab2a2', dot: '#4a4038', wait: '#5a2a26' };
+const MONO = 'ui-monospace, "SF Mono", Menlo, monospace';
 
 const snap = Easing.bezier(0.2, 0, 0, 1);
 const swing = Easing.bezier(0.65, 0, 0.35, 1);
@@ -27,30 +40,33 @@ const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 const tween = (f: number, a: number, b: number, from: number, to: number, easing = snap) =>
   interpolate(f, [a, b], [from, to], { ...clamp, easing });
 
-// In frames, at 30 a second: a second and a half to read the request, one to see it allowed.
+// In frames, at 30 a second.
 export const BEATS = {
-  ask: [30, 36],
-  ring: 32,
-  pointIn: [54, 70],
+  // The agent's first three lines, then its request.
+  lines: [4, 12, 20],
+  ask: [28, 32],
+  ring: 30,
+  pointIn: [44, 58],
   // The black island grows into the panel, then what is in it comes in; on the way back the other way round.
-  grow: [72, 86],
-  fill: [80, 92],
-  // The camera leaves the bar ahead of the island, and comes back to it behind.
-  wide: [64, 82],
-  toCard: [100, 114],
-  toAllow: [128, 142],
-  pressAllow: 146,
+  grow: [60, 74],
+  fill: [68, 80],
+  toCard: [86, 100],
+  toAllow: [112, 126],
+  pressAllow: 130,
   // A cut, as the app redraws the card: any fade shows both cards at once.
-  allowed: 152,
-  settle: [152, 164],
-  pointOut: [180, 194],
-  empty: [196, 202],
-  shrink: [198, 214],
-  narrow: [202, 220],
+  allowed: 136,
+  settle: [136, 148],
+  pointOut: [160, 174],
+  empty: [176, 182],
+  shrink: [178, 194],
+  // The push goes through, and the agent carries on.
+  after: [190, 198, 210],
+  // The terminal clears for the next round.
+  clear: [226, 236],
   end: 240,
 } as const;
 
-export const NEEDS_YOU_MOTION = { width: W, height: 900, fps: 30, durationInFrames: BEATS.end + 1 } as const;
+export const NEEDS_YOU_MOTION = { width: W, height: H, fps: 30, durationInFrames: BEATS.end + 1 } as const;
 
 // The pictures are 1088 × 840, cut alike from the panel at two pixels to the point, the top of
 // the screen at their top edge. Places below are in their pixels; testing/site.sh needs-you
@@ -61,9 +77,10 @@ const HEIGHT = { asking: 836, allowed: 742 };
 const COUNT = { x: 323, y: 37 };
 const NOTCH = { x: 560, y: 52 };
 const ALLOW = { x: 222, y: 412, w: 188, h: 46 };
-// Below the bottom edge: the pointer comes in from there and leaves the way it came.
-const OFF = { x: 760, y: 1000 };
 const inFrame = (p: { x: number; y: number }) => ({ x: PANEL.x + p.x, y: p.y });
+// Where the pointer rests between visits to the notch: on the terminal.
+const REST = { x: 760, y: 470 };
+const TERMINAL = { x: 150, y: 150, w: 900, h: 420 };
 
 const Cursor: React.FC<{ x: number; y: number; press: number }> = ({ x, y, press }) => (
   <svg
@@ -92,23 +109,111 @@ const Ring: React.FC<{ x: number; y: number; w: number; h: number; t: number; co
   />
 );
 
-// A Mac's menu bar, the notch in the middle of it, as the site draws one: pills for the menus.
-const MenuBar: React.FC = () => {
-  const pill = (left: number, width: number) => (
-    <div key={left} style={{ position: 'absolute', left, top: 31, width, height: 14, borderRadius: 7, background: 'rgba(42,33,24,.22)' }} />
+// The wallpaper with its glow and the horizon the crew stands on, and the menu bar over it.
+const Screen: React.FC = () => {
+  const band = 15;
+  const pill = (left: number, width: number, round = false) => (
+    <div
+      key={left}
+      style={{ position: 'absolute', left, top: round ? 27 : 32, width, height: round ? 22 : 12, borderRadius: 11, background: `rgba(${MENU},.32)` }}
+    />
   );
   return (
-    // A shade darker than the page, so the top of the screen reads as the picture's edge.
-    <div style={{ position: 'absolute', inset: '0 0 auto 0', height: ISLAND.h, background: '#e6e2d6', borderBottom: '1px solid rgba(42,33,24,.12)' }}>
-      {[pill(40, 22), pill(84, 70), pill(170, 52), pill(238, 60)]}
-      {[pill(W - 300, 40), pill(W - 244, 40), pill(W - 188, 70), pill(W - 100, 56)]}
+    <>
+      <AbsoluteFill
+        style={{
+          background: `radial-gradient(130% 55% at 50% 100%, ${GLOW}, transparent 70%), linear-gradient(180deg, ${WALL} 0 ${H - band * 5}px, ${HORIZON.map(
+            (c, i) => `${c} ${H - band * (5 - i)}px ${H - band * (4 - i)}px`,
+          ).join(', ')})`,
+        }}
+      />
+      <div style={{ position: 'absolute', inset: '0 0 auto 0', height: ISLAND.h, background: `rgba(${MENU},.09)` }}>
+        {[pill(36, 22, true), pill(82, 64), pill(166, 52), pill(238, 60)]}
+        <div style={{ position: 'absolute', right: 172, top: 26, width: 46, height: 22, padding: 2, boxSizing: 'border-box', border: `2px solid rgba(${MENU},.6)`, borderRadius: 6 }}>
+          <div style={{ width: '70%', height: '100%', borderRadius: 2, background: `rgba(${MENU},.6)` }} />
+        </div>
+        <div style={{ position: 'absolute', right: 36, top: 22, color: `rgba(${MENU},.8)`, font: `400 24px ${MONO}` }}>Thu 9:41</div>
+      </div>
+    </>
+  );
+};
+
+// One line of the terminal, coming in over a few frames from `at`.
+const Line: React.FC<{ f: number; at: number; dim?: boolean; children: React.ReactNode }> = ({ f, at, dim, children }) =>
+  f < at ? null : (
+    <div style={{ color: dim ? TERM.dim : TERM.fg, opacity: tween(f, at, at + 4, 0, 1), whiteSpace: 'pre' }}>{children}</div>
+  );
+
+const Terminal: React.FC<{ f: number }> = ({ f }) => {
+  const B = BEATS;
+  const asking = f >= B.ask[0] && f < B.allowed;
+  const done = f >= B.allowed;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: TERMINAL.x,
+        top: TERMINAL.y,
+        width: TERMINAL.w,
+        height: TERMINAL.h,
+        overflow: 'hidden',
+        border: `2px solid ${asking ? TERM.wait : TERM.edge}`,
+        borderRadius: 20,
+        background: TERM.bg,
+        boxShadow: '0 44px 80px -36px rgba(0,0,0,.6)',
+        font: `400 25px/1.6 ${MONO}`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, height: 52, padding: '0 22px', background: TERM.head, color: TERM.dim, fontSize: 22 }}>
+        {[0, 1, 2].map((i) => <i key={i} style={{ width: 15, height: 15, borderRadius: 8, background: TERM.dot }} />)}
+        <span style={{ marginLeft: 14 }}>shop-web</span>
+        {asking && <b style={{ marginLeft: 'auto', color: '#ff8a80', fontWeight: 600, opacity: tween(f, B.ask[0], B.ask[1], 0, 1) }}>waiting</b>}
+      </div>
+      <div style={{ padding: '20px 28px', opacity: 1 - tween(f, B.clear[0], B.clear[1], 0, 1, Easing.linear) }}>
+        <Line f={f} at={B.lines[0]}>&gt; Bash npm run build</Line>
+        <Line f={f} at={B.lines[1]} dim>{'  Compiled in 4.2s'}</Line>
+        <Line f={f} at={B.lines[2]}>&gt; Edit src/deploy/preview.ts</Line>
+        {asking && (
+          <div style={{ marginTop: 14, padding: '12px 20px', border: `2px solid ${TERM.wait}`, borderRadius: 12, opacity: tween(f, B.ask[0], B.ask[1], 0, 1) }}>
+            <div style={{ color: TERM.dim }}>Bash command</div>
+            <div style={{ color: TERM.fg }}>{'  git push origin preview'}</div>
+            <div style={{ color: TERM.fg }}>Do you want to proceed?</div>
+            <div style={{ color: TERM.fg, whiteSpace: 'pre' }}>{'> 1. Yes   2. No'}</div>
+          </div>
+        )}
+        {done && (
+          <>
+            <Line f={f} at={B.after[0]}>&gt; Bash git push origin preview</Line>
+            <Line f={f} at={B.after[1]} dim>{'  preview -> preview'}</Line>
+            <Line f={f} at={B.after[2]}>&gt; Read README.md</Line>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// The crew on the horizon; the one who asks waves while the request waits.
+const Valley: React.FC<{ f: number; file: (name: string) => string }> = ({ f, file }) => {
+  const waving = f >= BEATS.ring && f < BEATS.allowed;
+  const size = 92;
+  return (
+    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 62, display: 'flex', justifyContent: 'center', gap: 22 }}>
+      {CREW.map((who, i) => (
+        <Img
+          key={who}
+          src={file(i === 0 && waving ? MASCOT.wave(who, Math.floor(f / 6) % 2) : MASCOT.work(who))}
+          style={{ width: size, height: size, imageRendering: 'pixelated' }}
+        />
+      ))}
     </div>
   );
 };
 
 export const NeedsYouMotion: React.FC<NeedsYouMotionProps> = ({ base }) => {
   const f = useCurrentFrame();
-  const file = (name: string) => (base ? base + name : staticFile(name));
+  // On the site the pictures sit in /needs-you/ and the crew in /mascots/; a render reads both from its public folder.
+  const file = (name: string) => (name.endsWith('.svg') ? (base ? `/mascots/${name}` : staticFile(`mascots/${name}`)) : base ? base + name : staticFile(name));
   const B = BEATS;
   const there = (a: readonly [number, number], b: readonly [number, number], easing = snap) =>
     interpolate(f, [a[0], a[1], b[0], b[1]], [0, 1, 1, 0], { ...clamp, easing });
@@ -127,17 +232,15 @@ export const NeedsYouMotion: React.FC<NeedsYouMotionProps> = ({ base }) => {
     round: 20 + 20 * grow,
   };
 
-  // The camera: on the bar while it is shut, on the whole panel, a little closer while it asks.
-  const onBar = 1 - there(B.wide, B.narrow, swing);
+  // The camera: the whole screen, a little closer on the card while it asks.
   const onCard = there(B.toCard, B.pointOut, swing);
-  const zoom = 1 + onBar * 0.7 + onCard * 0.18;
-  const focus = onBar > 0 ? { x: W / 2, y: 0 } : { x: W / 2, y: 330 };
+  const zoom = 1 + onCard * 0.18;
 
   const keys = [B.pointIn[0], B.pointIn[1], B.toAllow[0], B.toAllow[1], B.pointOut[0], B.pointOut[1]];
   const notch = inFrame(NOTCH);
   const allow = inFrame(ALLOW);
-  const cx = interpolate(f, keys, [OFF.x, notch.x, notch.x, allow.x, allow.x, OFF.x], { ...clamp, easing: snap });
-  const cy = interpolate(f, keys, [OFF.y, notch.y, notch.y, allow.y, allow.y, OFF.y], { ...clamp, easing: snap });
+  const cx = interpolate(f, keys, [REST.x, notch.x, notch.x, allow.x, allow.x, REST.x], { ...clamp, easing: snap });
+  const cy = interpolate(f, keys, [REST.y, notch.y, notch.y, allow.y, allow.y, REST.y], { ...clamp, easing: snap });
   const press = interpolate(f, [B.pressAllow - 2, B.pressAllow, B.pressAllow + 4], [0, 1, 0], clamp);
   const count = inFrame(COUNT);
 
@@ -146,9 +249,11 @@ export const NeedsYouMotion: React.FC<NeedsYouMotionProps> = ({ base }) => {
   );
 
   return (
-    <AbsoluteFill style={{ background: BG }}>
-      <AbsoluteFill style={{ transformOrigin: `${focus.x}px ${focus.y}px`, scale: String(zoom) }}>
-        <MenuBar />
+    <AbsoluteFill style={{ background: WALL }}>
+      <AbsoluteFill style={{ transformOrigin: `${W / 2}px 330px`, scale: String(zoom) }}>
+        <Screen />
+        <Valley f={f} file={file} />
+        <Terminal f={f} />
         <div style={{ position: 'absolute', left: PANEL.x, top: 0, width: PANEL.w, height: PANEL.h }}>
           {grow > 0 && (
             <div
@@ -157,6 +262,7 @@ export const NeedsYouMotion: React.FC<NeedsYouMotionProps> = ({ base }) => {
                 inset: 0,
                 background: '#000',
                 clipPath: `inset(0 ${box.right}px ${box.bottom}px ${box.left}px round 0 0 ${box.round}px ${box.round}px)`,
+                boxShadow: '0 40px 80px -30px rgba(0,0,0,.7)',
               }}
             >
               {picture(PICTURE.open, fill * (1 - allowed))}

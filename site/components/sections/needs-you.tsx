@@ -22,12 +22,12 @@ export function NeedsYou() {
           <li className={TICK}>Sounds stay off until you turn them on.</li>
         </ul>
       </div>
-      {/* The app's own panel, drawn by testing/site.sh needs-you: a still, and over it the motion
-          once the page may move. */}
+      {/* A Mac screen with the app's own panel, drawn by testing/site.sh needs-you: a still, and
+          over it the motion once the page may move. */}
       <figure
         className="s-figure min-w-0"
         role="img"
-        aria-label="The bar beside the notch, while three agents work. One asks to run git push origin preview, and a red 1 appears. The pointer opens the panel on the request and presses Allow once, and the agent goes back to work."
+        aria-label="The top of a Mac screen. An agent works in a terminal while the crew stands in the valley. It asks to run git push origin preview: the terminal waits, a red 1 appears beside the notch, and the one who asks waves. The pointer opens the panel over the terminal and presses Allow once. The panel shuts and the push goes through."
       >
         <img className="s-still" src="/needs-you/still.webp" width={1500} height={1125} alt="" loading="lazy" decoding="async" />
         <NeedsYouLoop />

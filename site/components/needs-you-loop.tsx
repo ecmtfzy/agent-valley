@@ -33,7 +33,8 @@ export function NeedsYouLoop() {
       loading = true;
       Promise.all([import('@remotion/player'), import('@/motion/needs-you-motion')])
         .then(async ([{ Player }, motion]) => {
-          await Promise.all(motion.PICTURES.map((name) => Object.assign(new Image(), { src: `/needs-you/${name}` }).decode()));
+          const sources = [...motion.PICTURES.map((name) => `/needs-you/${name}`), ...motion.MASCOTS.map((name) => `/mascots/${name}`)];
+          await Promise.all(sources.map((src) => Object.assign(new Image(), { src }).decode()));
           setLoaded({ Player, motion });
         })
         .catch(() => {});
