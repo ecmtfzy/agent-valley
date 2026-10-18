@@ -42,3 +42,14 @@ test('nothing is fetched from another site', async ({ page, baseURL }) => {
   await page.goto('/', { waitUntil: 'networkidle' });
   expect(elsewhere).toEqual([]);
 });
+
+test('the Lunch break comic page has its own head and is in the sitemap', async ({ page, request }) => {
+  const url = 'https://agentvalley.app/comics/lunch-break/';
+  await page.goto('/comics/lunch-break/');
+  await expect(page).toHaveTitle('Lunch break: Claude Code waits for permission while you eat');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', url);
+  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', url);
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://agentvalley.app/comics/lunch-break-og.jpg');
+  await expect(page.locator('h1')).toHaveText('Lunch break');
+  expect(await (await request.get('/sitemap.xml')).text()).toContain(`<loc>${url}</loc>`);
+});

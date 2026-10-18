@@ -34,3 +34,9 @@ test.describe('with the needs-you player loaded', () => {
     expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
   });
 });
+
+test('no AAA violations on the Lunch break comic page', async ({ page }) => {
+  await page.goto('/comics/lunch-break/');
+  const { violations } = await check(page);
+  expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+});

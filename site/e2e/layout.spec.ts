@@ -1,12 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-for (const width of [320, 390, 768, 900, 1280]) {
-  test(`nothing scrolls sideways at ${width}px`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 800 });
-    await page.goto('/');
-    await page.waitForTimeout(300);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  });
+for (const path of ['/', '/comics/lunch-break/']) {
+  for (const width of [320, 390, 768, 900, 1280]) {
+    test(`nothing scrolls sideways on ${path} at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(path);
+      await page.waitForTimeout(300);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+  }
 }
 
 for (const width of [320, 390]) {
