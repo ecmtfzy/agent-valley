@@ -100,6 +100,10 @@
   --mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
   --app: ui-monospace, "SF Mono", Menlo, monospace;
   --hand: var(--font-hand), "Bradley Hand", "Segoe Print", cursive;
+  /* Halloween's band over the top bar: a night-purple terminal, pumpkin output, lilac prompt. */
+  --hw-bg: #1d0b2e;
+  --hw-fg: #ff8c1a;
+  --hw-dim: #c4a1ff;
   --horizon: linear-gradient(180deg, var(--hz1) 0 20%, var(--hz2) 20% 40%, var(--hz3) 40% 60%, var(--hz4) 60% 80%, var(--hz5) 80%);
 }
 

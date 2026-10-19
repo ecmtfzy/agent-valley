@@ -361,6 +361,20 @@ test.describe('the funnies', () => {
 test.describe('the small things', () => {
   const icon = (page: Page, type: string) => page.locator(`link[rel~="icon"][type="${type}"]`);
 
+  test('a band over the top bar decodes the greeting and scrolls away', async ({ page }) => {
+    await on(page);
+    await page.goto('/comics/');
+    const band = page.getByRole('complementary', { name: 'Halloween' });
+    await expect(band.locator('strong span').first()).toHaveText('Happy Halloween.');
+    await expect(band.getByRole('link', { name: /read the comic Tab 7/ })).toHaveAttribute('href', '/comics/tab-7/');
+    await page.evaluate(() => scrollTo(0, 300));
+    expect(await page.evaluate(() => [document.querySelector('.nav')!.getBoundingClientRect().top, document.querySelector('.hbar')!.getBoundingClientRect().bottom < 0])).toEqual([0, true]);
+    await off(page);
+    await page.goto('/comics/');
+    await expect(html(page)).not.toHaveClass(/\bhalloween\b/);
+    await expect(band).toBeHidden();
+  });
+
   test('the tab icon is a pumpkin in Halloween', async ({ page }) => {
     await on(page);
     await page.goto('/');

@@ -461,6 +461,15 @@ a.w:hover{text-decoration-style:solid}
 @keyframes lights-out{0%{opacity:0}30%,70%{opacity:.94}100%{opacity:0}}
 /* Not "blink": that name is the crew's own blink above, and the later one would win. */
 @keyframes lids{0%,100%{transform:none}50%{transform:scaleY(.15)}}
+/* Halloween's band (halloween-bar.tsx): one terminal line over the top bar, faint scan lines on
+   night purple, the greeting glowing a little the way a CRT's phosphor did. */
+.hbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;column-gap:12px;padding:0 16px;background:repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 3px),var(--hw-bg);color:var(--hw-fg);font:400 .8125rem/1.4 var(--mono);text-align:center}
+.hbar img{image-rendering:pixelated}
+.hb-cmd{color:var(--hw-dim)}
+.hbar strong{font-weight:600;text-shadow:0 0 6px rgba(255,140,26,.45);white-space:nowrap}
+.hbar a{display:inline-flex;align-items:center;min-height:44px;color:var(--hw-fg)}
+.hbar a:hover{color:var(--hw-dim)}
+.hbar a:focus-visible{outline-color:var(--hw-fg);outline-offset:-2px}
 /* The pumpkin hunt (hunt.tsx): five small pumpkins down the page, each a 44-point button, and the
    count beside the top bar's links. */
 .hunt{display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:8px;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}

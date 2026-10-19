@@ -1,3 +1,4 @@
+import { HalloweenBar } from '@/components/halloween-bar';
 import { PumpkinCount } from '@/components/hunt';
 import { NavFold } from '@/components/nav-fold';
 import { StillToggle } from '@/components/still-toggle';
@@ -9,6 +10,8 @@ import { Wordmark } from '@/components/wordmark';
 // animations to stop and sends Install back home.
 export function Nav({ sub = false }: { sub?: boolean }) {
   return (
+    <>
+    <HalloweenBar />
     <header className="wrap nav">
       <a className="brand" href="/" aria-label="AgentValley">
         <img src="/mark.svg" alt="" width="32" height="26" />
@@ -27,5 +30,6 @@ export function Nav({ sub = false }: { sub?: boolean }) {
       </nav>
       <NavFold />
     </header>
+    </>
   );
 }

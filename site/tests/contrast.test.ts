@@ -32,6 +32,8 @@ const PAIRS = [
   ['term-dim', 'term-head'], ['red-text', 'term-head'], ['app-tab', 'app-fill'], ['app-dim', 'app-card'],
   // Halloween: the spider's note on the hero's wallpaper.
   ['amber', 'wall'],
+  // Halloween: the band over the top bar.
+  ['hw-fg', 'hw-bg'], ['hw-dim', 'hw-bg'],
 ];
 
 test.each(PAIRS)('%s on %s reaches 7:1', (fg, bg) => {
