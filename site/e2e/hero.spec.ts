@@ -188,14 +188,14 @@ test('the narrowest phone has room for the crew alone', async ({ page }) => {
   await expect(home.locator('svg.wordmark')).toBeHidden();
 });
 
-test('the animations switch on the top bar is an icon that names itself on hover', async ({ page }) => {
+test('the animations switch is in the foot, in words, and off the top bar', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  const stop = page.getByRole('button', { name: 'Stop the animations' });
-  await expect(stop).toHaveAttribute('title', 'Stop the animations');
-  expect((await stop.boundingBox())!.width).toBeLessThan(50);
+  await expect(page.locator('header.nav').getByRole('button', { name: 'Stop the animations' })).toHaveCount(0);
+  const stop = page.locator('footer').getByRole('button', { name: 'Stop the animations' });
+  await expect(stop).toHaveText('Stop the animations');
   await stop.click();
-  await expect(page.getByRole('button', { name: 'Play the animations' })).toHaveAttribute('title', 'Play the animations');
+  await expect(page.locator('footer').getByRole('button', { name: 'Play the animations' })).toHaveText('Play the animations');
 });
 
 for (const width of [320, 390, 1280]) {
@@ -220,7 +220,6 @@ test('a phone keeps GitHub off the top bar', async ({ page }) => {
   await page.goto('/');
   const bar = page.locator('header.nav');
   await expect(bar.getByRole('link', { name: 'AgentValley on GitHub' })).toBeHidden();
-  await expect(bar.getByRole('button', { name: 'Stop the animations' })).toBeVisible();
 });
 
 test('the hero says, in a badge of its own, that the app is for Claude Code alone', async ({ page }) => {

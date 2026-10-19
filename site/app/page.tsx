@@ -34,7 +34,7 @@ export default function Home() {
         <Words />
         <Credits />
       </main>
-      <Footer hunt />
+      <Footer hunt still />
       <IdleSections />
     </>
   );

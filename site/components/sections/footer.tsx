@@ -1,10 +1,12 @@
 import { HuntPumpkin } from '@/components/hunt';
 import { SponsorButton } from '@/components/sponsor-button';
+import { StillToggle } from '@/components/still-toggle';
 import { Wordmark } from '@/components/wordmark';
 
 // The block-letter name on the left with the motto under it, the links on the right, and the small
 // print under a rule. `hunt`: the home page, where Halloween's last pumpkin hides by the name.
-export function Footer({ hunt = false }: { hunt?: boolean }) {
+// `still`: a page whose animations can be stopped, the home page.
+export function Footer({ hunt = false, still = false }: { hunt?: boolean; still?: boolean }) {
   return (
     <footer className="wrap foot border-t pt-12 pb-10 font-mono text-sm text-muted-foreground">
       <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-6">
@@ -24,8 +26,9 @@ export function Footer({ hunt = false }: { hunt?: boolean }) {
           </li>
         </ul>
       </div>
-      <div className="mt-8 flex flex-wrap justify-between gap-x-6 gap-y-1 border-t pt-5 text-[.8125rem]">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t pt-5 text-[.8125rem]">
         <p>Made by morsechimwai</p>
+        {still && <StillToggle />}
         {/* lib/analytics.ts; the app itself counts nothing. */}
         <p>This page counts visits with PostHog. No cookies.</p>
         <p>Not affiliated with Anthropic.</p>

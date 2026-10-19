@@ -1,7 +1,6 @@
 import { HalloweenBar } from '@/components/halloween-bar';
 import { PumpkinCount } from '@/components/hunt';
 import { NavFold } from '@/components/nav-fold';
-import { StillToggle } from '@/components/still-toggle';
 import { Button } from '@/components/ui/button';
 import { Wordmark } from '@/components/wordmark';
 
@@ -19,7 +18,7 @@ export function Nav({ sub = false }: { sub?: boolean }) {
       </a>
       <nav aria-label="Main">
         {/* Words on this page is reached from every dotted word. A phone keeps the bar to one row: GitHub is in the hero and at the foot,
-            and on the home page Comics is at the foot, since the motion toggle takes its room. */}
+            and on the home page Comics is at the foot too. */}
         <a className={sub ? undefined : 'max-[559px]:hidden'} href="/comics/">Comics</a>
         {/* No star count yet: the repo has none to show (2026-10-19). */}
         <Button asChild variant="outline" className="h-11 gap-2 rounded-lg bg-background px-3 font-mono text-foreground hover:bg-card hover:text-foreground max-[479px]:hidden">
@@ -31,7 +30,6 @@ export function Nav({ sub = false }: { sub?: boolean }) {
           </a>
         </Button>
         {!sub && <PumpkinCount />}
-        {!sub && <StillToggle />}
         <Button asChild className="to-install h-11 rounded-lg border-0 px-3.5 font-mono text-primary-foreground hover:bg-primary/85 hover:text-primary-foreground min-[400px]:px-4">
           <a href={sub ? '/#install' : '#install'}>Install</a>
         </Button>

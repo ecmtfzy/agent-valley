@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { Icon } from '@/components/icons';
-import { Button } from '@/components/ui/button';
 
 // The loops can be stopped for good, not only by the system's Reduce Motion, and stay stopped on
 // the next visit. The layout's first script has already put back a stop from last time.
@@ -24,20 +23,11 @@ export function StillToggle() {
   }
 
   const label = still ? 'Play the animations' : 'Stop the animations';
-  // The icon alone on the bar; its words show on hover and stay for screen readers.
+  // In the foot's small print: the page plays on its own, and this is there for whoever needs it to stop.
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      hidden={!ready}
-      onClick={flip}
-      title={label}
-      className="still-toggle size-11 p-0 text-muted-foreground hover:bg-transparent hover:text-foreground motion-reduce:hidden"
-    >
-      <span className="grid size-8 place-items-center rounded-full border border-border">
-        <Icon id={still ? 'play' : 'pause'} />
-      </span>
-      <span className="sr-only">{label}</span>
-    </Button>
+    <button type="button" hidden={!ready} onClick={flip} className="still-toggle inline-flex min-h-11 items-center gap-2 hover:text-foreground motion-reduce:hidden">
+      <Icon id={still ? 'play' : 'pause'} />
+      {label}
+    </button>
   );
 }
