@@ -1,4 +1,4 @@
-import { cancelRender, Composition, continueRender, delayRender, registerRoot, staticFile } from 'remotion';
+import { cancelRender, Composition, continueRender, delayRender, getInputProps, registerRoot, staticFile } from 'remotion';
 import { CREW_MOTION, CREW_MOTION_TALL, CrewMotion } from './crew-motion';
 import { NEEDS_YOU_MOTION, NeedsYouMotion } from './needs-you-motion';
 import { REPORT_MOTION, ReportMotion } from './report-motion';
@@ -12,12 +12,16 @@ new FontFace('Geist Mono', `url(${staticFile('GeistMono-Bold.woff2')})`, { weigh
     document.fonts.add(face);
     continueRender(waiting);
   }, cancelRender);
-const hand = delayRender('Caveat');
-new FontFace('Caveat', `url(${staticFile('Caveat.woff2')})`, { weight: '600' })
-  .load()
-  .then((face) => document.fonts.add(face))
-  .catch(() => {})
-  .finally(() => continueRender(hand));
+// testing/site.sh crew asks for it with `hand`; the others have no Caveat in their folder.
+if (getInputProps().hand) {
+  const hand = delayRender('Caveat');
+  new FontFace('Caveat', `url(${staticFile('Caveat.woff2')})`, { weight: '600' })
+    .load()
+    .then((face) => {
+      document.fonts.add(face);
+      continueRender(hand);
+    }, cancelRender);
+}
 
 registerRoot(() => (
   <>

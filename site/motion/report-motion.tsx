@@ -7,7 +7,7 @@ import totals from './report-totals.json';
 // page's head, drawn `bare`, on nothing; the README's GIF plays it round with `loop`, which fades it in and out.
 // Files here import one another by relative paths: Remotion's bundler does not read tsconfig paths.
 
-export const REPORT_MOTION = { width: 1200, height: 900, fps: 30, durationInFrames: 240 } as const;
+export const REPORT_MOTION = { width: 1200, height: 900, fps: 30, durationInFrames: 424 } as const;
 export type ReportMotionProps = { readonly loop: boolean; readonly bare?: boolean };
 
 const PICTURE = {
@@ -30,24 +30,25 @@ const tween = (f: number, a: number, b: number, from: number, to: number, easing
   interpolate(f, [a, b], [from, to], { ...clamp, easing });
 
 // In frames; with `loop` it fades in before start and out after end. The count ends before the
-// camera moves in, so the zoom shows the PDF's own total.
+// camera moves in, so the zoom shows the PDF's own total. The moves stay quick; the rests between
+// them are long enough to read: a second on the page before the pointer comes, two on each PDF.
 export const BEATS = {
   start: 8,
-  toExport: [8, 22],
-  pressExport: 24,
-  outA: [26, 40],
-  countA: [26, 46],
-  zoomA: [48, 62, 86, 98],
-  toShopWeb: [98, 112],
-  pressShopWeb: 114,
-  page: [114, 122],
-  toExport2: [120, 132],
-  pressExport2: 134,
-  outB: [136, 150],
-  countB: [136, 154],
-  zoomB: [156, 170, 200, 212],
-  away: [212, 226],
-  end: 232,
+  toExport: [30, 46],
+  pressExport: 50,
+  outA: [52, 68],
+  countA: [52, 76],
+  zoomA: [86, 102, 162, 176],
+  toShopWeb: [190, 206],
+  pressShopWeb: 210,
+  page: [210, 220],
+  toExport2: [232, 246],
+  pressExport2: 250,
+  outB: [252, 268],
+  countB: [252, 276],
+  zoomB: [286, 302, 362, 376],
+  away: [384, 400],
+  end: 412,
   total: REPORT_MOTION.durationInFrames,
 } as const;
 

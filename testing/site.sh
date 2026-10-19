@@ -15,6 +15,8 @@
 #   testing/site.sh logo      Writes docs/logo.svg and docs/logo-dark.svg, the full logo for the
 #                             README: the crew of mark.svg beside the name of logo.svg, as the
 #                             footer lays them out. The dark copy has light letters for GitHub's dark theme.
+#   testing/site.sh lineup    Writes docs/crew-lineup.svg, the seven of us at work for the top of the
+#                             README, from the site's mascots, moving as in the app.
 #   testing/site.sh photo     Writes docs/crew-photo.webp, the crew photo framed as the site shows it,
 #                             for the README.
 #   testing/site.sh rows      Builds the site and writes docs/row-notes.png, the enlarged row with its
@@ -172,12 +174,19 @@ PY
     cp "$work/totals.json" site/motion/report-totals.json
     cp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
     # The camera held on the first page's head (BEATS.zoomA), on nothing, cut to the page and its shadow.
-    (cd site && npx remotion still motion/index.tsx ReportMotion "$work/still.png" --frame=74 --scale=1.25 \
+    (cd site && npx remotion still motion/index.tsx ReportMotion "$work/still.png" --frame=120 --scale=1.25 \
         --props='{"loop":false,"bare":true}' --public-dir="$work/public" --log=error)
     python3 -I -c 'import sys; from PIL import Image; i = Image.open(sys.argv[1]).convert("RGBA"); i.crop(i.getchannel("A").getbbox()).save(sys.argv[2], quality=86, alpha_quality=90, method=6)' \
         "$work/still.png" site/public/report-sheet.webp
-    (cd site && npx remotion render motion/index.tsx ReportMotion ../docs/report-motion.gif --codec=gif --every-nth-frame=2 --scale=0.6 \
-        --props='{"loop":true}' --public-dir="$work/public" --log=error --overwrite)
+    # As a video first, then a GIF with one palette for the whole loop and each rest kept as one long
+    # frame, so each frame stores only what changed: under 5 MB at 960 wide. Remotion's own ffmpeg
+    # lacks the filters for it.
+    (cd site && npx remotion render motion/index.tsx ReportMotion "$work/report.mp4" --codec=h264 --crf=1 --scale=0.8 \
+        --props='{"loop":true}' --public-dir="$work/public" --log=error)
+    command -v ffmpeg >/dev/null || { echo "Needs ffmpeg: brew install ffmpeg" >&2; exit 1; }
+    (ffmpeg -loglevel error -y -i "$work/report.mp4" -fps_mode vfr \
+        -vf 'fps=15,mpdecimate,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle' \
+        docs/report-motion.gif)
     ls -l site/public/report-sheet.webp site/motion/report-totals.json docs/report-motion.gif
     sips -g pixelWidth -g pixelHeight site/public/report-sheet.webp docs/report-motion.gif | grep pixel
     if [ "$(stat -f %z docs/report-motion.gif)" -gt 5242880 ]; then
@@ -248,19 +257,49 @@ PY
     # Both rows at work and the pen on what we hold (crew-motion.tsx: NOTES[2]), on nothing.
     for c in CrewMotion:still CrewMotionTall:still-tall; do
         (cd site && npx remotion still motion/index.tsx "${c%%:*}" "$work/${c##*:}.png" --frame=280 --scale=2 \
-            --props="{\"base\":\"\",\"tall\":$([ "${c%%:*}" = CrewMotionTall ] && echo true || echo false)}" \
+            --props="{\"base\":\"\",\"hand\":true,\"tall\":$([ "${c%%:*}" = CrewMotionTall ] && echo true || echo false)}" \
             --public-dir="$work/public" --log=error)
         python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).save(sys.argv[2], quality=86, alpha_quality=90, method=6)' \
             "$work/${c##*:}.png" "site/public/crew/${c##*:}.webp"
     done
     (cd site && npx remotion render motion/index.tsx CrewMotion ../docs/crew.gif --codec=gif --every-nth-frame=4 --scale=0.75 \
-        --props='{"base":"","paper":"#f4ecd9"}' --public-dir="$work/public" --log=error --overwrite)
+        --props='{"base":"","hand":true,"paper":"#f4ecd9"}' --public-dir="$work/public" --log=error --overwrite)
     ls -l site/public/crew docs/crew.gif
     sips -g pixelWidth -g pixelHeight site/public/crew/*.webp docs/crew.gif | grep pixel
     if [ "$(stat -f %z docs/crew.gif)" -gt 5242880 ]; then
         echo "docs/crew.gif is over 5 MB: lower its --scale." >&2
         exit 1
     fi
+    ;;
+lineup)
+    # The seven of us at the top of the README, each at work as in the app: the strip of what we hold
+    # stepping on the app's 0.4 s tick (LOOP in site/motion/crew-motion.tsx), and Sunny waving.
+    # One SVG of the site's own mascots; GitHub plays its CSS inside the picture.
+    python3 -I - site/public/mascots docs/crew-lineup.svg <<'PY'
+import re, sys
+src, out = sys.argv[1], sys.argv[2]
+inner = lambda name: re.sub(r'^.*?<svg[^>]*>|</svg>\s*$', '', open(f'{src}/{name}.svg').read(), flags=re.S)
+crew = [('guru', 'wave'), ('walrus', 'typing'), ('engineer', 'running'), ('pearls', 'calling'),
+        ('coder', 'thinking'), ('afro', 'searching'), ('beatnik', 'reading')]
+style = ['@keyframes a{0%{opacity:1}50%{opacity:0}}@keyframes b{0%{opacity:0}50%{opacity:1}}',
+         '.a{animation:a .8s steps(1) infinite}.b{opacity:0;animation:b .8s steps(1) infinite}']
+faces = []
+for i, (who, doing) in enumerate(crew):
+    x = i * 15
+    if doing == 'wave':
+        body = f'<g class="a">{inner(f"{who}-wave0")}</g><g class="b">{inner(f"{who}-wave1")}</g>'
+    else:
+        n = 24 if doing == 'thinking' else 8
+        # Out of step with each other, as on the site: a third of a round apart.
+        style.append(f'.s{i}{{animation:f{n} {n * 0.4:g}s steps({n}) {-(i % 3) * 2.8:g}s infinite}}')
+        body = f'<g class="s{i}">{inner(f"{who}-{doing}-run")}</g>'
+    faces.append(f'<svg x="{x}" width="12" height="12" viewBox="0 0 12 12" overflow="hidden">{body}</svg>')
+style += ['@keyframes f8{to{transform:translateX(-104px)}}', '@keyframes f24{to{transform:translateX(-312px)}}',
+          '@media (prefers-reduced-motion:reduce){*{animation:none!important}}']
+open(out, 'w').write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 102 12" width="408" height="48" shape-rendering="crispEdges">'
+                     f'<style>{"".join(style)}</style>{"".join(faces)}</svg>\n')
+PY
+    ls -l docs/crew-lineup.svg
     ;;
 logo)
     # The crew (16×13) and the name (88×12) in one drawing, bottom edges level and four mark pixels
