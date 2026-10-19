@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
-import { Newsreader, UnifrakturMaguntia } from 'next/font/google';
+import { Newsreader } from 'next/font/google';
+import { masthead } from '@/app/fonts';
 import { Reveal } from '@/components/reveal';
 import { Footer } from '@/components/sections/footer';
 import { Nav } from '@/components/sections/nav';
 import { FEED, STRIPS } from './strips';
 import './funnies.css';
 
-// An old Sunday paper: a blackletter name, and the rest in Newsreader, a serif drawn for reading
-// news on a screen. Next keeps a copy of both with the site, so nothing loads from Google.
-const masthead = UnifrakturMaguntia({ subsets: ['latin'], weight: '400', variable: '--font-masthead' });
+// An old Sunday paper: a blackletter name (app/fonts.ts), and the rest in Newsreader, a serif drawn
+// for reading news on a screen. Next keeps a copy of both with the site, so nothing loads from Google.
 const news = Newsreader({ subsets: ['latin'], style: ['normal', 'italic'], variable: '--font-news' });
 
 const PAGE = 'https://agentvalley.app/comics/';

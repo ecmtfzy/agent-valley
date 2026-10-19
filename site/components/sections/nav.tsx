@@ -1,3 +1,4 @@
+import { masthead } from '@/app/fonts';
 import { HalloweenBar } from '@/components/halloween-bar';
 import { PumpkinCount } from '@/components/hunt';
 import { NavFold } from '@/components/nav-fold';
@@ -19,7 +20,10 @@ export function Nav({ sub = false }: { sub?: boolean }) {
       <nav aria-label="Main">
         {/* Words on this page is reached from every dotted word. A phone keeps the bar to one row: GitHub is in the hero and at the foot,
             and on the home page Comics is at the foot too. */}
-        <a className={sub ? undefined : 'max-[559px]:hidden'} href="/comics/">Comics</a>
+        {/* The paper's nameplate: its name small over Funnies in the masthead's blackletter. */}
+        <a className={`nameplate ${sub ? '' : 'max-[559px]:hidden'}`} href="/comics/">
+          <small>The Valley</small> <span className={masthead.className}>Funnies</span>
+        </a>
         {/* No star count yet: the repo has none to show (2026-10-19). */}
         <Button asChild variant="outline" className="h-11 gap-2 rounded-lg bg-background px-3 font-mono text-foreground hover:bg-card hover:text-foreground max-[479px]:hidden">
           <a href="https://github.com/morsechimwai/agent-valley" aria-label="Star AgentValley on GitHub">

@@ -48,3 +48,30 @@
   html:not(.still) .f-strips>li:nth-child(even) .f-card:is(:hover,:focus-within) .f-strip{transform:translateY(-6px) rotate(.7deg)}
 }
 }
+
+/* The cutting on the home page (components/sections/funnies.tsx): the same paper, a smaller name,
+   three strips. A phone sets each beside its words; a wide screen gives each a column. */
+@layer components {
+/* Newsreader stays on the paper's own pages; here the serif every computer has. */
+.cutting{--font-news:Georgia,"Times New Roman",serif}
+.cutting .f-name{font-size:clamp(2.25rem,6vw,4rem)}
+.fc-lead{margin-top:16px;font-size:1.125rem;font-style:italic;text-align:center}
+.fc-picks{margin-top:8px}
+.fc-picks>li{padding-block:20px}
+.fc-picks>li+li{border-top:1px solid var(--f-rule)}
+.fc-picks .f-card{display:grid;grid-template-columns:112px 1fr;gap:16px;align-items:start}
+.fc-picks .f-strip{margin-top:0}
+.fc-picks .f-head{font-size:1.375rem}
+.fc-picks .f-deck{margin-top:8px;font-size:1rem}
+@media (min-width:768px){
+  /* Every column padded alike, the outer pads hung past the paper's edge: three strips one size. */
+  .fc-picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-inline:-20px}
+  .fc-picks>li{padding-inline:20px}
+  .fc-picks>li+li{border-top:0;border-left:1px solid var(--f-rule)}
+  .fc-picks .f-card{display:block}
+  .fc-picks .f-strip{margin-bottom:14px}
+}
+.fc-more{padding:10px 0 6px;border-top:4px double var(--f-ink);text-align:center}
+.fc-more a{display:inline-flex;min-height:44px;align-items:center;font-size:1.25rem;font-weight:700;font-variant:small-caps;letter-spacing:.06em}
+.fc-more a::after{content:"→"/"";display:inline-block;margin-left:.35em}
+}
