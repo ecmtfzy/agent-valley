@@ -479,6 +479,15 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.uninstallCommand, "claude plugin uninstall notch-answers@agent-valley && claude plugin marketplace remove agent-valley")
     }
 
+    // Report a bug fills in the form's fields by their ids; a build without a version leaves that one to the person.
+    func testReportABugOpensTheFormFilledIn() {
+        let os = OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 1)
+        XCTAssertEqual(Format.bugReport(version: "0.1.3", macOS: os, mac: "Mac15,6").absoluteString,
+                       "https://github.com/morsechimwai/agent-valley/issues/new?template=bug_report.yml&version=0.1.3&macos=macOS%2026.0.1,%20Mac15,6")
+        XCTAssertEqual(Format.bugReport(version: nil, macOS: os, mac: "Mac15,6").absoluteString,
+                       "https://github.com/morsechimwai/agent-valley/issues/new?template=bug_report.yml&macos=macOS%2026.0.1,%20Mac15,6")
+    }
+
     // A session can wait on a question it wrote down, or on a prompt in its terminal that leaves
     // no trace. Only the first has words to show; the second says where to look, and its last
     // step is not dressed up as the question.

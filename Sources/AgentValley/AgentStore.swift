@@ -40,6 +40,9 @@ struct AgentRow: Identifiable, Equatable {
     /// Called busy by Claude Code, with nothing written for as long as would otherwise make it
     /// quiet: a long command, or a hung one.
     var isStalled: Bool { status == .working && quietFor >= TranscriptReader.quietAfter }
+
+    /// What it is doing while it works, by its newest call without a result.
+    var activity: Activity? { status == .working ? Activity(tool: info.openTools.last?.tool) : nil }
 }
 
 /// The number on the collapsed bar. Agents that may need the person are their own state: they
@@ -534,15 +537,13 @@ final class AgentStore: ObservableObject {
         var file = files[path] ?? TrackedFile(session: session, isMain: isMain)
         if size < file.offset { file = TrackedFile(session: session, isMain: isMain) }
         file.modified = modified
-        // ponytail: the first read loads the whole transcript; seek to a tail window if a huge
-        // main transcript ever makes launch slow.
+        // ponytail: the first read parses the whole transcript, a piece at a time; seek to a tail
+        // window if a huge main transcript ever makes launch slow.
         if size > file.offset, let handle = FileHandle(forReadingAtPath: path) {
             defer { try? handle.close() }
-            try? handle.seek(toOffset: file.offset)
-            let data = (try? handle.readToEnd()) ?? Data()
-            let (lines, consumed) = TranscriptReader.completeLines(in: data)
-            for line in lines { TranscriptReader.apply(line: line, to: &file.info) }
-            file.offset += UInt64(consumed)
+            if (try? handle.seek(toOffset: file.offset)) != nil {
+                file.offset += TranscriptReader.readLines(from: handle) { TranscriptReader.apply(line: $0, to: &file.info) }
+            }
         }
         if isMain {
             file.info.type = "main"

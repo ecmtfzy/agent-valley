@@ -29,6 +29,9 @@
 #                             request and open once it is allowed (NeedsYouMotionAssetsTests), as
 #                             WebP in site/public/needs-you; then, with Remotion, the still the
 #                             site shows where nothing moves, and docs/needs-you.gif for the README.
+#   testing/site.sh crew      Builds the site and, with Remotion, draws the crew at work: the stills
+#                             the site shows where nothing moves, wide and tall (site/public/crew),
+#                             and docs/crew.gif on the page's cream for the README.
 #   testing/site.sh check     Installs, tests and builds the site; every line of the spec's copy is
 #                             on the page, every file it points to is there, nothing is loaded
 #                             from another site, and the browser tests pass.
@@ -219,6 +222,43 @@ PY
     ls -l site/public/needs-you docs/needs-you.gif
     if [ "$(stat -f %z docs/needs-you.gif)" -gt 5242880 ]; then
         echo "docs/needs-you.gif is over 5 MB: lower its --scale." >&2
+        exit 1
+    fi
+    ;;
+crew)
+    # The crew at work (site/motion/crew-motion.tsx) in the page's pen, Caveat: the build has the copy
+    # next/font keeps, the latin one.
+    npm --prefix site run build >/dev/null
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    mkdir -p "$work/public/mascots" site/public/crew
+    hand=$(python3 -I - site/out/_next/static <<'PY'
+import glob, re, sys
+for css in glob.glob(f'{sys.argv[1]}/chunks/*.css'):
+    for face in re.findall(r'@font-face\{[^}]*\}', open(css).read()):
+        if 'Caveat' in face and 'range:U+??' in face:
+            print(re.search(r'url\([^)]*/media/([^)]+\.woff2)\)', face).group(1))
+            sys.exit()
+sys.exit('No latin Caveat in the build.')
+PY
+)
+    cp "site/out/_next/static/media/$hand" "$work/public/Caveat.woff2"
+    cp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
+    cp site/public/mascots/*.svg "$work/public/mascots/"
+    # Both rows at work and the pen on what we hold (crew-motion.tsx: NOTES[2]), on nothing.
+    for c in CrewMotion:still CrewMotionTall:still-tall; do
+        (cd site && npx remotion still motion/index.tsx "${c%%:*}" "$work/${c##*:}.png" --frame=280 --scale=2 \
+            --props="{\"base\":\"\",\"tall\":$([ "${c%%:*}" = CrewMotionTall ] && echo true || echo false)}" \
+            --public-dir="$work/public" --log=error)
+        python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).save(sys.argv[2], quality=86, alpha_quality=90, method=6)' \
+            "$work/${c##*:}.png" "site/public/crew/${c##*:}.webp"
+    done
+    (cd site && npx remotion render motion/index.tsx CrewMotion ../docs/crew.gif --codec=gif --every-nth-frame=4 --scale=0.75 \
+        --props='{"base":"","paper":"#f4ecd9"}' --public-dir="$work/public" --log=error --overwrite)
+    ls -l site/public/crew docs/crew.gif
+    sips -g pixelWidth -g pixelHeight site/public/crew/*.webp docs/crew.gif | grep pixel
+    if [ "$(stat -f %z docs/crew.gif)" -gt 5242880 ]; then
+        echo "docs/crew.gif is over 5 MB: lower its --scale." >&2
         exit 1
     fi
     ;;

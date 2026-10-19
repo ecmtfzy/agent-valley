@@ -92,7 +92,7 @@ export function Rows() {
         <figure className="notes" role="img" aria-label="One sub-agent row, enlarged and labelled: the task, the time and model, the latest step with the step count, and the agent's type.">
           <div className="anatomy" aria-hidden="true">
             <div className="row">
-              <Mascot who="afro" pose="work" />
+              <Mascot who="afro" pose="work" holds="searching" />
               <div>
                 <p className="p-line">
                   <b data-part="task">Map payment call sites<Note part="task" order={0} /></b>

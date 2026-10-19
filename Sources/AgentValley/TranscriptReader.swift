@@ -76,22 +76,52 @@ enum TranscriptReader {
     static let openToolLimit = 16
     static let closedToolLimit = 8
 
-    private static let timestamps: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
+    /// Over a hundred times quicker than `ISO8601DateFormatter`, which took more of a first read
+    /// than parsing the JSON did.
+    private static let timestamps = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
 
     /// When a transcript line says it was written, or nil when that is not a time.
     static func date(from text: String) -> Date? {
-        timestamps.date(from: text)
+        try? timestamps.parse(text)
     }
 
-    /// The newline-terminated lines at the front of `data`, and how many bytes they cover.
+    /// The newline-terminated lines at the front of `data`, and how many bytes they cover. Each
+    /// line is a slice of `data`, not a copy.
     static func completeLines(in data: Data) -> (lines: [Data], consumed: Int) {
-        guard let lastNewline = data.lastIndex(of: 0x0A) else { return ([], 0) }
-        let complete = data[data.startIndex...lastNewline]
-        return (complete.split(separator: 0x0A).map { Data($0) }, complete.count)
+        var lines: [Data] = []
+        var consumed = 0
+        // By memchr: Data's own split went a byte at a time, and took longer than the JSON parse.
+        data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
+            guard let base = bytes.baseAddress else { return }
+            while consumed < bytes.count, let newline = memchr(base + consumed, 0x0A, bytes.count - consumed) {
+                let end = base.distance(to: newline)
+                if end > consumed { lines.append(data[data.startIndex + consumed ..< data.startIndex + end]) }
+                consumed = end + 1
+            }
+        }
+        return (lines, consumed)
+    }
+
+    /// Reads `handle` from where it stands to its end, `piece` bytes at a time, and hands each
+    /// whole line to `body`: a transcript of a hundred megabytes is never in memory at once.
+    /// How many bytes the whole lines cover; a line caught half-written is left for next time.
+    static func readLines(from handle: FileHandle, piece: Int = 1 << 20, _ body: (Data) throws -> Void) rethrows -> UInt64 {
+        var consumed: UInt64 = 0
+        // What follows a piece's last newline is carried into the next piece.
+        var rest = Data()
+        var more = true
+        while more {
+            more = try autoreleasepool {
+                guard let next = try? handle.read(upToCount: piece), !next.isEmpty else { return false }
+                rest.append(next)
+                let (lines, count) = completeLines(in: rest)
+                for line in lines { try body(line) }
+                consumed += UInt64(count)
+                rest.removeSubrange(rest.startIndex..<rest.startIndex + count)
+                return true
+            }
+        }
+        return consumed
     }
 
     /// Folds one transcript line into `info`. Lines that are not valid user/assistant JSON are skipped.
@@ -103,7 +133,7 @@ enum TranscriptReader {
             info.title = clipped(title)
         }
         guard type == "user" || type == "assistant" else { return }
-        let date = (object["timestamp"] as? String).flatMap(timestamps.date(from:))
+        let date = (object["timestamp"] as? String).flatMap(Self.date(from:))
         if let date {
             if info.startedAt == nil { info.startedAt = date }
             info.lastActivity = date

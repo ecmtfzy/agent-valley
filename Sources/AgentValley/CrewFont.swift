@@ -14,38 +14,59 @@ enum CrewFont {
     static let fileName = "AgentValleyCrew.ttf"
     static let firstScalar: UInt32 = 0x3F000
 
+    /// The end of the block the font keeps to, and Ghostty's font line maps.
+    static let lastScalar: UInt32 = 0x3F7FF
+
     struct Face {
         let scalar: UInt32
         let person: Person
         let pose: CrewPose
+        /// At work with this in hand, as the notch draws it standing still.
+        var holding: Activity?
     }
 
+    private static let crew: [MascotKind] = [.general, .explore, .plan, .other(shirt: 0), .other(shirt: 1), .other(shirt: 2), .other(shirt: 3)]
+    private static let leadCount = Person.leads.count * Person.leadHair.count * Person.leadShirts.count
+
     /// The crew first, three poses each, then every look a session's own agent can have, in
-    /// the working pose only. The order is fixed: fonts already shipped refer to it.
+    /// the working pose only; then all of them at work with each thing in hand, crew first.
+    /// The order is fixed: fonts already shipped refer to it, so new faces only ever go at the end.
     static let faces: [Face] = {
-        let crew: [MascotKind] = [.general, .explore, .plan, .other(shirt: 0), .other(shirt: 1), .other(shirt: 2), .other(shirt: 3)]
-        var all = crew.flatMap { kind in CrewPose.allCases.map { (kind.person, $0) } }
+        var all = crew.flatMap { kind in CrewPose.allCases.map { Face(scalar: 0, person: kind.person, pose: $0) } }
+        var leads: [Person] = []
         for face in 0..<Person.leads.count {
             for hair in 0..<Person.leadHair.count {
                 for shirt in 0..<Person.leadShirts.count {
-                    all.append((MascotKind.lead(LeadLook(face: face, hair: hair, shirt: shirt)).person, .working))
+                    leads.append(MascotKind.lead(LeadLook(face: face, hair: hair, shirt: shirt)).person)
                 }
             }
         }
-        return all.enumerated().map { Face(scalar: firstScalar + UInt32($0.offset), person: $0.element.0, pose: $0.element.1) }
+        all += leads.map { Face(scalar: 0, person: $0, pose: .working) }
+        all += (crew.map(\.person) + leads).flatMap { person in
+            Activity.allCases.map { Face(scalar: 0, person: person, pose: .working, holding: $0) }
+        }
+        return all.enumerated().map { Face(scalar: firstScalar + UInt32($0.offset), person: $0.element.person, pose: $0.element.pose, holding: $0.element.holding) }
     }()
 
-    /// The one character that draws `kind` in `pose`. A session's own agent has the working face only.
-    static func character(_ kind: MascotKind, _ pose: CrewPose) -> String {
-        let index: Int
+    /// The one character that draws `kind` in `pose`, holding what `holding` names while it works.
+    /// A session's own agent has working faces only.
+    static func character(_ kind: MascotKind, _ pose: CrewPose, holding: Activity? = nil) -> String {
+        let place: Int
         switch kind {
-        case .general: index = pose.rawValue
-        case .explore: index = 3 + pose.rawValue
-        case .plan: index = 6 + pose.rawValue
-        case .other(let shirt): index = 9 + (shirt % Person.otherShirts.count) * 3 + pose.rawValue
+        case .general: place = 0
+        case .explore: place = 1
+        case .plan: place = 2
+        case .other(let shirt): place = 3 + shirt % Person.otherShirts.count
         case .lead(let look):
-            let face = look.face % Person.leads.count, hair = look.hair % Person.leadHair.count
-            index = 21 + face * 42 + hair * 7 + look.shirt % Person.leadShirts.count
+            place = crew.count + (look.face % Person.leads.count) * 42 + (look.hair % Person.leadHair.count) * 7 + look.shirt % Person.leadShirts.count
+        }
+        let index: Int
+        if let holding, pose == .working {
+            index = crew.count * 3 + leadCount + place * Activity.allCases.count + Activity.allCases.firstIndex(of: holding)!
+        } else if place >= crew.count {
+            index = crew.count * 3 + place - crew.count
+        } else {
+            index = place * 3 + pose.rawValue
         }
         return String(UnicodeScalar(firstScalar + UInt32(index))!)
     }
@@ -54,12 +75,15 @@ enum CrewFont {
     /// every Mac. `rects` are runs of one colour along a row, on a 12 by 12 grid, `x1` not included.
     static func facesJSON() -> Data {
         let faces = faces.map { face -> String in
-            let cells: [[Character]]
+            var cells: [[Character]]
             let opacity: Double
             switch face.pose {
             case .working: (cells, opacity) = (MascotView.pose(face.person, status: .working, callsOut: false, blink: false, wave: 0), 1)
             case .needsYou: (cells, opacity) = (MascotView.pose(face.person, status: .needsYou, callsOut: true, blink: false, wave: 0), 1)
             case .done: (cells, opacity) = (MascotView.pose(face.person, status: .done, callsOut: false, blink: false, wave: 0), 0.45)
+            }
+            if let holding = face.holding {
+                cells = MascotView.hold(holding, cells, under: face.person.underEyes, tick: MascotView.stillTick)
             }
             var rects: [String] = []
             for (y, row) in cells.enumerated() {

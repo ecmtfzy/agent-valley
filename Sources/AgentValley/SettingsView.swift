@@ -167,27 +167,46 @@ struct SettingsView: View {
         }
         // The crew's tip jar. The browser opens it; the app itself stays offline.
         Button { NSWorkspace.shared.open(URL(string: "https://github.com/sponsors/morsechimwai")!) } label: {
-            Text(verbatim: "Sponsor the crew")
-                .foregroundStyle(.white.opacity(0.6))
-                .padding(.horizontal, 6)
-                .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
-                .contentShape(Rectangle())
-                .hoverFill()
-                .padding(.horizontal, -6)
+            quietLabel("Sponsor the crew")
         }
         .buttonStyle(.plain)
         .accessibilityHint("Opens GitHub Sponsors in your browser")
-        // Last and quiet: the rarest action, kept away from anything clicked in passing.
-        Button { NSApp.terminate(nil) } label: {
-            Text(verbatim: Format.quit(appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String))
-                .foregroundStyle(.white.opacity(0.6))
-                .padding(.horizontal, 6)
-                .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
-                .contentShape(Rectangle())
-                .hoverFill()
-                .padding(.horizontal, -6)
+        // A new issue with the version, macOS and Mac filled in. Also only the browser: the person
+        // reads it all before they send it.
+        Button {
+            NSWorkspace.shared.open(Format.bugReport(
+                version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+                macOS: ProcessInfo.processInfo.operatingSystemVersion, mac: Self.macModel))
+        } label: {
+            quietLabel("Report a bug")
         }
         .buttonStyle(.plain)
+        .accessibilityHint("Opens a new GitHub issue in your browser")
+        // Last and quiet: the rarest action, kept away from anything clicked in passing.
+        Button { NSApp.terminate(nil) } label: {
+            quietLabel(Format.quit(appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// A row-wide button in grey text that lights up under the pointer.
+    private func quietLabel(_ title: String) -> some View {
+        Text(verbatim: title)
+            .foregroundStyle(.white.opacity(0.6))
+            .padding(.horizontal, 6)
+            .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
+            .contentShape(Rectangle())
+            .hoverFill()
+            .padding(.horizontal, -6)
+    }
+
+    /// The Mac's model, such as Mac15,6: tells which notch it has.
+    private static var macModel: String {
+        var size = 0
+        sysctlbyname("hw.model", nil, &size, nil, 0)
+        var model = [CChar](repeating: 0, count: max(size, 1))
+        sysctlbyname("hw.model", &model, &size, nil, 0)
+        return String(cString: model)
     }
 
     /// Why the limits are missing, under their switch: the status row only has room to say that they are.

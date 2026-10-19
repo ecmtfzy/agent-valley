@@ -410,6 +410,18 @@ enum Format {
         [name ?? "AgentValley", version].compactMap { $0 }.joined(separator: " ")
     }
 
+    /// A new bug report on GitHub, its form (.github/ISSUE_TEMPLATE/bug_report.yml) already holding
+    /// what we would ask first. The fields are named by their ids in that form.
+    static func bugReport(version: String?, macOS: OperatingSystemVersion, mac: String) -> URL {
+        var url = URLComponents(string: "https://github.com/morsechimwai/agent-valley/issues/new")!
+        url.queryItems = [
+            URLQueryItem(name: "template", value: "bug_report.yml"),
+            version.map { URLQueryItem(name: "version", value: $0) },
+            URLQueryItem(name: "macos", value: "macOS \(macOS.majorVersion).\(macOS.minorVersion).\(macOS.patchVersion), \(mac)"),
+        ].compactMap { $0 }
+        return url.url!
+    }
+
     /// The promise the app is built on, where a new owner will look for it. True with every
     /// switch on: it used to end "Changes nothing.", under a switch that answers Claude Code and
     /// another that reads the Keychain and goes online. What reaches further than reading is
@@ -880,7 +892,8 @@ struct PanelView: View {
                 Group {
                     if let lead {
                         MascotView(status: lead.status, kind: MascotKind(type: lead.info.type, look: looks[lead.id] ?? LeadLook()),
-                                   size: 18, flag: AgentStore.flag(sessions), dot: bar.waiting == 0, still: lead.isStalled)
+                                   size: 18, flag: AgentStore.flag(sessions), dot: bar.waiting == 0, still: lead.isStalled,
+                                   activity: lead.activity)
                     } else {
                         Mug(size: 18)
                     }
@@ -2138,7 +2151,9 @@ struct SessionCardView: View {
                 // Still once every row called busy has gone silent: nothing here is known to move.
                 MascotView(status: card.workingAfterMain > 0 ? .working : card.main?.status ?? .done, kind: .lead(look),
                            flag: card.main.flatMap { MascotFlag(status: $0.status) },
-                           still: card.rows.filter { $0.status == .working }.allSatisfy(\.isStalled))
+                           still: card.rows.filter { $0.status == .working }.allSatisfy(\.isStalled),
+                           // Its own turn over while its helpers work: on the phone to them.
+                           activity: card.main?.activity ?? (card.workingAfterMain > 0 ? .calling : nil))
                 VStack(alignment: .leading, spacing: CardStyle.block) {
                     // What it is and where it runs read as one: the place hugs the name, and
                     // what the session is doing stands apart below.
@@ -2287,7 +2302,7 @@ struct AgentRowView: View {
         let oneLine = compact && !asked && !row.asksInWords
         HStack(alignment: .top, spacing: 8) {
             MascotView(status: row.status, kind: MascotKind(type: row.info.type), size: oneLine ? 14 : 20,
-                       flag: MascotFlag(status: row.status), still: row.isStalled)
+                       flag: MascotFlag(status: row.status), still: row.isStalled, activity: row.activity)
                 .frame(width: 20)
                 // The person stands for the type; resting the pointer on it says which.
                 // verbatim: the type is a transcript's text.

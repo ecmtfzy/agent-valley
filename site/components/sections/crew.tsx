@@ -1,45 +1,26 @@
-import { Face } from '@/components/face';
-import { Mascot, Mug, type Person } from '@/components/mascot';
-import { Word } from '@/components/word';
+import { CrewLoop } from '@/components/crew-loop';
 
-// A session's own agent is one of four people; the other types have one face each. Under the
-// type, the names the crew go by.
-const TYPES: { faces: Person[]; label: string; who: string }[] = [
-  { faces: ['guru', 'walrus', 'engineer', 'pearls'], label: 'Session', who: 'Sunny, Walt, Norm or Pearl' },
-  { faces: ['coder'], label: 'Plan', who: 'Judy' },
-  { faces: ['afro'], label: 'Explore', who: 'Faye' },
-  { faces: ['beatnik'], label: 'General-purpose', who: 'Felix' },
-];
-
+// One session at work, drawn as the crew's org chart (motion/crew-motion.tsx): a still, and over it
+// the motion once the page may move. The stills are frames of it, drawn by testing/site.sh crew.
 export function Crew() {
   return (
     <section className="wrap section crew pt-[clamp(72px,14vw,128px)] pb-[clamp(64px,12vw,112px)]">
       <h2>Meet the crew.</h2>
       <p className="mt-[18px] max-w-[34em] text-[1.1875rem] leading-[1.55]">
-        Every agent is a programmer from the early days of computing. The face tells you the type. The pose tells you the state.
+        Every agent is a programmer from the early days of computing. One of us runs your session and phones the others for help.
       </p>
-      <h3 className="sr">Types</h3>
-      <ul className="types" role="list">
-        {TYPES.map((type) => (
-          <li key={type.label}>
-            {type.faces.length > 1 ? (
-              <span className="faces4">{type.faces.map((who) => <Face key={who} who={who} />)}</span>
-            ) : (
-              <Face who={type.faces[0]} />
-            )}
-            <span className="label">{type.label}<span className="who">{type.who}</span></span>
-          </li>
-        ))}
-      </ul>
-      <h3 className="sr">States</h3>
-      <ul className="states" role="list">
-        {/* Each line is one span, so the link inside it stays on the line rather than stacking. */}
-        <li><Mascot who="guru" pose="work" /><span>Working — <Word id="bob">bobs</Word> and blinks</span></li>
-        <li><Mascot who="guru" pose="wave" /><span>Needs you — waves</span></li>
-        <li><Mascot who="guru" pose="quiet" /><span>Quiet — looks away</span></li>
-        <li><Mascot who="guru" pose="done" /><span>Done — eyes closed</span></li>
-      </ul>
-      <p className="coffee"><span className="tile"><Mug /></span>Nothing running? Just a cup of coffee.</p>
+      <figure
+        className="c-figure mt-10"
+        role="img"
+        aria-label="One session at work, drawn as an org chart. Sunny runs it and phones two sub-agents: Faye searches the code and Judy plans. Each row shows its latest step, and each face holds what its agent is doing. Then Felix writes the tests and runs them, Sunny finishes the change, and the session ends with a cup of coffee."
+      >
+        {/* The source's media is NARROW in crew-loop.tsx. */}
+        <picture>
+          <source media="(max-width: 640px)" srcSet="/crew/still-tall.webp" width={1280} height={1640} />
+          <img className="c-still" src="/crew/still.webp" width={2400} height={1200} alt="" loading="lazy" decoding="async" />
+        </picture>
+        <CrewLoop />
+      </figure>
     </section>
   );
 }

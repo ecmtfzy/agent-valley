@@ -167,4 +167,45 @@ final class MascotTests: XCTestCase {
         XCTAssertEqual(Mug.hex("p"), 0xF2EAD8)
         XCTAssertNil(Mug.hex("."))
     }
+
+    // At work it holds what its open call is about. A call with no picture leaves its hands empty.
+    func testTheOpenCallSaysWhatIsInHand() {
+        XCTAssertEqual(Activity(tool: nil), .thinking)
+        XCTAssertEqual(Activity(tool: "Read"), .reading)
+        XCTAssertEqual(Activity(tool: "Edit"), .typing)
+        XCTAssertEqual(Activity(tool: "Bash"), .running)
+        XCTAssertEqual(Activity(tool: "Grep"), .searching)
+        XCTAssertEqual(Activity(tool: "Agent"), .calling)
+        XCTAssertNil(Activity(tool: "TodoWrite"))
+        XCTAssertNil(Activity(tool: "mcp__github__create_issue"))
+    }
+
+    // Every thing fits every face inside the twelve by twelve, in colours the person has, and
+    // moves while it is held.
+    func testEveryThingInHandFitsEveryFaceAndMoves() {
+        for kind in everyone {
+            let person = kind.person
+            let bare = MascotView.pose(person, status: .working, callsOut: false, blink: false, wave: 0)
+            for activity in Activity.allCases {
+                let frames = (0..<8).map { MascotView.hold(activity, bare, under: person.underEyes, tick: $0) }
+                for cells in frames {
+                    XCTAssertEqual(cells.map(\.count), Array(repeating: 12, count: 12), "\(kind) \(activity)")
+                    for cell in cells.joined() where cell != "." { XCTAssertNotNil(person.colour(cell), "\(kind) \(activity): \(cell)") }
+                    XCTAssertNotEqual(cells, bare, "\(kind) \(activity)")
+                }
+                XCTAssertGreaterThan(Set(frames).count, 1, "\(kind) \(activity) moves")
+            }
+        }
+    }
+
+    // In hand for most of each round, put down for the rest. Under Reduce Motion it stays in hand.
+    func testTheThingIsPutDownForPartOfEachRound() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let at = { (seconds: TimeInterval, reduced: Bool) in MascotView.inHand(.reading, since: start, at: start + seconds, reduceMotion: reduced) }
+        XCTAssertEqual(at(1, false), .reading)
+        XCTAssertNil(at(7, false))
+        XCTAssertEqual(at(9, false), .reading)
+        XCTAssertEqual(at(7, true), .reading)
+        XCTAssertNil(MascotView.inHand(nil, since: start, at: start, reduceMotion: true))
+    }
 }

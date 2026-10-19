@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 — 2026-10-19
+
+- At work, we hold what the agent is on: a printout while it reads, a keyboard while it edits, a terminal while it runs a command, a magnifier while it searches, a phone while a sub-agent works for it, and a chin in one hand while it thinks. Six seconds in hand, two to put it down. The faces in Claude Code's terminal hold the same things, standing still. Reopen your terminal once after updating to see them there.
+- Report a bug, in Settings, opens a new GitHub issue with the app's version, macOS and Mac model filled in. Your browser sends it; the app still sends nothing.
+- Long transcripts open faster and take far less memory. A 116 MB one used to take 0.96 s and 314 MB more memory, and now takes 0.41 s and 12 MB. History's first pass over a big folder of transcripts is about three times quicker.
+- The status line's context meter says `context`, not `ctx`.
+- The crew's font is a quarter of its old size.
+
 ## 0.1.3 — 2026-10-17
 
 - History has its own button at the top of the panel, a chart beside the pin. The token line at the end of the list still opens it, but it never looked like something to press.

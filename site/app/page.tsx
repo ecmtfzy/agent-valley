@@ -22,13 +22,13 @@ export default function Home() {
       <main>
         <Hero />
         <Problem />
+        <Crew />
         <Rows />
         <NeedsYou />
         <Costs />
         <Report />
         <Terminal />
         <Trust />
-        <Crew />
         <Also />
         <Install />
         <Words />

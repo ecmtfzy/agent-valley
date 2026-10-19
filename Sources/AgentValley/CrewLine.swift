@@ -116,9 +116,10 @@ enum CrewLine {
     }
 
     /// The top line and, when there is anything to measure, the meters below it.
-    static func status(_ input: [String: Any], columns: Int, plan: String?, look: LeadLook, now: Date) -> String {
+    /// `holding`: what the lead has in hand while it works, as the notch draws it.
+    static func status(_ input: [String: Any], columns: Int, plan: String?, look: LeadLook, holding: Activity? = nil, now: Date) -> String {
         let model = (input["model"] as? [String: Any])?["display_name"] as? String ?? ""
-        var top = CrewFont.character(.lead(look), .working)
+        var top = CrewFont.character(.lead(look), .working, holding: holding)
         let plan = plan.flatMap { $0.isEmpty ? nil : $0 }
         if !model.isEmpty {
             top += "  " + Style.bold + model + Style.reset
@@ -150,7 +151,7 @@ enum CrewLine {
         if let used = number(context?["used_percentage"]) {
             let size = number(context?["context_window_size"]) ?? 0
             let tail = tokens && size > 0 ? "\(short(used / 100 * size))/\(short(size))" : ""
-            parts.append(meter("ctx", PlanLimit(usedPercent: used, resetsAt: nil), cells: cells, tail: tail, now: now))
+            parts.append(meter("context", PlanLimit(usedPercent: used, resetsAt: nil), cells: cells, tail: tail, now: now))
         }
         let limits = input["rate_limits"] as? [String: Any]
         for (key, name) in [("five_hour", "5h"), ("seven_day", "7d")] {
@@ -184,7 +185,8 @@ enum CrewLine {
 
     /// One JSON line per sub-agent, `{"id": ..., "content": ...}`, drawn like the notch panel's row:
     /// face, title, time and model; then folder and branch; then the current step.
-    static func rows(_ input: [String: Any], now: Date, branch: (String) -> String) -> [String] {
+    /// `holding`: what the sub-agent of a task id has in hand while it works.
+    static func rows(_ input: [String: Any], now: Date, branch: (String) -> String, holding: (String) -> Activity? = { _ in nil }) -> [String] {
         let tasks = input["tasks"] as? [[String: Any]] ?? []
         let columns = number(input["columns"]).map { Int($0) } ?? 80
         let room = columns - 6
@@ -213,7 +215,7 @@ enum CrewLine {
             // The face takes two cells, then two spaces; the title gets what is left.
             let modelPart = model.isEmpty ? 0 : 2 + width(model)
             let titleRoom = room - 4 - 2 - width(when) - modelPart
-            var top = CrewFont.character(MascotKind(type: agentType), pose) + "  "
+            var top = CrewFont.character(MascotKind(type: agentType), pose, holding: pose == .working ? holding(id) : nil) + "  "
                 + Style.bold + cut(title, to: titleRoom) + Style.reset
                 + "  " + whenStyle + when + Style.reset
             if !model.isEmpty { top += "  " + Style.faint + model + Style.reset }
@@ -242,6 +244,41 @@ enum CrewLine {
             let json = try? JSONSerialization.data(withJSONObject: ["id": id, "content": lines.joined(separator: "\n")])
             return json.map { String(decoding: $0, as: UTF8.self) }
         }
+    }
+
+    /// The end of a transcript read for what its agent is doing: enough for any call and its
+    /// result but the very largest, and quick to read on every refresh.
+    static let tail: UInt64 = 1 << 20
+
+    /// What the agent of a transcript is doing, by the end of the file: its open call while its
+    /// turn is under way. nil once it has finished or gone quiet, as the notch's mascot then
+    /// holds nothing either, and for a file that cannot be read.
+    static func activity(transcript url: URL, now: Date) -> Activity? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        let end = (try? handle.seekToEnd()) ?? 0
+        try? handle.seek(toOffset: end > tail ? end - tail : 0)
+        var data = (try? handle.readToEnd()) ?? Data()
+        // Read from the middle of a line, the part before the first newline is no line at all.
+        if end > tail, let newline = data.firstIndex(of: 0x0A) { data = data[(newline + 1)...] }
+        var info = AgentInfo()
+        for line in TranscriptReader.completeLines(in: data).lines { TranscriptReader.apply(line: line, to: &info) }
+        guard !info.finished, let last = info.lastActivity, now.timeIntervalSince(last) < TranscriptReader.quietAfter else { return nil }
+        return Activity(tool: info.openTools.last?.tool)
+    }
+
+    /// Each sub-agent's transcript by its id, which is the id Claude Code gives its row: the
+    /// `agent-<id>.jsonl` files under the session's folder beside the session's own transcript.
+    static func agentTranscripts(session transcript: URL) -> [String: URL] {
+        let folder = transcript.deletingPathExtension().appendingPathComponent("subagents")
+        var found: [String: URL] = [:]
+        let walk = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil)
+        while let url = walk?.nextObject() as? URL {
+            let name = url.lastPathComponent
+            guard name.hasPrefix("agent-"), name.hasSuffix(".jsonl") else { continue }
+            found[String(name.dropFirst(6).dropLast(6))] = url
+        }
+        return found
     }
 
     /// The branch a folder is on, read from `.git/HEAD` the way git keeps it, so no process runs.

@@ -16,23 +16,64 @@ enum Crew {
                 .flatMap(CrewSetup.oauthAccount).map { ["oauthAccount": $0] }
             let leads = try? Data(contentsOf: CrewSetup.folder(home).appendingPathComponent(CrewSetup.leadLooksName))
             let look = CrewSetup.look(for: input["session_id"] as? String ?? "", in: leads)
-            print(CrewLine.status(input, columns: columns, plan: CrewLine.plan(fromClaudeJSON: claude), look: look, now: Date()))
+            let now = Date()
+            let holding = transcript(input).flatMap { url in
+                drawsThingsInHand(home, environment) ? CrewLine.activity(transcript: url, now: now) : nil
+            }
+            print(CrewLine.status(input, columns: columns, plan: CrewLine.plan(fromClaudeJSON: claude), look: look, holding: holding, now: now))
             return 0
         case "agents":
             let input = SafeJSON.object(FileHandle.standardInput.readDataToEndOfFile()) ?? [:]
-            for row in CrewLine.rows(input, now: Date(), branch: CrewLine.branch(of:)) { print(row) }
+            let now = Date()
+            let agents = transcript(input).flatMap { url in
+                drawsThingsInHand(home, environment) ? CrewLine.agentTranscripts(session: url) : nil
+            } ?? [:]
+            let holding = { (id: String) in agents[id].flatMap { CrewLine.activity(transcript: $0, now: now) } }
+            for row in CrewLine.rows(input, now: now, branch: CrewLine.branch(of:), holding: holding) { print(row) }
             return 0
         case "install":
             let executable = Format.stablePath(Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0]))
-            let font = (Bundle.main.resourceURL ?? Bundle.main.bundleURL).appendingPathComponent(CrewFont.fileName)
             let apps = [URL(fileURLWithPath: "/Applications/Ghostty.app"), home.appendingPathComponent("Applications/Ghostty.app")]
-            return finish { try CrewSetup.install(home: home, environment: environment, executable: executable, font: font, ghosttyApps: apps) }
+            return finish { try CrewSetup.install(home: home, environment: environment, executable: executable, font: bundledFont, ghosttyApps: apps) }
         case "uninstall":
             return finish { try CrewSetup.uninstall(home: home, environment: environment) }
         default:
             FileHandle.standardError.write(Data("Usage: AgentValley crew status|agents|install|uninstall\n".utf8))
             return 2
         }
+    }
+
+    private static var bundledFont: URL {
+        (Bundle.main.resourceURL ?? Bundle.main.bundleURL).appendingPathComponent(CrewFont.fileName)
+    }
+
+    private static func drawsThingsInHand(_ home: URL, _ environment: [String: String]) -> Bool {
+        CrewSetup.drawsThingsInHand(home: home, environment: environment, bundled: bundledFont, terminalStart: terminalStart())
+    }
+
+    /// When the terminal this runs in opened: the start of the last process up the parent chain
+    /// before launchd. nil when the chain can't be read.
+    /// ponytail: under tmux this finds the tmux server, which can outlive a font update; things
+    /// in hand then wait for the server to restart.
+    static func terminalStart() -> Date? {
+        var pid = getppid()
+        for _ in 0..<64 {
+            var info = kinfo_proc(), size = MemoryLayout<kinfo_proc>.stride
+            var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+            guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
+            guard info.kp_eproc.e_ppid > 1 else {
+                let start = info.kp_proc.p_starttime
+                return Date(timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000)
+            }
+            pid = info.kp_eproc.e_ppid
+        }
+        return nil
+    }
+
+    /// The session's transcript that Claude Code names, if it is a transcript at all.
+    private static func transcript(_ input: [String: Any]) -> URL? {
+        guard let path = input["transcript_path"] as? String, path.hasSuffix(".jsonl") else { return nil }
+        return URL(fileURLWithPath: path)
     }
 
     /// Prints what the step says it did, or why it stopped.

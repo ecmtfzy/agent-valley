@@ -126,18 +126,18 @@ function ScreenDrawing() {
         </div>
         <TrickOrTreat />
         <div className="p-card" aria-hidden="true">
-          <Mascot who="walrus" pose="work" />
+          <Mascot who="walrus" pose="work" holds="reading" />
           <div>
             <p className="p-line"><b className="t">Refactor checkout flow <Icon id="out" /></b><span>3m 16s <span className="model">Opus 5.5</span></span></p>
             <p className="p-dim"><Icon id="folder" /><span>shop-web</span><Icon id="branch" />checkout-refactor</p>
             <p>&gt; Read index.tsx</p>
           </div>
-          <Mascot who="afro" pose="work" />
+          <Mascot who="afro" pose="work" holds="searching" />
           <div>
             <p className="p-line"><b>Map payment call sites</b><span>2m 56s <span className="model">Haiku 5.5</span></span></p>
             <p className="p-line p-dim"><span>&gt; Grep PaymentIntent · 1 step</span><span>Explore</span></p>
           </div>
-          <Mascot who="beatnik" pose="work" />
+          <Mascot who="beatnik" pose="work" holds="typing" />
           <div>
             <p className="p-line"><b>Write cart total tests</b><span>1m 08s <span className="model">Sonnet 5.5</span></span></p>
             <p className="p-dim">&gt; Edit cart.test.ts · 4 steps</p>
@@ -146,15 +146,15 @@ function ScreenDrawing() {
         <i className="lights hw" aria-hidden="true"><b /><b /></i>
       </div>
       <div className="bar" aria-hidden="true">
-        <span className="wing"><Mascot who="guru" pose="wave" className="wait-only" /><Mascot who="guru" pose="work" className="after-only" /><span className="count wait-only">1</span></span>
+        <span className="wing"><Mascot who="guru" pose="wave" className="wait-only" /><Mascot who="guru" pose="work" holds="running" className="after-only" /><span className="count wait-only">1</span></span>
         <span className="lens" />
         <span className="wing"><span className="gauge" /></span>
       </div>
       <div className="valley" aria-hidden="true">
         <Mascot who="guru" pose="wave" />
-        <Mascot who="walrus" pose="work" />
-        <Mascot who="afro" pose="work" />
-        <Mascot who="beatnik" pose="work" />
+        <Mascot who="walrus" pose="work" holds="reading" />
+        <Mascot who="afro" pose="work" holds="searching" />
+        <Mascot who="beatnik" pose="work" holds="typing" />
       </div>
     </>
   );

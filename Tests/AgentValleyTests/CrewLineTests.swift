@@ -17,9 +17,9 @@ final class CrewLineTests: XCTestCase {
     }
 
     func testTheTopLineIsTheLeadModelAndPlan() {
-        let lines = lines(98)
+        let lines = lines(102)
         XCTAssertEqual(lines[0], "\u{3F015}  Opus 5.5 · Max 20x")
-        XCTAssertEqual(lines[1], "ctx ━━━━━━━━━━ 22% 220k/1.0m  │  5h ━━━━━━━━━━ 6% ↻ 2h 42m  │  7d ━━━━━━━━━━ 70% ↻ 2d 15h")
+        XCTAssertEqual(lines[1], "context ━━━━━━━━━━ 22% 220k/1.0m  │  5h ━━━━━━━━━━ 6% ↻ 2h 42m  │  7d ━━━━━━━━━━ 70% ↻ 2d 15h")
     }
 
     func testNoPlanDropsTheDot() {
@@ -34,12 +34,12 @@ final class CrewLineTests: XCTestCase {
 
     func testTheLayoutShrinksToFit() {
         func bottom(_ columns: Int) -> String { lines(columns)[1] }
-        XCTAssertTrue(bottom(98).contains("  │  ") && bottom(98).contains("━━━━━━━━━━"))
-        XCTAssertTrue(bottom(97).contains(" │ ") && !bottom(97).contains("  │  ") && bottom(97).contains("━━━━━━━━ ") && !bottom(97).contains("━━━━━━━━━"))
-        XCTAssertTrue(bottom(87).contains("220k/1.0m") && bottom(87).contains("━━━━━━ ") && !bottom(87).contains("━━━━━━━"))
-        XCTAssertFalse(bottom(81).contains("220k")); XCTAssertTrue(bottom(81).contains("━━━━━━ "))
-        XCTAssertTrue(bottom(71).contains("━━━━ ") && !bottom(71).contains("━━━━━"))
-        for columns in [98, 97, 87, 81, 71] { XCTAssertLessThanOrEqual(CrewLine.width(bottom(columns)), columns - 9) }
+        XCTAssertTrue(bottom(102).contains("  │  ") && bottom(102).contains("━━━━━━━━━━"))
+        XCTAssertTrue(bottom(101).contains(" │ ") && !bottom(101).contains("  │  ") && bottom(101).contains("━━━━━━━━ ") && !bottom(101).contains("━━━━━━━━━"))
+        XCTAssertTrue(bottom(91).contains("220k/1.0m") && bottom(91).contains("━━━━━━ ") && !bottom(91).contains("━━━━━━━"))
+        XCTAssertFalse(bottom(85).contains("220k")); XCTAssertTrue(bottom(85).contains("━━━━━━ "))
+        XCTAssertTrue(bottom(75).contains("━━━━ ") && !bottom(75).contains("━━━━━"))
+        for columns in [102, 101, 91, 85, 75] { XCTAssertLessThanOrEqual(CrewLine.width(bottom(columns)), columns - 9) }
         XCTAssertTrue(bottom(40).contains("━━━━ ") && !bottom(40).contains("━━━━━"))
     }
 
@@ -67,7 +67,7 @@ final class CrewLineTests: XCTestCase {
         input["rate_limits"] = nil
         let ctxOnly = lines(98)
         XCTAssertEqual(ctxOnly.count, 2)
-        XCTAssertTrue(ctxOnly[1].hasPrefix("ctx") && !ctxOnly[1].contains("5h") && !ctxOnly[1].contains("7d"))
+        XCTAssertTrue(ctxOnly[1].hasPrefix("context") && !ctxOnly[1].contains("5h") && !ctxOnly[1].contains("7d"))
         let empty = plain(CrewLine.status([:], columns: 98, plan: nil, look: LeadLook(), now: now))
         XCTAssertEqual(empty, "\u{3F015}")
     }
@@ -218,5 +218,52 @@ final class CrewLineTests: XCTestCase {
     func testTinyColumnsStillFit() {
         let lines = content([task()], columns: 12)[0].components(separatedBy: "\n")
         XCTAssertTrue(lines.allSatisfy { CrewLine.width($0) <= 6 })
+    }
+
+    // The lead and each working sub-agent hold what the notch has them hold.
+    func testTheFaceHoldsWhatTheAgentIsDoing() {
+        let top = plain(CrewLine.status(input, columns: 98, plan: nil, look: LeadLook(), holding: .typing, now: now))
+        XCTAssertTrue(top.hasPrefix(CrewFont.character(.lead(LeadLook()), .working, holding: .typing)), top)
+        let rows = CrewLine.rows(["tasks": [task(), task(["id": "a2", "status": "waiting"])], "columns": 100], now: now,
+                                 branch: { _ in "main" }, holding: { _ in .searching })
+            .map { (try! JSONSerialization.jsonObject(with: Data($0.utf8)) as! [String: Any])["content"] as! String }
+        XCTAssertTrue(rows[0].hasPrefix(CrewFont.character(.explore, .working, holding: .searching)))
+        XCTAssertTrue(rows[1].hasPrefix("\u{3F004}"), "nothing in hand while it calls the person")
+    }
+
+    // What an agent is doing, read off the end of its transcript.
+    func testTheTranscriptSaysWhatIsInHand() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("crew-\(UUID().uuidString).jsonl")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let at = "2026-10-12T02:00:05.000Z", then = Date(timeIntervalSince1970: 1_791_684_010)
+        let call = #"{"type":"assistant","timestamp":"\#(at)","message":{"model":"claude-haiku-5-5","content":[{"type":"tool_use","id":"t1","name":"Read","input":{}}]}}"#
+        let result = #"{"type":"user","timestamp":"\#(at)","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}"#
+        let answer = #"{"type":"assistant","timestamp":"\#(at)","message":{"model":"claude-haiku-5-5","stop_reason":"end_turn","content":[{"type":"text","text":"Done."}]}}"#
+        func after(_ lines: String...) throws -> Activity? {
+            try Data((lines.joined(separator: "\n") + "\n").utf8).write(to: file)
+            return CrewLine.activity(transcript: file, now: then)
+        }
+        XCTAssertEqual(try after(call), .reading)
+        XCTAssertEqual(try after(call, result), .thinking)
+        XCTAssertNil(try after(call, result, answer))
+        // Two minutes without a line: quiet, and the mascot holds nothing.
+        XCTAssertNil(CrewLine.activity(transcript: file, now: then + 600))
+        // A long file is read from its end, a line cut in half at the front left out.
+        XCTAssertEqual(try after(String(repeating: "x", count: Int(CrewLine.tail)), call), .reading)
+        XCTAssertNil(CrewLine.activity(transcript: file.appendingPathExtension("missing"), now: then))
+    }
+
+    func testSubAgentTranscriptsAreFoundByTheirRowID() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("crew-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let nested = root.appendingPathComponent("s1/subagents/workflows/w1")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        for url in [root.appendingPathComponent("s1/subagents/agent-a1.jsonl"), nested.appendingPathComponent("agent-a2.jsonl"),
+                    root.appendingPathComponent("s1/subagents/agent-a1.meta.json")] {
+            try Data().write(to: url)
+        }
+        let found = CrewLine.agentTranscripts(session: root.appendingPathComponent("s1.jsonl"))
+        XCTAssertEqual(Set(found.keys), ["a1", "a2"])
+        XCTAssertEqual(found["a2"]?.lastPathComponent, "agent-a2.jsonl")
     }
 }

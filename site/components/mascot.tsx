@@ -12,11 +12,30 @@ const FRAMES: Record<Pose, string[]> = {
   still: ['working'],
 };
 
-export function Mascot({ who, pose, size, dot, className }: { who: Person; pose: Pose; size?: string; dot?: boolean; className?: string }) {
+// What a working agent holds, by its open call, as the app draws it.
+export type Thing = 'thinking' | 'reading' | 'typing' | 'running' | 'searching' | 'calling';
+// Frames in each thing's strip: one loop, blinks included (SiteMascotsTests.loop).
+const LOOP: Record<Thing, number> = { thinking: 24, reading: 8, typing: 8, running: 8, searching: 8, calling: 8 };
+
+export function Mascot({ who, pose, holds, size, dot, className }: { who: Person; pose: Pose; holds?: Thing; size?: string; dot?: boolean; className?: string }) {
+  const style = size ? ({ '--s': size } as React.CSSProperties) : undefined;
+  // Still: the thing in hand as the terminal draws it.
+  if (holds && pose === 'still') {
+    return <span className={cn('m', className)} style={style}><img src={`/mascots/${who}-${holds}.svg`} alt="" loading="lazy" /></span>;
+  }
+  // At work: the thing in hand, moving, for six seconds, then two with it put down, as the app does.
+  if (holds && pose === 'work') {
+    return (
+      <span className={cn('m holds', className)} style={{ ...style, '--n': LOOP[holds] } as React.CSSProperties}>
+        <span className="bare"><Mascot who={who} pose="work" /></span>
+        <span className="strip"><img src={`/mascots/${who}-${holds}-run.svg`} alt="" loading="lazy" /></span>
+      </span>
+    );
+  }
   return (
     <span
       className={cn('m', (pose === 'work' || pose === 'wave') && pose, className)}
-      style={size ? ({ '--s': size } as React.CSSProperties) : undefined}
+      style={style}
     >
       {FRAMES[pose].map((frame) => <img key={frame} src={`/mascots/${who}-${frame}.svg`} alt="" loading="lazy" />)}
       {dot && <i className="dot" />}

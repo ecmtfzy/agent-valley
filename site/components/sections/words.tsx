@@ -12,7 +12,6 @@ const WORDS: [string, string, string][] = [
   ["step", "step", "One thing an agent does, such as reading a file or running a command."],
   ["quiet", "quiet", "An agent that has written nothing for two minutes. It may be waiting for you in its terminal, or stuck."],
   ["crew", "crew", "The little programmers, one for each agent."],
-  ["bob", "bob", "To move up and down a little."],
   ["valley", "valley", "The ground the crew stands on. \"Put the valley in your notch\" means install AgentValley."],
   ["terminal", "terminal", "The app where you type commands and where Claude Code runs. Terminal, iTerm2 and Ghostty are three."],
   ["status-line", "status line, prompt", "The prompt is where you type to Claude Code. The status line is the strip under it, which Claude Code lets an app fill in."],

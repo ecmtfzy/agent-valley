@@ -2,8 +2,10 @@ import Foundation
 
 /// What `crew install` and `crew uninstall` do to Claude Code's settings, the crew's font and
 /// Ghostty's config. The app never runs these itself: they run only when the person pastes the
-/// command. Every file is read and checked before any is written, so a refusal changes nothing.
-/// Paths all start from `home`, so tests can work in a home of their own.
+/// command. After an update the app only brings the font and Ghostty's line that install put in
+/// place up to date, and only where they are. Every file is read and checked before any is
+/// written, so a refusal changes nothing. Paths all start from `home`, so tests can work in a
+/// home of their own.
 enum CrewSetup {
     enum Failure: Error, Equatable {
         case unreadableSettings(String)
@@ -12,7 +14,10 @@ enum CrewSetup {
 
     static let leadLooksName = "crew-leads.json", backupName = "crew-backup.json"
     static let ghosttyLines = ["# AgentValley: the crew's faces in Claude Code come from this font",
-                               "font-codepoint-map = U+3F000-U+3F3FF=AgentValley Crew"]
+                               "font-codepoint-map = U+3F000-U+3F7FF=AgentValley Crew"]
+    /// The narrower map of the versions before the faces with things in hand. Install and the
+    /// app after an update put today's in its place; uninstall takes out either.
+    static let oldGhosttyLines = ["font-codepoint-map = U+3F000-U+3F3FF=AgentValley Crew"]
 
     /// The settings keys the crew takes over, with the `crew` mode each one runs.
     private static let keys = [("statusLine", "status"), ("subagentStatusLine", "agents")]
@@ -151,11 +156,14 @@ enum CrewSetup {
         var ghostty: (shown: URL, file: URL, text: String)?
         if let config = configs.first(where: { files.fileExists(atPath: $0.path) }) {
             let file = realFile(config)
-            let text = try String(contentsOf: file, encoding: .utf8)
+            let original = try String(contentsOf: file, encoding: .utf8)
+            let text = widened(original)
             let missing = ghosttyLines.filter { !lines(text).contains($0) }
             if !missing.isEmpty {
                 let start = text.isEmpty || text.hasSuffix("\n") ? text : text + "\n"
                 ghostty = (config, file, start + missing.joined(separator: "\n") + "\n")
+            } else if text != original {
+                ghostty = (config, file, text)
             }
         } else if ghosttyApps.contains(where: { files.fileExists(atPath: $0.path) }) {
             ghostty = (configs[1], configs[1], ghosttyLines.joined(separator: "\n") + "\n")
@@ -205,7 +213,7 @@ enum CrewSetup {
         for config in ghosttyConfigs(home, environment) where last && files.fileExists(atPath: config.path) {
             let file = realFile(config)
             let text = try String(contentsOf: file, encoding: .utf8)
-            let kept = text.components(separatedBy: "\n").filter { !ghosttyLines.contains($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            let kept = text.components(separatedBy: "\n").filter { !(ghosttyLines + oldGhosttyLines).contains($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
             let edited = kept.joined(separator: "\n")
             if edited != text { edits.append((config, file, edited)) }
         }
@@ -231,6 +239,41 @@ enum CrewSetup {
         if restored { message.append("Your old status line is back.") }
         for edit in edits { message.append("Ghostty: removed our font line from \(edit.shown.path). Quit and reopen Ghostty.") }
         return message.joined(separator: "\n")
+    }
+
+    /// A config with the old map line swapped for today's, where it stands.
+    private static func widened(_ text: String) -> String {
+        text.components(separatedBy: "\n").map {
+            oldGhosttyLines.contains($0.trimmingCharacters(in: .whitespacesAndNewlines)) ? ghosttyLines[1] : $0
+        }.joined(separator: "\n")
+    }
+
+    /// Whether the terminal can draw the faces with things in hand, which fonts before them lack.
+    /// The installed font must be this app's, and the terminal must have opened after it was put
+    /// in place: a terminal keeps the fonts it has seen until it quits, and would draw a face the
+    /// old font lacks as an empty box. Ghostty draws our faces only through its font line, and
+    /// the line of older versions stops short of these.
+    static func drawsThingsInHand(home: URL, environment: [String: String], bundled: URL, terminalStart: Date?) -> Bool {
+        let installed = fontURL(home)
+        guard FileManager.default.contentsEqual(atPath: installed.path, andPath: bundled.path),
+              let placed = (try? FileManager.default.attributesOfItem(atPath: installed.path))?[.modificationDate] as? Date,
+              let terminalStart, terminalStart > placed else { return false }
+        guard environment["TERM_PROGRAM"] == "ghostty" else { return true }
+        return ghosttyConfigs(home, environment).contains { config in
+            (try? String(contentsOf: realFile(config), encoding: .utf8)).map { lines($0).contains(ghosttyLines[1]) } ?? false
+        }
+    }
+
+    /// After an update the app widens the font line an older install put in Ghostty's config. A
+    /// config without our line is left as it is. Run before `refreshFont`, so that a Ghostty
+    /// opened after the new font was put in place has read the new line too.
+    static func refreshGhosttyLine(home: URL, environment: [String: String]) {
+        for config in ghosttyConfigs(home, environment) {
+            let file = realFile(config)
+            guard let text = try? String(contentsOf: file, encoding: .utf8) else { continue }
+            let wide = widened(text)
+            if wide != text { try? write(Data(wide.utf8), to: file) }
+        }
     }
 
     /// After an update the app replaces the font, but only where the person installed it.

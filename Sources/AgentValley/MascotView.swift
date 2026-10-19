@@ -95,6 +95,21 @@ struct Person: Equatable {
         case "l": 0xD6E9F2  // clear glass
         case "T": 0xE0A030  // amber glass
         case "B": 0x6B3F1F  // tortoiseshell frames
+        // What a person at work holds: `MascotView.hold`.
+        case "q": 0xF4F1E6  // printout paper, the dots of a thought
+        case "Q": 0xBFE0B5  // the printout's green bar
+        case "x": 0x6A6A6A  // print on it
+        case "z": 0xA0A0A0  // its sprocket holes
+        case "k": 0xE8E0CC  // a key
+        case "d": 0x5E5850  // the keyboard between keys
+        case "v": 0xCFC6A8  // a terminal's case
+        case "e": 0x0E2A12  // its screen
+        case "g": 0x5BE37D  // output on it
+        case "G": 0xC9A227  // a magnifying glass's rim
+        case "L": 0xBFE3F0  // its glass
+        case "n": 0x4A2E1A  // its handle
+        case "r": 0xEFE6D0  // a telephone receiver, ivory
+        case "R": 0xB8AE96  // its cord
         default: nil
         }
         guard let base else { return nil }
@@ -254,9 +269,32 @@ enum MascotFlag: Equatable {
     static let red = Color(red: 1.0, green: 0.27, blue: 0.23)
 }
 
+/// What an agent at work is busy with, by the tool call it has open. Each has a thing to hold.
+/// New cases go at the end: the terminal's font counts through them in this order.
+enum Activity: Equatable, CaseIterable {
+    /// No call open: the model is working out what to say or do next.
+    case thinking
+    case reading, typing, running, searching, calling
+
+    /// `tool`: the newest call still waiting for its result, nil with none open. A tool with no
+    /// picture of its own leaves the hands empty.
+    init?(tool: String?) {
+        switch tool {
+        case nil: self = .thinking
+        case "Read", "WebFetch": self = .reading
+        case "Edit", "MultiEdit", "Write", "NotebookEdit": self = .typing
+        case "Bash", "BashOutput": self = .running
+        case "Grep", "Glob", "WebSearch", "ToolSearch": self = .searching
+        case "Agent", "Task": self = .calling
+        default: return nil
+        }
+    }
+}
+
 /// A pixel person. It bobs and blinks while its agent works, looks aside and dims while the
 /// agent is quiet, opens its mouth and waves while it calls the person, and fades further with
-/// its eyes shut once the agent has finished.
+/// its eyes shut once the agent has finished. At work it now and then picks up a thing that
+/// says what the agent is doing, and puts it down again.
 struct MascotView: View {
     let status: AgentStatus
     var kind = MascotKind.general
@@ -268,7 +306,20 @@ struct MascotView: View {
     var dot = true
     /// Its agent is called busy and has written nothing for a long while: it stops bobbing.
     var still = false
+    /// What its agent is doing, when it works and the tool has a picture.
+    var activity: Activity? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The activity on show, and since when. It changes no sooner than `minimumHold` after the
+    /// last change: a call can be over in under a second, and a thing in hand must not flicker.
+    @State private var shown: Activity? = nil
+    @State private var shownSince = Date.distantPast
+
+    static let minimumHold: TimeInterval = 2
+    /// Of every round from when the activity began, the thing is in hand for the first part and
+    /// put down for the rest: nobody holds a thing the whole time.
+    static let round: TimeInterval = 8, inHand: TimeInterval = 6
+    /// The one moment drawn under Reduce Motion, where every thing shows what it is.
+    static let stillTick = 3
 
     /// Dim while quiet, fainter still once done, in its own colours: who it was still shows.
     /// Under Reduce Motion nothing bobs, and this with the eyes has to tell the three apart.
@@ -305,11 +356,8 @@ struct MascotView: View {
             let top = eyes.map(\.0).min()
             for (y, x) in eyes where y == top { cells[y][x] = under }
         } else if status == .quiet {
-            // It looks aside, as far as its glasses or face leave room for each eye to turn.
-            for (y, x) in eyes where x + 1 < cells[y].count && cells[y][x + 1] == under {
-                cells[y][x] = under
-                cells[y][x + 1] = "o"
-            }
+            // It looks aside.
+            turnEyes(&cells, by: 1, under: under)
         }
         if callsOut {
             if let mouth = cells.firstIndex(where: { $0.contains("m") }), mouth + 1 < cells.count {
@@ -326,18 +374,96 @@ struct MascotView: View {
         return cells
     }
 
+    /// Every eye one cell to the side, as far as its glasses or face leave room to turn.
+    static func turnEyes(_ cells: inout [[Character]], by step: Int, under: Character) {
+        let eyes = cells.indices.flatMap { y in cells[y].indices.filter { cells[y][$0] == "o" }.map { (y, $0) } }
+        for (y, x) in eyes where cells[y].indices.contains(x + step) && cells[y][x + step] == under {
+            cells[y][x] = under
+            cells[y][x + step] = "o"
+        }
+    }
+
+    /// Whether the thing is in hand at `date`, by the round that began `since`. Each agent
+    /// began its activity at its own time, so they do not all put things down together.
+    /// Under Reduce Motion it stays in hand.
+    static func inHand(_ activity: Activity?, since: Date, at date: Date, reduceMotion: Bool) -> Activity? {
+        guard let activity else { return nil }
+        return reduceMotion || date.timeIntervalSince(since).truncatingRemainder(dividingBy: round) < inHand ? activity : nil
+    }
+
+    /// `cells` with the thing for `activity` in hand at `tick`: a page feeding, a key going
+    /// down, a line of output, the glass going over things. All of it inside the twelve by
+    /// twelve, so a row is no wider for it.
+    static func hold(_ activity: Activity, _ cells: [[Character]], under: Character, tick: Int) -> [[Character]] {
+        var cells = cells
+        func put(_ x: Int, _ y: Int, _ cell: Character) {
+            if cells.indices.contains(y), cells[y].indices.contains(x) { cells[y][x] = cell }
+        }
+        func draw(_ rows: [String], _ left: Int, _ top: Int) {
+            for (y, row) in rows.enumerated() { for (x, cell) in row.enumerated() where cell != "." { put(left + x, top + y, cell) } }
+        }
+        switch activity {
+        case .thinking:
+            // Chin in hand, looking one way and then the other, the dots of a thought coming.
+            turnEyes(&cells, by: tick / 4 % 2 == 0 ? -1 : 1, under: under)
+            draw(["SS", "SS", "c"], 2, 8)
+            put(1, 11, "c")
+            for dot in 0..<min(tick % 6, 3) { put(dot * 2, 0, "q") }
+        case .reading:
+            // A printout off the line printer, its green bars rolling up as it is read.
+            turnEyes(&cells, by: 1, under: under)
+            let roll = tick / 2 % 2
+            for y in 4...10 { for x in 9...11 { put(x, y, (y + roll) / 2 % 2 == 1 ? "Q" : "q") } }
+            for y in [5, 7, 9] { put(11, y, "z") }
+            for (x, y) in [(10, 5), (9, 7), (10, 7), (10, 9)] where y - roll >= 4 { put(x, y - roll, "x") }
+            draw(["S", "S", ".qQ"], 8, 9)
+        case .typing:
+            // A keyboard, one finger down at a time.
+            draw([".kdkdkdkdkd", ".dkdkdkdkdk"], 0, 10)
+            let fingers = [2, 3, 8, 9], down = tick % 4
+            for (index, x) in fingers.enumerated() { put(x, index == down ? 10 : 9, "S") }
+            put(fingers[down], 11, "w")
+        case .running:
+            // A terminal at the elbow, output running down its green screen.
+            turnEyes(&cells, by: 1, under: under)
+            draw(["vvvvv", "veeev", "veeev", "vvvvv", ".vvv."], 7, 7)
+            draw([["g.g", "gg."], ["gg.", "g.g"], ["g.g", "g.."], ["gg.", "g.."]][tick % 4], 8, 8)
+        case .searching:
+            // A magnifying glass going over things, an eye big behind it.
+            let step = tick / 2 % 4, left = [5, 6, 6, 5][step], top = [3, 3, 4, 4][step]
+            draw([".GGG.", "GLoLG", "GLoLG", "GLLLG", ".GGG.", "....n", ".....n", "......s"], left, top)
+        case .calling:
+            // On the phone to a helper, talking.
+            if tick % 2 == 0 { for y in cells.indices { for x in cells[y].indices where cells[y][x] == "m" { cells[y][x] = "M" } } }
+            draw(["rr", "rr", "r.", "rs", "rs", "rr", "rr", "R.", ".R"], 0, 3)
+        }
+        return cells
+    }
+
     var body: some View {
         let moving = Self.animates(status, reduceMotion: reduceMotion, still: still)
         let waving = Self.waves(flag, reduceMotion: reduceMotion)
         let person = kind.person
         let fade = Self.fade(status)
+        // Only at work, and never while it calls the person: the wave must say the most.
+        let busy = status == .working && !still && flag != .needsYou ? shown : nil
         TimelineView(.animation(minimumInterval: 0.4, paused: !moving && !waving)) { context in
             let tick = Int(context.date.timeIntervalSinceReferenceDate / 0.4)
-            let cells = Self.pose(person, status: status, callsOut: flag == .needsYou,
+            let posed = Self.pose(person, status: status, callsOut: flag == .needsYou,
                                   blink: moving && tick % 8 == 0, wave: waving ? tick : 0)
-            Pixels(cells: cells, size: size, colour: person.colour)
+            let holding = Self.inHand(busy, since: shownSince, at: context.date, reduceMotion: reduceMotion)
+            Pixels(cells: holding.map { Self.hold($0, posed, under: person.underEyes, tick: moving ? tick : Self.stillTick) } ?? posed,
+                   size: size, colour: person.colour)
             .opacity(fade)
-            .offset(y: moving && tick % 2 == 0 ? -size / 12 : 0)
+            // While it holds something, that moves in place of the bob.
+            .offset(y: moving && holding == nil && tick % 2 == 0 ? -size / 12 : 0)
+        }
+        .task(id: activity) {
+            let wait = Self.minimumHold - Date.now.timeIntervalSince(shownSince)
+            if wait > 0 { try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)) }
+            guard !Task.isCancelled else { return }
+            shown = activity
+            shownSince = .now
         }
         .overlay(alignment: .topTrailing) {
             if let flag, dot {

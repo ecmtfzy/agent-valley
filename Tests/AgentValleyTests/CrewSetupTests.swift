@@ -250,6 +250,61 @@ final class CrewSetupTests: XCTestCase {
         XCTAssertTrue(second.contains("Ghostty: added our font line to \(url(appSupportConfig).path)."), second)
     }
 
+    func draws(_ environment: [String: String], openedAt start: Date? = .distantFuture) -> Bool {
+        CrewSetup.drawsThingsInHand(home: home, environment: environment, bundled: font, terminalStart: start)
+    }
+
+    // The map line of earlier versions stops short of the faces with things in hand. Install
+    // puts today's in its place; until then the status line holds nothing back in Ghostty.
+    func testInstallWidensTheOldGhosttyLineWhereItStands() throws {
+        let old = "theme = x\n" + CrewSetup.ghosttyLines[0] + "\n" + CrewSetup.oldGhosttyLines[0] + "\nfont-size = 13\n"
+        try write(old, to: ".config/ghostty/config")
+        try write("the font", to: "Library/Fonts/AgentValleyCrew.ttf")
+        let ghostty = ["TERM_PROGRAM": "ghostty"]
+        XCTAssertFalse(draws(ghostty))
+        XCTAssertTrue(draws(["TERM_PROGRAM": "Apple_Terminal"]))
+        try install()
+        XCTAssertEqual(read(".config/ghostty/config"), "theme = x\n" + CrewSetup.ghosttyLines.joined(separator: "\n") + "\nfont-size = 13\n")
+        XCTAssertTrue(draws(ghostty))
+
+        // Uninstall takes the old line out too.
+        try write(old, to: ".config/ghostty/config")
+        try uninstall()
+        XCTAssertEqual(read(".config/ghostty/config"), "theme = x\nfont-size = 13\n")
+    }
+
+    // After an update the app widens the old line by itself, and touches no config without it.
+    func testTheAppWidensOnlyItsOwnOldGhosttyLine() throws {
+        let old = "theme = x\n" + CrewSetup.ghosttyLines[0] + "\n" + CrewSetup.oldGhosttyLines[0] + "\nfont-size = 13"
+        try write(old, to: appSupportConfig)
+        try write("a = 1\n", to: ".config/ghostty/config")
+        CrewSetup.refreshGhosttyLine(home: home, environment: [:])
+        XCTAssertEqual(read(appSupportConfig), "theme = x\n" + CrewSetup.ghosttyLines.joined(separator: "\n") + "\nfont-size = 13")
+        XCTAssertEqual(read(".config/ghostty/config"), "a = 1\n")
+        CrewSetup.refreshGhosttyLine(home: home, environment: [:])
+        XCTAssertEqual(read(appSupportConfig), "theme = x\n" + CrewSetup.ghosttyLines.joined(separator: "\n") + "\nfont-size = 13")
+    }
+
+    // A terminal keeps the fonts it has seen until it quits: a face the old font lacks would be
+    // an empty box. Things in hand wait for this app's font and a terminal opened after it.
+    func testThingsInHandWaitForTheFontAndATerminalOpenedAfterIt() throws {
+        let terminal = ["TERM_PROGRAM": "Apple_Terminal"]
+        XCTAssertFalse(draws(terminal), "no font installed")
+        try write("an older font", to: "Library/Fonts/AgentValleyCrew.ttf")
+        XCTAssertFalse(draws(terminal), "the font of an older version")
+        CrewSetup.refreshFont(home: home, bundled: font)
+        let placed = try XCTUnwrap(files.attributesOfItem(atPath: installedFont.path)[.modificationDate] as? Date)
+        XCTAssertFalse(draws(terminal, openedAt: placed.addingTimeInterval(-60)), "opened before the font")
+        XCTAssertFalse(draws(terminal, openedAt: nil), "unknown")
+        XCTAssertTrue(draws(terminal, openedAt: placed.addingTimeInterval(1)))
+    }
+
+    func testTheTerminalOpenedBeforeThisProcess() throws {
+        let start = try XCTUnwrap(Crew.terminalStart())
+        XCTAssertLessThanOrEqual(start, Date())
+        XCTAssertGreaterThan(start, Date(timeIntervalSince1970: 1_000_000_000))
+    }
+
     func testGhosttyPrefersItsOwnOrder() throws {
         try write("a = 1", to: ".config/ghostty/config")
         try write("b = 2\n", to: "xdg/ghostty/config")

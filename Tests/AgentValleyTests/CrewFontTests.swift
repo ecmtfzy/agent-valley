@@ -4,7 +4,8 @@ import XCTest
 
 final class CrewFontTests: XCTestCase {
     func testEveryFaceHasItsOwnCodepointInOrder() {
-        XCTAssertEqual(CrewFont.faces.map(\.scalar), Array(UInt32(0x3F000)...0x3F0BC))
+        XCTAssertEqual(CrewFont.faces.map(\.scalar), Array(UInt32(0x3F000)...0x3F4D6))
+        XCTAssertLessThanOrEqual(CrewFont.faces.last!.scalar, CrewFont.lastScalar, "past the end of Ghostty's font line")
     }
 
     func testCodepointsFollowTheFixedOrder() {
@@ -15,6 +16,13 @@ final class CrewFontTests: XCTestCase {
         XCTAssertEqual(CrewFont.character(.lead(LeadLook()), .working), "\u{3F015}")
         XCTAssertEqual(CrewFont.character(.lead(LeadLook(face: 3, hair: 5, shirt: 6)), .working), "\u{3F0BC}")
         XCTAssertEqual(CrewFont.character(.lead(LeadLook(face: 3, hair: 5, shirt: 6)), .done), "\u{3F0BC}")
+        // At work with a thing in hand: the crew, then the leads, six things each, after all the rest.
+        XCTAssertEqual(CrewFont.character(.general, .working, holding: .thinking), "\u{3F0BD}")
+        XCTAssertEqual(CrewFont.character(.explore, .working, holding: .searching), "\u{3F0C7}")
+        XCTAssertEqual(CrewFont.character(.lead(LeadLook()), .working, holding: .reading), "\u{3F0E8}")
+        XCTAssertEqual(CrewFont.character(.lead(LeadLook(face: 3, hair: 5, shirt: 6)), .working, holding: .calling), "\u{3F4D6}")
+        // Nothing is held while it calls the person or once it is done.
+        XCTAssertEqual(CrewFont.character(.plan, .needsYou, holding: .typing), "\u{3F007}")
     }
 
     /// `character` counts in fixed strides through these pools: a pool of another size would
@@ -33,6 +41,11 @@ final class CrewFontTests: XCTestCase {
         for kind in kinds {
             let scalar = CrewFont.character(kind, .working).unicodeScalars.first!.value
             XCTAssertEqual(CrewFont.faces[Int(scalar - CrewFont.firstScalar)].person, kind.person, "\(kind)")
+            for activity in Activity.allCases {
+                let face = CrewFont.faces[Int(CrewFont.character(kind, .working, holding: activity).unicodeScalars.first!.value - CrewFont.firstScalar)]
+                XCTAssertEqual(face.person, kind.person, "\(kind) \(activity)")
+                XCTAssertEqual(face.holding, activity, "\(kind) \(activity)")
+            }
         }
     }
 
@@ -52,6 +65,16 @@ final class CrewFontTests: XCTestCase {
         let cells = MascotView.pose(.afro, status: .needsYou, callsOut: true, blink: false, wave: 0)
         XCTAssertEqual(grid, cells.map { $0.map(Person.afro.hex) })
         XCTAssertEqual(try face(0x3F005)["opacity"] as? Double, 0.45)
+
+        // A face with a thing in hand is the notch's, standing still.
+        grid = [[UInt32?]](repeating: [UInt32?](repeating: nil, count: 12), count: 12)
+        for rect in try XCTUnwrap(face(0x3F0C7)["rects"] as? [[Any]]) {
+            let x0 = rect[0] as! Int, x1 = rect[1] as! Int, y = rect[2] as! Int
+            for x in x0..<x1 { grid[y][x] = try XCTUnwrap(UInt32(rect[3] as! String, radix: 16)) }
+        }
+        let working = MascotView.pose(.afro, status: .working, callsOut: false, blink: false, wave: 0)
+        let held = MascotView.hold(.searching, working, under: Person.afro.underEyes, tick: MascotView.stillTick)
+        XCTAssertEqual(grid, held.map { $0.map(Person.afro.hex) })
     }
 
     func testTheCommittedFontWasBuiltFromTheseFaces() throws {

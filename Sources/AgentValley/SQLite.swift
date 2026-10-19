@@ -68,6 +68,13 @@ final class SQLite {
     /// Runs one statement with `values` bound in order, and gives back its rows.
     @discardableResult
     func rows(_ sql: String, _ values: [SQLValue] = []) throws -> [[SQLValue]] {
+        var rows: [[SQLValue]] = []
+        try each(sql, values) { rows.append($0) }
+        return rows
+    }
+
+    /// `rows`, one row at a time: what is made of a row is all that is kept of it.
+    func each(_ sql: String, _ values: [SQLValue] = [], _ body: ([SQLValue]) throws -> Void) throws {
         let statement = try prepared(sql)
         defer {
             sqlite3_reset(statement)
@@ -82,12 +89,11 @@ final class SQLite {
             case .null: sqlite3_bind_null(statement, place)
             }
         }
-        var rows: [[SQLValue]] = []
         while true {
             let code = sqlite3_step(statement)
-            if code == SQLITE_DONE { return rows }
+            if code == SQLITE_DONE { return }
             guard code == SQLITE_ROW else { throw error(code) }
-            rows.append((0..<sqlite3_column_count(statement)).map { column -> SQLValue in
+            try body((0..<sqlite3_column_count(statement)).map { column -> SQLValue in
                 switch sqlite3_column_type(statement, column) {
                 case SQLITE_INTEGER: return .int(sqlite3_column_int64(statement, column))
                 case SQLITE_FLOAT: return .real(sqlite3_column_double(statement, column))

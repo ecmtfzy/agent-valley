@@ -172,13 +172,15 @@ final class UsageLedger: ObservableObject {
     func slice(_ interval: DateInterval) throws -> LedgerSlice {
         guard let db else { return LedgerSlice() }
         let span: [SQLValue] = [.real(interval.start.timeIntervalSince1970), .real(interval.end.timeIntervalSince1970)]
-        let answers = try db.rows("""
+        var answers: [LedgerAnswer] = []
+        // Row by row: a month is tens of thousands of answers, and a second copy of them all as rows doubled what a load held.
+        try db.each("""
             SELECT id, at, folder, session, agent, model, fast, us, input, write5m, write1h, read, output, searches
             FROM answers WHERE at >= ? AND at < ?
-            """, span).map {
-            LedgerAnswer(id: $0[0].text, at: Date(timeIntervalSince1970: $0[1].real), folder: $0[2].text, session: $0[3].text,
-                         agent: $0[4].text, model: $0[5].text, fast: $0[6].int != 0, us: $0[7].int != 0, input: $0[8].int,
-                         write5m: $0[9].int, write1h: $0[10].int, read: $0[11].int, output: $0[12].int, searches: $0[13].int)
+            """, span) {
+            answers.append(LedgerAnswer(id: $0[0].text, at: Date(timeIntervalSince1970: $0[1].real), folder: $0[2].text, session: $0[3].text,
+                                        agent: $0[4].text, model: $0[5].text, fast: $0[6].int != 0, us: $0[7].int != 0, input: $0[8].int,
+                                        write5m: $0[9].int, write1h: $0[10].int, read: $0[11].int, output: $0[12].int, searches: $0[13].int))
         }
         let titles = try db.rows("SELECT id, title FROM sessions WHERE id IN (SELECT session FROM answers WHERE at >= ? AND at < ?)", span)
         let folders = try db.rows("SELECT DISTINCT folder FROM answers ORDER BY folder").map { $0[0].text }
@@ -241,28 +243,13 @@ final class UsageLedger: ObservableObject {
         // A main transcript is named for its session: a title line that does not say whose is its.
         let session = agent == "main" ? String((path as NSString).lastPathComponent.dropLast(".jsonl".count)) : nil
         var found = false
-        // A piece at a time, each let go before the next. What follows a piece's last newline is
-        // carried into the next piece.
-        var rest = Data()
-        var more = true
-        while more {
-            more = try autoreleasepool {
-                guard let next = try? handle.read(upToCount: piece), !next.isEmpty else { return false }
-                rest.append(next)
-                // Up to the last whole line: one caught half-written is read when the rest is there.
-                let (lines, consumed) = TranscriptReader.completeLines(in: rest)
-                for line in lines {
-                    if let answer = LedgerAnswer(line: line, agent: agent) {
-                        try db.rows(Self.upsert, Self.values(answer))
-                        found = true
-                    } else if let title = Self.title(fromLine: line, session: session) {
-                        try db.rows("INSERT INTO sessions VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title",
-                                    [.text(title.session), .text(title.title)])
-                    }
-                }
-                done += UInt64(consumed)
-                rest.removeSubrange(rest.startIndex..<rest.startIndex + consumed)
-                return true
+        done += try TranscriptReader.readLines(from: handle, piece: piece) { line in
+            if let answer = LedgerAnswer(line: line, agent: agent) {
+                try db.rows(Self.upsert, Self.values(answer))
+                found = true
+            } else if let title = Self.title(fromLine: line, session: session) {
+                try db.rows("INSERT INTO sessions VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title",
+                            [.text(title.session), .text(title.title)])
             }
         }
         bytes[path] = done

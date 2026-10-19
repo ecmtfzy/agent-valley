@@ -470,6 +470,23 @@ final class TranscriptReaderTests: XCTestCase {
         XCTAssertEqual(consumed, 8)
         XCTAssertEqual(TranscriptReader.completeLines(in: Data("part".utf8)).consumed, 0)
         XCTAssertEqual(TranscriptReader.completeLines(in: Data()).consumed, 0)
+        // A slice that does not start at zero, with blank lines, which are skipped.
+        let slice = Data("xx\n\none\n\ntwo\n".utf8).dropFirst(3)
+        let cut = TranscriptReader.completeLines(in: slice)
+        XCTAssertEqual(cut.lines, [Data("one".utf8), Data("two".utf8)])
+        XCTAssertEqual(cut.consumed, 10)
+    }
+
+    func testReadLinesAcrossPiecesLeavesHalfWrittenLine() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data("first line\n\nsecond\nhalf".utf8).write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let handle = try FileHandle(forReadingFrom: file)
+        defer { try? handle.close() }
+        var lines: [String] = []
+        let consumed = TranscriptReader.readLines(from: handle, piece: 3) { lines.append(String(decoding: $0, as: UTF8.self)) }
+        XCTAssertEqual(lines, ["first line", "second"])
+        XCTAssertEqual(consumed, 19)
     }
 
     func testMetaSetsTypeAndTask() {

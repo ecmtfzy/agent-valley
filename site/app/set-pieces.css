@@ -145,9 +145,21 @@ html{scroll-padding-top:80px}
 @keyframes blink{0%{opacity:1}12.5%{opacity:0}}
 @keyframes first{0%{opacity:1}50%{opacity:0}}
 @keyframes second{0%{opacity:0}50%{opacity:1}}
+/* A thing in hand: its strip of frames (13 cells apart, 12 shown) steps by on the same 0.4 s tick, for six seconds of an
+   eight-second round; then it is put down and the bare mascot bobs. With motion off, held still. */
+.holds>span{position:absolute;inset:0}
+.holds .bare{opacity:0;animation:putdown 8s steps(1) infinite}
+.holds .bare .m{width:100%;height:100%}
+.holds .strip{overflow:hidden;animation:inhand 8s steps(1) infinite}
+.holds .strip img{inset:0 auto auto 0;width:calc(var(--n) * 100% * 13 / 12);max-width:none;animation:frames calc(var(--n) * .4s) steps(var(--n)) infinite}
+.holds:nth-of-type(3n+2)>span{animation-delay:-2.8s}
+.holds:nth-of-type(3n)>span{animation-delay:-5.6s}
+@keyframes inhand{0%{opacity:1}75%{opacity:0}}
+@keyframes putdown{0%{opacity:0}75%{opacity:1}}
+@keyframes frames{to{transform:translateX(-100%)}}
 .dot{position:absolute;top:-12%;right:-25%;width:40%;height:40%;border-radius:50%;background:var(--red);box-shadow:0 0 0 .1em var(--ink)}
 /* Off the screen nobody is watching, and anyone may stop them for good: the loops rest. */
-.idle .m,.idle .m img,.idle .bar *,.idle .wordmark .d,.still .m,.still .m img,.still .bar *,.still .wordmark .d{animation-play-state:paused}
+.idle .m,.idle .m img,.idle .holds span,.idle .bar *,.idle .wordmark .d,.still .m,.still .m img,.still .holds span,.still .bar *,.still .wordmark .d{animation-play-state:paused}
 .still .panel,.still .screen[data-state=shut] .panel,.still .bar .wing{transition:none}
 
 /* Five terminals, stacked; the one waiting for an answer is at the back. */
@@ -294,31 +306,11 @@ html{scroll-padding-top:80px}
 .paper li+li{margin-top:1.5rem}
 .paper li::before{content:">";content:">"/"";position:absolute;left:0;color:var(--prompt)}
 
-/* The crew, standing in the valley */
+/* The crew at work: a session's org chart playing over its still, on the page itself. */
 
-.types{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));row-gap:28px;margin-top:48px}
-.types li{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:18px;font:600 .9375rem/1.5 var(--mono);background:var(--horizon) 0 104px/100% 30px no-repeat}
-.types img{width:104px;height:104px;image-rendering:pixelated}
-/* A session's own agent is one of four people; the other types have one face each. */
-/* The back two stand on a ledge of the same horizon, as in a team photo. */
-.types .faces4{display:grid;grid-template-columns:repeat(2,52px);background:var(--horizon) 0 37px/100% 15px no-repeat}
-.types .faces4 img{width:52px;height:52px}
-/* Under the type, the names the crew go by. */
-.types .label{text-align:center}
-.types .who{display:block;font-weight:400;color:var(--muted-foreground)}
-/* On a wide screen the crew stands on one horizon running the full width of the window. */
-@media (min-width:760px){
-  .types{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .types li{background:none}
-  .types::before{content:"";position:absolute;z-index:-1;top:104px;left:50%;width:100vw;height:30px;transform:translateX(-50%);background:var(--horizon)}
-}
-.states{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 16px;margin-top:64px}
-@media (min-width:760px){.states{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.states li{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;font:400 .9375rem/1.5 var(--mono)}
-.states .m{--s:112px}
-.coffee{display:flex;align-items:center;gap:18px;margin-top:64px;color:var(--muted-foreground);font:400 1rem/1.5 var(--mono)}
-.coffee .tile{display:inline-grid;flex:none;place-items:center;width:76px;height:76px;border-radius:14px;background:var(--ink)}
-.coffee .m{--s:56px}
+.c-figure{position:relative;margin:0}
+.c-still{display:block;width:100%;height:auto}
+.c-player{position:absolute;inset:0}
 
 /* A word explained in Words on this page: dotted, in the text's own colour, so a sentence keeps its look. */
 a.w{color:inherit;text-decoration:underline dotted 1px color-mix(in srgb,currentColor var(--w-line),transparent);text-underline-offset:3px}

@@ -47,7 +47,7 @@ To remove: first take out what you added yourself. For the plugin, run `claude p
 - **Answer from the notch.** Allow once or Deny, using a plugin you install yourself: turn on `Answer from the notch` in the settings, run the command it shows, then start Claude Code again.
 - **See what each project cost.** History by day, week or month, at API prices. Open it from the chart button at the top of the panel. Kept on your Mac, even after Claude Code clears its old files. Export PDF writes a statement of work: every project for you, or one for your team or a client.<br>
   <img src="docs/report-motion.gif" alt="The History page in the notch panel. Export PDF prints a statement of work for every project, then the panel picks shop-web and prints one for that project alone. Each page opens with its total." width="544">
-- **The crew in your terminal too.** Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. One command from the app's Actions settings sets it up, and it keeps working with the app closed. The crew travels as a font, and has been seen in Terminal, iTerm2, Ghostty and Cursor.<br>
+- **The crew in your terminal too.** Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. In the terminal we hold the same things as in the notch, but we keep still. One command from the app's Actions settings sets it up, and it keeps working with the app closed. The crew travels as a font, and has been seen in Terminal, iTerm2, Ghostty and Cursor.<br>
   <img src="docs/terminal.png" alt="Claude Code in a terminal. Under the prompt, the status line shows Sunny's face, Opus 5.5 and Max 20x, then bars for context, the 5-hour limit and the weekly limit. Below it, two sub-agent rows, each with a little face, its task, time, model, folder, branch and current step." width="544">
 - **Token use.** Tokens for the last 5 hours and today, with a 12-hour chart.
 - **Plan limits.** Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on.
@@ -74,13 +74,17 @@ The first four run sessions. Start Claude Code and one of them takes the session
 
 How we stand tells you how the agent is doing. Working, we bob and blink. Needs you, we wave. Quiet, we look away. Done, our eyes close. Nothing running? Just a cup of coffee.
 
+While the agent works, we hold what it's on: a printout for Read, a keyboard for Edit, a terminal for Bash, a magnifier for Grep, a phone while a sub-agent works for it, and a chin in one hand while it thinks. Six seconds in hand, two to put it down.
+
+<img src="docs/crew.gif" alt="One session at work, drawn as an org chart. Sunny runs it and phones two sub-agents: Faye searches the code and Judy plans. Each row shows its latest step, and each face holds what its agent is doing. Then Felix writes the tests and runs them, Sunny finishes the change, and the session ends with a cup of coffee." width="600">
+
 ## It reads. It doesn't touch.
 
 - Reads `~/.claude/projects` and `~/.claude/sessions`, the files Claude Code writes as it works.
 - Looks at Claude Code's processes and each project's `.git` to show which app and branch a session is in.
 - Reads your Claude Code login from the Keychain only when you turn on Plan limits, and sends it only to api.anthropic.com.
 - Besides its own settings, it writes only in one folder: `~/Library/Application Support/AgentValley`. Nothing in `~/.claude` changes, unless you put the crew in your terminal.
-- You start that yourself, with a command from the app's settings. It sets the status line in `~/.claude/settings.json` and adds our font to `~/Library/Fonts`, and from then on the app keeps the font up to date. With Ghostty, it also adds one line to Ghostty's config. The command that takes the crew out undoes all of it.
+- You start that yourself, with a command from the app's settings. It sets the status line in `~/.claude/settings.json` and adds our font to `~/Library/Fonts`. With Ghostty, it also adds one line to Ghostty's config. From then on the app keeps the font and that line up to date. The command that takes the crew out undoes all of it.
 - The only hook is the plugin that brings Allow and Deny to the notch, and you install it yourself.
 - Never answers for you. Allow happens only when you choose it.
 

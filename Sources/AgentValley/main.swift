@@ -37,9 +37,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.$sessions
             .sink { [answers] sessions in answers.reconcile(with: sessions) }
             .store(in: &watches)
-        // After an update the font the person installed is replaced with the one in this app.
+        // After an update the font the person installed is replaced with the one in this app,
+        // and Ghostty's font line, where install put one, covers all of its faces.
         if let bundled = Bundle.main.resourceURL?.appendingPathComponent(CrewFont.fileName) {
-            CrewSetup.refreshFont(home: FileManager.default.homeDirectoryForCurrentUser, bundled: bundled)
+            let home = FileManager.default.homeDirectoryForCurrentUser
+            CrewSetup.refreshGhosttyLine(home: home, environment: ProcessInfo.processInfo.environment)
+            CrewSetup.refreshFont(home: home, bundled: bundled)
         }
         LoginItem.follow(settings)
         store.start()
