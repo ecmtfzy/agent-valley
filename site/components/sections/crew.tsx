@@ -12,11 +12,11 @@ export function Crew() {
       <figure
         className="c-figure mt-10"
         role="img"
-        aria-label="One session at work, drawn as an org chart. Sunny runs it and phones two sub-agents: Faye searches the code and Judy plans. Each row shows its latest step, and each face holds what its agent is doing. Then Felix writes the tests and runs them, Sunny finishes the change, and the session ends with a cup of coffee."
+        aria-label="One session at work, drawn as an org chart. Sunny adds a Pro paywall to an AI meeting notes app and phones two sub-agents: Faye finds the AI features and Judy plans the Stripe checkout. Each row shows its latest step, and each face holds what its agent is doing. Then Felix writes the paywall tests and runs them, Sunny builds the paywall, and the session ends with a cup of coffee."
       >
         {/* The source's media is NARROW in crew-loop.tsx. */}
         <picture>
-          <source media="(max-width: 640px)" srcSet="/crew/still-tall.webp" width={1280} height={1640} />
+          <source media="(max-width: 640px)" srcSet="/crew/still-tall.webp" width={1280} height={1560} />
           <img className="c-still" src="/crew/still.webp" width={2400} height={1200} alt="" loading="lazy" decoding="async" />
         </picture>
         <CrewLoop />

@@ -103,15 +103,15 @@ const WIDE: Layout = {
 };
 const TALL: Layout = {
   W: 640,
-  H: 820,
+  H: 780,
   bar: { x: 200, w: 240, h: 44, face: 30 },
-  card: { x: 20, y: 72, w: 600, h: 200, face: 72, font: 24 },
+  card: { x: 20, y: 72, w: 600, h: 160, face: 72, font: 24 },
   desks: [
-    { x: 64, y: 330, w: 556, h: 140 },
-    { x: 64, y: 500, w: 556, h: 140 },
+    { x: 64, y: 290, w: 556, h: 140 },
+    { x: 64, y: 460, w: 556, h: 140 },
   ],
   row: { face: 60, font: 22 },
-  notes: { high: 316, low: 690, size: 40 },
+  notes: { high: 276, low: 650, size: 40 },
   side: true,
 };
 const config = (l: Layout) => ({ width: l.W, height: l.H, fps: FPS, durationInFrames: T.end }) as const;
@@ -129,56 +129,59 @@ type Agent = {
 };
 const SUNNY: Agent = {
   who: 'guru',
-  task: 'Refactor checkout flow',
+  task: 'Add a Pro paywall',
   model: 'Opus 5.5',
   start: T.open,
   done: T.done,
   steps: [
     [T.open, null, 'thinking'],
-    [T.callFaye, 'Agent Map payment call sites', 'calling'],
-    [T.callJudy, 'Agent Plan the refund flow', 'calling'],
-    [T.callFelix, 'Agent Write cart total tests', 'calling'],
-    [at(10.3), 'Edit checkout.tsx', 'typing'],
+    [T.callFaye, 'Agent Find the AI features', 'calling'],
+    [T.callJudy, 'Agent Plan Stripe checkout', 'calling'],
+    [T.callFelix, 'Agent Write paywall tests', 'calling'],
+    [at(10.3), 'Edit Paywall.tsx', 'typing'],
     [at(11.2), 'Bash npm test', 'running'],
   ],
 };
+// The session's project and branch, under its name on the card.
+const PROJECT = 'meeting-ai';
+const BRANCH = 'pro-paywall';
 const FAYE: Agent = {
   who: 'afro',
-  task: 'Map payment call sites',
+  task: 'Find the AI features',
   model: 'Haiku 5.5',
   type: 'Explore',
   start: T.callFaye + s(0.25),
   done: T.fayeDone,
   steps: [
-    [T.callFaye + s(0.25), 'Grep PaymentIntent', 'searching'],
-    [at(2.3), 'Read checkout.ts', 'reading'],
-    [at(3.3), 'Grep refund(', 'searching'],
-    [at(4.2), 'Read refunds.ts', 'reading'],
+    [T.callFaye + s(0.25), 'Grep summarize(', 'searching'],
+    [at(2.3), 'Read notes.ts', 'reading'],
+    [at(3.3), 'Grep askAI(', 'searching'],
+    [at(4.2), 'Read chat.ts', 'reading'],
   ],
 };
 const JUDY: Agent = {
   who: 'coder',
-  task: 'Plan the refund flow',
+  task: 'Plan Stripe checkout',
   model: 'Sonnet 5.5',
   type: 'Plan',
   start: T.callJudy + s(0.25),
   done: T.judyDone,
   steps: [
     [T.callJudy + s(0.25), null, 'thinking'],
-    [at(2.7), 'Read refunds.ts', 'reading'],
-    [at(3.6), 'Read ledger.ts', 'reading'],
-    [at(4.6), 'Grep Refund', 'searching'],
+    [at(2.7), 'Read pricing.ts', 'reading'],
+    [at(3.6), 'Read webhook.ts', 'reading'],
+    [at(4.6), 'Grep isPro', 'searching'],
   ],
 };
 const FELIX: Agent = {
   who: 'beatnik',
-  task: 'Write cart total tests',
+  task: 'Write paywall tests',
   model: 'Sonnet 5.5',
   start: T.callFelix + s(0.25),
   done: T.felixDone,
   steps: [
-    [T.callFelix + s(0.25), 'Edit cart.test.ts', 'typing'],
-    [at(7.6), 'Edit cart.test.ts', 'typing'],
+    [T.callFelix + s(0.25), 'Edit paywall.test.ts', 'typing'],
+    [at(7.6), 'Edit paywall.test.ts', 'typing'],
     [at(8.4), 'Bash npm test', 'running'],
   ],
 };
@@ -189,7 +192,7 @@ const NOTES: readonly (readonly [from: number, to: number, text: string])[] = [
   [at(1.4), at(2.9), 'He phones Faye and Judy for help.'],
   [at(3), at(6.2), 'What we hold says what the agent is doing.'],
   [at(6.6), at(10.1), 'Felix writes the tests and runs them.'],
-  [at(10.45), at(12.3), 'Sunny finishes the change himself.'],
+  [at(10.45), at(12.3), 'Sunny builds the paywall himself.'],
   [at(12.4), at(14.6), 'Done. Nothing running? Just a cup of coffee.'],
 ];
 
@@ -425,9 +428,9 @@ const Card: React.FC<{ l: Layout; f: number; file: File }> = ({ l, f, file }) =>
         </Line>
         <div style={{ display: 'flex', alignItems: 'center', color: DIM }}>
           <Folder />
-          <span style={{ marginRight: '1em' }}>shop-web</span>
+          <span style={{ marginRight: '1em' }}>{PROJECT}</span>
           <Branch />
-          checkout-refactor
+          {BRANCH}
         </div>
         <div style={{ display: 'flex' }}>
           <Ticker f={f} agent={SUNNY} />

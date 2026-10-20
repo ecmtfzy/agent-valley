@@ -315,6 +315,8 @@ html{scroll-padding-top:80px}
 .c-figure{position:relative;margin:0}
 .c-still{display:block;width:100%;height:auto}
 .c-player{position:absolute;inset:0}
+/* The player has no paper, so the still under it goes; it keeps its place for the figure's height. */
+.c-figure:has(.c-player) .c-still{visibility:hidden}
 
 /* A word explained in Words on this page: dotted, in the text's own colour, so a sentence keeps its look. */
 a.w{color:inherit;text-decoration:underline dotted 1px color-mix(in srgb,currentColor var(--w-line),transparent);text-underline-offset:3px}

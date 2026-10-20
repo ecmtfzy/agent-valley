@@ -28,6 +28,8 @@ test.describe('where the page may move', () => {
   test('the motion plays over the still, and Stop leaves the still', async ({ page }) => {
     await reach(page);
     await page.locator('.c-player').waitFor();
+    // The player has no paper of its own: a still left showing would double every note and line.
+    await expect(page.locator('.c-still')).toBeHidden();
     const first = await page.locator('.c-figure').screenshot();
     await page.waitForTimeout(1500);
     expect(first.equals(await page.locator('.c-figure').screenshot())).toBe(false);

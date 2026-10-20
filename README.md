@@ -135,9 +135,9 @@ While the agent works, we hold what it's on. Six seconds in hand, two to put it 
 </tr>
 </table>
 
-One session from start to finish: Sunny phones Faye and Judy for help, Felix writes the tests and runs them, and Sunny finishes the change himself.
+One session from start to finish: Sunny adds a Pro paywall to an AI meeting notes app. He phones Faye and Judy for help, Felix writes the tests and runs them, and Sunny builds the paywall himself.
 
-<p align="center"><img src="docs/crew.gif" alt="One session at work, drawn as an org chart. Sunny runs it and phones two sub-agents: Faye searches the code and Judy plans. Each row shows its latest step, and each face holds what its agent is doing. Then Felix writes the tests and runs them, Sunny finishes the change, and the session ends with a cup of coffee." width="600"></p>
+<p align="center"><img src="docs/crew.gif" alt="One session at work, drawn as an org chart. Sunny adds a Pro paywall to an AI meeting notes app and phones two sub-agents: Faye finds the AI features and Judy plans the Stripe checkout. Each row shows its latest step, and each face holds what its agent is doing. Then Felix writes the paywall tests and runs them, Sunny builds the paywall, and the session ends with a cup of coffee." width="600"></p>
 
 ## The Valley Funnies
 
