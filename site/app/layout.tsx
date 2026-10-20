@@ -72,7 +72,7 @@ const EARLY =
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // The early script changes <html>'s classes before React arrives; that difference is expected.
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${hand.variable}`} suppressHydrationWarning>
+    <html lang="en" data-scroll-behavior="smooth" className={`${GeistSans.variable} ${GeistMono.variable} ${hand.variable}`} suppressHydrationWarning>
       <head>
         <meta httpEquiv="Content-Security-Policy" content={CSP} />
         <script dangerouslySetInnerHTML={{ __html: EARLY }} />

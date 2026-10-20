@@ -9,7 +9,7 @@ const place = async (page: Page, selector: string, share: number) => {
   await page.evaluate(
     ([sel, s]) => {
       const el = document.querySelector(sel as string)!;
-      scrollTo(0, scrollY + el.getBoundingClientRect().top - innerHeight * (s as number));
+      scrollTo({ top: scrollY + el.getBoundingClientRect().top - innerHeight * (s as number), behavior: 'instant' });
     },
     [selector, share],
   );
@@ -58,7 +58,7 @@ test.describe('on a wide screen', () => {
     // The section's end just below the foot of the screen: the stage is still held.
     await page.evaluate(() => {
       const section = document.querySelector('section.problem')!;
-      scrollTo(0, scrollY + section.getBoundingClientRect().bottom - innerHeight - 2);
+      scrollTo({ top: scrollY + section.getBoundingClientRect().bottom - innerHeight - 2, behavior: 'instant' });
     });
     await page.waitForTimeout(100);
     expect(await top('.problem-stage')).toBe(64);

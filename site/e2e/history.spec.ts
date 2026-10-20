@@ -44,7 +44,7 @@ test('the top row is the app\'s: back to the agents, Export PDF, and the spans',
     expect(gap).toBeGreaterThanOrEqual(0);
     expect(gap).toBeLessThan(10);
   }
-  await hist.locator('.h-stretch').evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await hist.locator('.h-stretch').evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
   for (const step of await hist.locator('.h-step').all()) {
     const box = (await step.boundingBox())!;
     expect([box.width, box.height]).toEqual([44, 44]);
