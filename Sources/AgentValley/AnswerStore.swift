@@ -68,6 +68,9 @@ final class AnswerStore: ObservableObject {
     private var server: AnswerServer?
     private var replies: [UUID: (Data?) -> Bool] = [:]
 
+    /// The plugin points at an older copy of the app, so Allow and Deny cannot reach this one.
+    @Published private(set) var pluginLost = false
+
     init(directory: URL = AnswerServer.defaultDirectory, now: @escaping () -> Date = Date.init) {
         self.directory = directory
         self.now = now
@@ -82,6 +85,7 @@ final class AnswerStore: ObservableObject {
             server = nil
             AnswerServer.removeStaleSocket(in: directory)
             state = .off
+            pluginLost = false
             return
         }
         guard server == nil else { return }
@@ -97,6 +101,13 @@ final class AnswerStore: ObservableObject {
         } catch {
             state = .failed((error as? AnswerServerError)?.message ?? error.localizedDescription)
         }
+    }
+
+    /// Looks again whether the plugin points here. Only while the switch is on: off, nobody
+    /// expects Allow and Deny in the notch.
+    func checkPlugin(registry: URL = PluginPlace.registry, plugin: URL = PluginPlace.here) {
+        let lost = server != nil && PluginPlace.lost(try? Data(contentsOf: registry), plugin: plugin)
+        if lost != pluginLost { pluginLost = lost }
     }
 
     /// When the buttons last may have moved on screen: a request arrived, left or found its row,

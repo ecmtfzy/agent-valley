@@ -54,6 +54,26 @@ final class AnswerStoreTests: XCTestCase {
     // MARK: answering
 
     // The request leaves, and for a moment a line in its place says what became of it.
+    // Installed again in /Applications after 0.1, the plugin still names the old app: Allow and Deny would stop
+    // with nothing said. Looked at only while the switch is on.
+    func testPluginLostIsCheckedWhenTurnedOn() throws {
+        let registry = home.appendingPathComponent("known_marketplaces.json")
+        let plugin = URL(fileURLWithPath: "/Applications/AgentValley.app/Contents/Resources/claude-plugin")
+        try PluginPlaceTests.registry(agentValleyAt: PluginPlaceTests.gone).write(to: registry)
+        store.checkPlugin(registry: registry, plugin: plugin)
+        XCTAssertFalse(store.pluginLost, "switched off: not looked at")
+        store.setEnabled(true)
+        store.checkPlugin(registry: registry, plugin: plugin)
+        XCTAssertTrue(store.pluginLost)
+        try PluginPlaceTests.registry(agentValleyAt: plugin.path).write(to: registry)
+        store.checkPlugin(registry: registry, plugin: plugin)
+        XCTAssertFalse(store.pluginLost)
+        try PluginPlaceTests.registry(agentValleyAt: "/old").write(to: registry)
+        store.checkPlugin(registry: registry, plugin: plugin)
+        store.setEnabled(false)
+        XCTAssertFalse(store.pluginLost, "switched off: the line goes")
+    }
+
     func testAnAnswerLeavesItsOutcomeForAMoment() {
         let id = add(ask())
         store.reconcile(with: [card(main: row("/r/p/s1.jsonl", open: ["ls"]))])

@@ -281,9 +281,12 @@ enum Format {
 
     /// What installs the plugin, with the path of this very copy of the app. One line to copy:
     /// leaving the panel to paste closes it, and a second trip was easy to forget.
-    static func installCommand(resources: URL) -> String {
+    /// `replacing`: the plugin points at an older copy of the app. Claude Code will not add a
+    /// second list by the same name, so the old one goes first.
+    static func installCommand(resources: URL, replacing: Bool = false) -> String {
         let path = URL(fileURLWithPath: stablePath(resources)).appendingPathComponent("claude-plugin").path
-        return "claude plugin marketplace add \(quoted(path)) && claude plugin install notch-answers@agent-valley"
+        return (replacing ? "claude plugin marketplace remove \(PluginPlace.marketplace) && " : "")
+            + "claude plugin marketplace add \(quoted(path)) && claude plugin install notch-answers@agent-valley"
     }
 
     /// A path into this copy of the app that still works after `brew upgrade`. Homebrew keeps each
@@ -426,7 +429,25 @@ enum Format {
     /// switch on: it used to end "Changes nothing.", under a switch that answers Claude Code and
     /// another that reads the Keychain and goes online. What reaches further than reading is
     /// named, and each is off until its switch is turned on.
-    static let readOnly = "Reads Claude Code's files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does."
+    /// `updates`: this copy checks for new versions, which a release does from the start.
+    static func readOnly(updates: Bool) -> String {
+        "Reads Claude Code's files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does."
+            + (updates ? " It asks GitHub once a day if there's a new version; that switch starts on." : "")
+    }
+    static let updatesTitle = "Check for updates"
+    static let updatesCaption = "Once a day we look on GitHub. Nothing gets installed until you say so."
+    static let checkNow = "Check now"
+    static func updateWaiting(version: String) -> String { "Version \(version) came in." }
+    static let updateLook = "Have a look"
+    static let moveTitle = "Move AgentValley to Applications?"
+    static let moveMessage = "Out here we can't update ourselves, and the plugin loses track of us when you quit."
+    static let moveButton = "Move to Applications"
+    static let notNow = "Not now"
+    static let pluginLostLine = "Allow and Deny can't find us anymore."
+    static let pluginLostFix = "Fix it"
+    static let pluginLostNote = "The plugin still points at a copy of us that's gone. Run this once more."
+    static let moveFailed = "We couldn't make the move. Drag AgentValley into Applications yourself and open it from there."
+    static let movedNotOpened = "We made it to Applications but didn't wake up. Open AgentValley from there."
     static let idleCaption = "Sessions whose agents have all stopped."
     /// Beside the buttons of a request, for a moment, when a click on one did not count: why.
     /// `cut`: the request was not all in view, and the click brought it there. Else it came
@@ -595,6 +616,7 @@ struct PanelView: View {
     /// Makes the app's sounds. Not observed: nothing is drawn from what it remembers.
     let sound: SoundPlayer
     @ObservedObject var usage: UsageLedger
+    @ObservedObject var updates: Updates
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Whether the list has been scrolled to its end, where nothing more waits below.
     @State private var atEnd = false
@@ -1244,7 +1266,7 @@ struct PanelView: View {
         ScrollView {
             Group {
                 if state.showingSettings {
-                    SettingsView(settings: settings, answers: answers, limits: limits,
+                    SettingsView(settings: settings, answers: answers, limits: limits, updates: updates,
                                  shortcutNote: state.shortcutTaken ? Format.shortcutTaken : nil,
                                  tab: $state.settingsTab) { state.showingSettings = false }
                 } else if state.showingHistory {
@@ -1404,6 +1426,18 @@ struct PanelView: View {
             if settings.tokenUse, let summary = usage.summary, !summary.isEmpty {
                 UsageLine(summary: summary) { state.openHistory() }
                     .modifier(Reveal(shown: state.expanded, index: list.cards.count + 2, motion: motion))
+            }
+            if answers.pluginLost {
+                NoticeLine(text: Format.pluginLostLine, button: Format.pluginLostFix) {
+                    // The page with the command, which now takes the old list out first.
+                    state.settingsTab = .actions
+                    state.showingSettings = true
+                }
+                    .modifier(Reveal(shown: state.expanded, index: list.cards.count + 3, motion: motion))
+            }
+            if let version = updates.waiting {
+                NoticeLine(text: Format.updateWaiting(version: version), button: Format.updateLook) { updates.show() }
+                    .modifier(Reveal(shown: state.expanded, index: list.cards.count + 3, motion: motion))
             }
 
         }
@@ -1791,6 +1825,29 @@ struct UsageBars: View {
 
 /// How many tokens went in and came out, and a bar for each of the last twelve hours. The
 /// last line of the list, and dim: what the agents used, under who they are.
+/// One line at the foot of the list about the app itself, and the one thing to do about it. The
+/// whole line is the button: it is the only thing on it to press.
+struct NoticeLine: View {
+    let text: String
+    let button: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(verbatim: text).foregroundStyle(.white.opacity(0.6))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: button).fixedSize()
+                Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
+            }
+            .contentShape(Rectangle())
+            .hoverFill(radius: 5)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: "\(text) \(button)"))
+    }
+}
+
 struct UsageLine: View {
     let summary: UsageSummary
     /// Opens the History page.

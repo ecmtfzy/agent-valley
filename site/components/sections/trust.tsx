@@ -12,9 +12,11 @@ export function Trust() {
           <li>Reads ~/.claude/<wbr />projects and ~/.claude/<wbr />sessions, the files Claude Code writes as it works.</li>
           <li>Looks at Claude Code&apos;s <Word id="process">processes</Word> and each project&apos;s <Word id="git">.git</Word> to show which app and branch a session is in.</li>
           <li>Reads your Claude Code login from the <Word id="keychain">Keychain</Word> only when you turn on <Word id="limits">Plan limits</Word>, and sends it only to api.anthropic.com.</li>
-          <li>Besides its own settings, it writes only in one folder: ~/Library/<wbr />Application Support/<wbr />AgentValley. Nothing in ~/.claude changes, unless you put the crew in your terminal.</li>
+          <li>Asks GitHub once a day whether there&apos;s a new version. That&apos;s the whole conversation. Turn it off in Settings.</li>
+          <li>Besides its own settings and its updates, it writes only in one folder: ~/Library/<wbr />Application Support/<wbr />AgentValley. Nothing in ~/.claude changes, unless you put the crew in your terminal.</li>
           <li>You start that yourself, with a command from the app&apos;s settings. It sets the status line in ~/.claude/<wbr />settings.json and adds our font to ~/Library/<wbr />Fonts. With Ghostty, it also adds one line to Ghostty&apos;s config. From then on the app keeps the font and that line up to date. The command that takes the crew out undoes all of it.</li>
           <li>The only <Word id="hook">hook</Word> is the plugin that brings Allow and Deny to the notch, and you install it yourself.</li>
+          <li>While Answer from the notch is on, it reads ~/.claude/<wbr />plugins/<wbr />known_marketplaces.json to check that the plugin still finds the app.</li>
           <li>Never answers for you. Allow happens only when you choose it.</li>
           <li><Word id="open">Open source</Word>. Read every line on GitHub.</li>
         </ul>

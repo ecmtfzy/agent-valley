@@ -251,11 +251,17 @@ final class FormatTests: XCTestCase {
         // Pasted into a shell: nothing in the app's own path may be read as shell syntax.
         XCTAssertTrue(Format.installCommand(resources: URL(fileURLWithPath: "/Apps/It's $(x) `y`/R"))
             .hasPrefix("claude plugin marketplace add '/Apps/It'\\''s $(x) `y`/R/claude-plugin' && "))
-        // Installed by Homebrew: the path that outlives `brew upgrade`, not this version's folder.
-        XCTAssertTrue(Format.installCommand(resources: URL(fileURLWithPath: "/opt/homebrew/Cellar/agent-valley/0.1.0/AgentValley.app/Contents/Resources"))
-            .hasPrefix("claude plugin marketplace add '/opt/homebrew/opt/agent-valley/AgentValley.app/Contents/Resources/claude-plugin' && "))
-        XCTAssertTrue(Format.installCommand(resources: URL(fileURLWithPath: "/Users/me/Cellar/wine/AgentValley.app/Contents/Resources"))
-            .hasPrefix("claude plugin marketplace add '/Users/me/Cellar/wine/AgentValley.app/Contents/Resources/claude-plugin' && "))
+    }
+
+    // When the plugin points at an older copy of the app, the old list goes first: Claude Code
+    // will not add a second one by the same name.
+    func testInstallCommandReplacing() {
+        let resources = URL(fileURLWithPath: "/Applications/AgentValley.app/Contents/Resources")
+        XCTAssertEqual(Format.installCommand(resources: resources), "claude plugin marketplace add '/Applications/AgentValley.app/Contents/Resources/claude-plugin' && claude plugin install notch-answers@agent-valley")
+        XCTAssertEqual(Format.installCommand(resources: resources, replacing: true), "claude plugin marketplace remove agent-valley && " + Format.installCommand(resources: resources))
+        XCTAssertEqual(Format.pluginLostLine, "Allow and Deny can't find us anymore.")
+        XCTAssertEqual(Format.pluginLostFix, "Fix it")
+        XCTAssertEqual(Format.pluginLostNote, "The plugin still points at a copy of us that's gone. Run this once more.")
     }
 
     func testStablePathAndCrewCommand() {
@@ -412,7 +418,8 @@ final class FormatTests: XCTestCase {
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("build-app.sh")
         let text = try String(contentsOf: script, encoding: .utf8)
-        XCTAssertTrue(text.contains("codesign --force --options runtime --entitlements"))
+        XCTAssertTrue(text.contains("SIGN=(codesign --force --options runtime --sign \"$SIGN_IDENTITY\")"))
+        XCTAssertTrue(text.contains("\"${SIGN[@]}\" --entitlements \"$ENTITLEMENTS\" \"$APP\""))
         XCTAssertTrue(text.contains("<key>com.apple.security.automation.apple-events</key>\n\t<true/>"))
         XCTAssertFalse(text.contains("codesign --force --sign -"))
     }
@@ -645,12 +652,28 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(shown(silentFor: 600), .quiet)
     }
 
+    // A release checks for updates from the start, with no switch turned on first: the promise
+    // says so there, and only there.
+    func testReadOnlyMentionsUpdatesOnlyWhenOn() {
+        let old = "Reads Claude Code's files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does."
+        XCTAssertEqual(Format.readOnly(updates: false), old)
+        XCTAssertEqual(Format.readOnly(updates: true), old + " It asks GitHub once a day if there's a new version; that switch starts on.")
+    }
+
+    func testUpdateLines() {
+        XCTAssertEqual(Format.updatesTitle, "Check for updates")
+        XCTAssertEqual(Format.updatesCaption, "Once a day we look on GitHub. Nothing gets installed until you say so.")
+        XCTAssertEqual(Format.checkNow, "Check now")
+        XCTAssertEqual(Format.updateWaiting(version: "0.2.1"), "Version 0.2.1 came in.")
+        XCTAssertEqual(Format.updateLook, "Have a look")
+    }
+
     // "Changes nothing." stood under a switch that answers Claude Code's prompts and another
     // that reads the Keychain and goes online: six of thirteen testers caught it, one nearly
     // left over it. The promise now holds with every switch on, and names what is behind one.
     func testThePromiseHoldsWithEverySwitchOn() {
-        XCTAssertEqual(Format.readOnly, "Reads Claude Code's files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does.")
-        XCTAssertFalse(Format.readOnly.contains("Changes nothing"))
+        XCTAssertEqual(Format.readOnly(updates: false), "Reads Claude Code's files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does.")
+        XCTAssertFalse(Format.readOnly(updates: false).contains("Changes nothing"))
         // Each of those switches does say what it adds.
         XCTAssertTrue(Format.answersCaption(on: false).contains("buttons to answer"))
         XCTAssertTrue(Format.tabCaption.hasPrefix("Asks Terminal, iTerm2 or Ghostty to show the session's own tab."))

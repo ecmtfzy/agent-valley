@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 — 2026-10-20
+
+We moved house. AgentValley is now an app you download, signed with a Developer ID and checked by Apple.
+
+- Download AgentValley.dmg and drag it into Applications. With Homebrew: `brew install --cask morsechimwai/tap/agent-valley`.
+- We check GitHub for a new version once a day and ask before we install it. The switch, and Check now, are in Settings.
+- Open us from the dmg or from Downloads and we'll offer to move ourselves to Applications.
+- Only one of us runs at a time. Open another copy and the old one steps out.
+- On 0.1 from Homebrew? Run `brew uninstall agent-valley`, then download the dmg or install the cask. Homebrew won't move you over by itself.
+- The plugin may still point at the old copy. The panel says so when it does; copy its command from Settings once more.
+- Put the crew in Claude Code's terminal on 0.1? Its status line still calls the old copy and goes blank once that's gone. Copy the crew's install command from the Actions settings and run it once more.
+- To macOS we're a new app, so it may ask again: to let us work your terminal when you jump to an agent, and, with Plan limits on, to read your Claude Code login from the Keychain.
+
 ## 0.1.4 — 2026-10-19
 
 - At work, we hold what the agent is on: a printout while it reads, a keyboard while it edits, a terminal while it runs a command, a magnifier while it searches, a phone while a sub-agent works for it, and a chin in one hand while it thinks. Six seconds in hand, two to put it down. The faces in Claude Code's terminal hold the same things, standing still. Reopen your terminal once after updating to see them there.

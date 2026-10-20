@@ -1,6 +1,8 @@
 #!/bin/bash
 # Builds AgentValley.app, a double-clickable bundle with no Dock icon, in build/ or in the
-# folder named first (Homebrew's formula names its own).
+# folder named first (release.sh names its own). Signed ad hoc unless SIGN_IDENTITY names a
+# certificate; with no SPARKLE_FEED it has no updates, so a build to work on never replaces
+# itself with a release.
 set -euo pipefail
 cd "$(dirname "$0")"
 DEST="${1:-build}"
@@ -15,14 +17,25 @@ if [ ! -e "$SDK/../../usr/lib/swift/host/plugins/libSwiftUIMacros.dylib" ]; then
     shopt -u nullglob
 fi
 
-# Homebrew builds inside a sandbox of its own, and macOS will not start SwiftPM's inside it.
-# The package has no dependencies or plugins for SwiftPM's sandbox to hold in.
-swift build -c release --disable-sandbox
+# Both kinds of Mac in one program. That takes Xcode's build system; with the Command Line
+# Tools alone, the build is for this Mac's kind only.
+if swift build -c release --arch arm64 --arch x86_64; then
+    BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
+else
+    swift build -c release
+    BIN="$(swift build -c release --show-bin-path)"
+fi
 
 APP="$DEST/AgentValley.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp .build/release/AgentValley "$APP/Contents/MacOS/AgentValley"
+cp "$BIN/AgentValley" "$APP/Contents/MacOS/AgentValley"
+# Sparkle, where the program looks for it. Its XPC services are only for sandboxed apps, and
+# this one is not, so they stay out: two fewer pieces to sign.
+mkdir -p "$APP/Contents/Frameworks"
+ditto "$BIN/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+rm -rf "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices"
+install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/AgentValley"
 
 # The Claude Code plugin the person installs themselves, from the path the settings view shows.
 mkdir -p "$APP/Contents/Resources"
@@ -48,9 +61,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.4</string>
+	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
-	<string>5</string>
+	<string>6</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>LSUIElement</key>
@@ -60,6 +73,18 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
+
+# Only a release says where its updates are. Sparkle compares CFBundleVersion, so that goes up
+# with every release; it asks before it installs, and sends nothing about the Mac.
+if [ -n "${SPARKLE_FEED:-}" ]; then
+    INFO="$APP/Contents/Info.plist"
+    plutil -insert SUFeedURL -string "$SPARKLE_FEED" "$INFO"
+    plutil -insert SUPublicEDKey -string "${SPARKLE_KEY:?SPARKLE_FEED needs SPARKLE_KEY, the public update key}" "$INFO"
+    plutil -insert SUEnableAutomaticChecks -bool YES "$INFO"
+    plutil -insert SUScheduledCheckInterval -integer 86400 "$INFO"
+    plutil -insert SUEnableSystemProfiling -bool NO "$INFO"
+    plutil -insert SUAutomaticallyUpdate -bool NO "$INFO"
+fi
 
 # The person can give this app leave to tell a terminal what to do, and it reads their Claude
 # Code login when they turn Plan limits on. Signed with the hardened runtime, no other program
@@ -77,5 +102,20 @@ cat > "$ENTITLEMENTS" <<'PLIST'
 </plist>
 PLIST
 
-codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign - "$APP"
+# A Developer ID signature also carries Apple's timestamp, which notarization asks for. Sparkle's
+# pieces are signed one by one, inside out, as Sparkle asks: --deep would hand the app's
+# entitlements to all of them.
+SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+SIGN=(codesign --force --options runtime --sign "$SIGN_IDENTITY")
+[ "$SIGN_IDENTITY" = "-" ] || SIGN+=(--timestamp)
+# The hardened runtime loads only code of the app's own team, and an ad hoc signature has none, so
+# it would turn Sparkle away at launch. A release is one team throughout; only these builds let it in.
+if [ "$SIGN_IDENTITY" = "-" ]; then
+    /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" "$ENTITLEMENTS" >/dev/null
+fi
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+"${SIGN[@]}" "$SPARKLE/Versions/B/Autoupdate"
+"${SIGN[@]}" "$SPARKLE/Versions/B/Updater.app"
+"${SIGN[@]}" "$SPARKLE"
+"${SIGN[@]}" --entitlements "$ENTITLEMENTS" "$APP"
 echo "Built $APP"

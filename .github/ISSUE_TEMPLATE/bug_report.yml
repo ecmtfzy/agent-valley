@@ -13,7 +13,7 @@ body:
     id: version
     attributes:
       label: AgentValley version
-      description: "Report a bug in the app's Settings fills this in. Otherwise: `brew info agent-valley`, or the commit if you built it yourself."
+      description: "Report a bug in the app's Settings fills this in. Otherwise it's at the bottom of Settings, or the commit if you built it yourself."
     validations:
       required: true
   - type: input

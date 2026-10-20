@@ -451,6 +451,7 @@ final class NotchWindowController: NSObject {
     private var islandFrame = CGRect.zero
     private var settle: DispatchWorkItem?
     private let limits: PlanLimitsClient
+    private let answers: AnswerStore
     /// For the "Token use" switch, which History hangs on.
     private let settings: Settings
     private var tokenWatch: AnyCancellable?
@@ -471,8 +472,9 @@ final class NotchWindowController: NSObject {
     /// Takes the panel back from the settings to the agents some time after it has shut.
     private var leaveSettings: DispatchWorkItem?
 
-    init(store: AgentStore, settings: Settings, limits: PlanLimitsClient, answers: AnswerStore, sound: SoundPlayer, usage: UsageLedger) {
+    init(store: AgentStore, settings: Settings, limits: PlanLimitsClient, answers: AnswerStore, sound: SoundPlayer, usage: UsageLedger, updates: Updates) {
         self.limits = limits
+        self.answers = answers
         self.settings = settings
         let state = self.state
         cards = {
@@ -480,6 +482,8 @@ final class NotchWindowController: NSObject {
                 .walked(idleExpanded: state.idleExpanded)
         }
         super.init()
+        // Have a look and Check now: the panel closes, unless pinned, and hands the keyboard back.
+        updates.willShowWindow = { [weak self] in self?.closeFromKeyboard() }
         tokenWatch = settings.$tokenUse.sink { [weak self] on in self?.state.tokenUse(on) }
         // `crew status` runs without the app's data, so the leads' looks go to it in a small file,
         // picked among the sessions the panel lists so the terminal shows the notch's faces.
@@ -501,7 +505,7 @@ final class NotchWindowController: NSObject {
         // This app is never the active one, and its buttons' only explanations are their tooltips.
         panel.allowsToolTipsWhenApplicationIsInactive = true
 
-        let host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: limits, answers: answers, sound: sound, usage: usage))
+        let host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: limits, answers: answers, sound: sound, usage: usage, updates: updates))
         host.sizingOptions = []
         host.translatesAutoresizingMaskIntoConstraints = false
         let container = HoverView()
@@ -568,6 +572,8 @@ final class NotchWindowController: NSObject {
 
     private func setExpanded(_ expanded: Bool) {
         isExpanded = expanded
+        // The plugin list may have changed since: the person may just have run the command.
+        if expanded { answers.checkPlugin() }
         openings += expanded ? 1 : 0
         layout()
         // One turn later the window already has its new size, so the island is the only thing that animates.

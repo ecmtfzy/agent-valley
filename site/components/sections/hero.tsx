@@ -3,7 +3,9 @@ import { FloatingBits } from '@/components/floating-bits';
 import { HeroScreen } from '@/components/hero-screen';
 import { Icon } from '@/components/icons';
 import { Mascot } from '@/components/mascot';
+import { Button } from '@/components/ui/button';
 import { TrickOrTreat } from '@/components/trick-or-treat';
+import { Word } from '@/components/word';
 
 export function Hero() {
   return (
@@ -23,16 +25,12 @@ export function Hero() {
           Each agent, sub-agents too, gets its own row and its own little programmer. See who is working, on which model, and who needs you, without leaving your app.
         </p>
         <div className="mt-8">
-          <CopyCommand>
-            brew install morsechimwai/<wbr />tap/<wbr /><span className="nw">agent-valley</span>
-          </CopyCommand>
+          <GetIt />
           <OnPhone />
           <p className="mt-4 font-mono text-[.9375rem]">
             <strong className="font-semibold text-accent-text">Free</strong> · Open source · macOS 15 or later · <span className="nw">For MacBooks with a notch</span>
           </p>
-          <p className="small">
-            Homebrew builds it on your Mac from the source. No Homebrew yet? Get it at <a href="https://brew.sh" aria-label="Get Homebrew at brew.sh">brew.sh</a>.
-          </p>
+          <p className="small">Signed, and Apple checked our papers.</p>
           <p className="small">
             <a className="inline-flex min-h-11 items-center" href="https://github.com/morsechimwai/agent-valley">View the code on GitHub</a>
           </p>
@@ -56,11 +54,28 @@ export function Hero() {
   );
 }
 
+// The two ways in, in the hero and at the end: the dmg of the latest release, or the cask.
+export function GetIt() {
+  return (
+    <>
+      <Button asChild className="h-12 rounded-lg border-0 px-5 font-mono text-[1.0625rem] font-semibold text-primary-foreground no-underline hover:bg-primary/85 hover:text-primary-foreground">
+        <a href="https://github.com/morsechimwai/agent-valley/releases/latest/download/AgentValley.dmg">Download for Mac</a>
+      </Button>
+      <p className="mt-6 mb-2.5 font-mono text-[.9375rem]">
+        Or with <Word id="homebrew">Homebrew</Word>:
+      </p>
+      <CopyCommand>
+        brew install --cask morsechimwai/<wbr />tap/<wbr /><span className="nw">agent-valley</span>
+      </CopyCommand>
+    </>
+  );
+}
+
 // Shown only on a touch screen without a pointer: the command is for a Mac.
 export function OnPhone() {
   return (
     <p className="mt-4 hidden font-mono text-[.9375rem] font-semibold text-accent-text [@media(hover:none)_and_(pointer:coarse)]:block">
-      Reading this on a phone? Run the command on your Mac.
+      Reading this on a phone? We only fit in a MacBook&apos;s notch. Open this page on your Mac.
     </p>
   );
 }

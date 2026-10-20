@@ -256,3 +256,33 @@ test('the footer offers Sponsor the crew as a button with the mug', async ({ pag
   expect((await sponsor.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await expect(sponsor.locator('.steam img')).toHaveCount(2);
 });
+
+const dmg = 'https://github.com/morsechimwai/agent-valley/releases/latest/download/AgentValley.dmg';
+
+test('the hero and the install section offer Download for Mac, linking to the latest dmg', async ({ page }) => {
+  await page.goto('/');
+  for (const where of ['.hero', '#install']) {
+    const download = page.locator(where).getByRole('link', { name: 'Download for Mac', exact: true });
+    await expect(download).toHaveAttribute('href', dmg);
+    await expect(download).toBeVisible();
+    expect((await download.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
+test('the cask command sits under the button for Homebrew users', async ({ page }) => {
+  await page.goto('/');
+  for (const where of ['.hero', '#install']) {
+    const section = page.locator(where);
+    await expect(section.getByText(/^Or with Homebrew/)).toBeVisible();
+    await expect(section.locator('.command')).toContainText('brew install --cask morsechimwai/tap/agent-valley');
+  }
+});
+
+test('no line says Homebrew builds the app, or opens it from its folder', async ({ page }) => {
+  await page.goto('/');
+  const body = page.locator('body');
+  await expect(body).not.toContainText('builds it on your Mac');
+  await expect(body).not.toContainText('builds the app');
+  await expect(body).not.toContainText('opt/agent-valley');
+  await expect(body).not.toContainText('brew upgrade');
+});

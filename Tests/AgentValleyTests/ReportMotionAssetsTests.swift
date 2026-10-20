@@ -133,7 +133,7 @@ final class ReportMotionAssetsTests: XCTestCase {
         store.start()
         let host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: PlanLimitsClient(),
                                                      answers: AnswerStore(directory: URL(fileURLWithPath: base + "/answers")),
-                                                     sound: SoundPlayer(settings: settings), usage: ledger))
+                                                     sound: SoundPlayer(settings: settings), usage: ledger, updates: Updates(info: [:])))
         let window = NSWindow(contentRect: CGRect(x: -4000, y: 0, width: 600, height: 960), styleMask: [.borderless], backing: .buffered, defer: false)
         window.appearance = NSAppearance(named: .darkAqua)
         window.backgroundColor = .clear

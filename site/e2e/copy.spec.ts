@@ -6,7 +6,7 @@ test('copy says Copied', async ({ page, context }) => {
   const box = page.locator('.command').first();
   await box.getByRole('button', { name: 'Copy' }).click();
   await expect(box.getByRole('button')).toHaveText('Copied');
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('brew install morsechimwai/tap/agent-valley');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('brew install --cask morsechimwai/tap/agent-valley');
   await expect(box.getByRole('button')).toHaveText('Copy', { timeout: 3000 });
 });
 
@@ -16,13 +16,13 @@ test('a refused clipboard selects the command instead', async ({ page }) => {
   const box = page.locator('.command').first();
   await box.getByRole('button', { name: 'Copy' }).click();
   await expect(box.getByRole('button')).toHaveText(/Press (⌘C|Ctrl\+C)/);
-  expect(await page.evaluate(() => getSelection()?.toString())).toBe('brew install morsechimwai/tap/agent-valley');
+  expect(await page.evaluate(() => getSelection()?.toString())).toBe('brew install --cask morsechimwai/tap/agent-valley');
 });
 
 test('the button is described by the command it copies', async ({ page }) => {
   await page.goto('/');
   const box = page.locator('.command').first();
-  await expect(box.getByRole('button', { name: 'Copy' })).toHaveAccessibleDescription('brew install morsechimwai/tap/agent-valley');
+  await expect(box.getByRole('button', { name: 'Copy' })).toHaveAccessibleDescription('brew install --cask morsechimwai/tap/agent-valley');
 });
 
 test('stop the animations is remembered', async ({ page }) => {

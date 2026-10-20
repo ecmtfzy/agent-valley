@@ -107,7 +107,7 @@ final class NotchWindowTests: XCTestCase {
         state.expanded = true
         let host = NSHostingView(rootView: PanelView(store: AgentStore(root: home), state: state, settings: settings, limits: PlanLimitsClient(),
                                                      answers: AnswerStore(directory: home), sound: SoundPlayer(settings: settings),
-                                                     usage: UsageLedger(root: home, database: home.appendingPathComponent("history.sqlite"))))
+                                                     usage: UsageLedger(root: home, database: home.appendingPathComponent("history.sqlite")), updates: Updates(info: [:])))
         host.sizingOptions = []
         // The window around an island 300 points tall, off the screen.
         let island = NotchGeometry.expandedFrame(screen: screen, barHeight: 38, contentHeight: 262)

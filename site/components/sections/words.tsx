@@ -25,7 +25,6 @@ const WORDS: [string, string, string][] = [
   ["statement", "statement of work", "A summary of the work done in a stretch of time and what it cost, to keep or to send to whoever pays."],
   ["limits", "Plan limits", "How much of your Claude plan you may use in 5 hours and in a week."],
   ["homebrew", "Homebrew", "A free tool that installs apps on a Mac from the terminal. Its command is brew."],
-  ["build", "build, the source", "To build is to make an app from its code, the source. Homebrew does it on your Mac."],
   ["open", "open source", "The code is public. Anyone may read it, change it and share it."],
   ["keychain", "Keychain", "Where your Mac keeps passwords and logins, locked."],
   ["hook", "hook", "A small program that Claude Code runs at set moments, such as before it uses a tool."],
@@ -33,7 +32,6 @@ const WORDS: [string, string, string][] = [
   ["glance", "at a glance", "With one quick look."],
   ["end-up", "end up", "To find in the end that you are doing something."],
   ["check-on", "check on", "To look at how something is going."],
-  ["minute", "a minute or so", "About one minute, maybe a little more."],
 ];
 
 export function Words() {

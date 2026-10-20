@@ -407,7 +407,9 @@ final class CrewSetupTests: XCTestCase {
         let process = Process()
         process.executableURL = binary
         process.arguments = ["crew"] + arguments
-        process.environment = ["HOME": home.path, "PATH": "/usr/bin:/bin", "COLUMNS": columns].compactMapValues { $0 }
+        // The app finds Sparkle in Contents/Frameworks; the bare binary swift test leaves, beside itself.
+        process.environment = ["HOME": home.path, "PATH": "/usr/bin:/bin", "COLUMNS": columns,
+                               "DYLD_FRAMEWORK_PATH": binary.deletingLastPathComponent().path].compactMapValues { $0 }
         let stdin = Pipe(), stdout = Pipe()
         process.standardInput = stdin
         process.standardOutput = stdout

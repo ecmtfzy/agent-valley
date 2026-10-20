@@ -334,7 +334,6 @@ a.w:hover{text-decoration-style:solid}
 .next li{position:relative;padding-left:2.4em;counter-increment:step}
 .next li+li{margin-top:18px}
 .next li::before{content:counter(step);position:absolute;left:0;top:.05em;width:1.7em;height:1.7em;border:1px solid var(--accent-text);border-radius:50%;color:var(--accent-text);font:600 .8125rem/1.7em var(--mono);text-align:center}
-.next .command{margin:10px 0 0}
 
 /* Credits: the crew's group photo, an old print with the camera's orange date stamp. The date is
    Apollo 11's landing, the crew's own era. */

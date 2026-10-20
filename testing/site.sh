@@ -42,9 +42,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # Serves the built site on a port. Python's file server queues only 5 connections by default;
-# a browser asks for more at once and the rest are reset, so some pictures never arrive.
+# a browser asks for more at once and the rest are reset, so some pictures never arrive. exec:
+# run in the background, the server is the job itself, so the caller's kill reaches it.
 serve_out() {
-    python3 -c "import functools,http.server as h; h.ThreadingHTTPServer.request_queue_size=128; h.test(HandlerClass=functools.partial(h.SimpleHTTPRequestHandler,directory='site/out'),ServerClass=h.ThreadingHTTPServer,port=$1,bind='127.0.0.1')"
+    exec python3 -c "import functools,http.server as h; h.ThreadingHTTPServer.request_queue_size=128; h.test(HandlerClass=functools.partial(h.SimpleHTTPRequestHandler,directory='site/out'),ServerClass=h.ThreadingHTTPServer,port=$1,bind='127.0.0.1')"
 }
 
 case "${1:-}" in

@@ -130,7 +130,7 @@ final class PanelPicturesTests: XCTestCase {
             : scene.hasPrefix("history") ? try madeUpLedger(in: home + "/history")
             : UsageLedger(root: root, database: URL(fileURLWithPath: home + "/history.sqlite"))
         host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: PlanLimitsClient(), answers: answers,
-                                                 sound: SoundPlayer(settings: settings), usage: usage))
+                                                 sound: SoundPlayer(settings: settings), usage: usage, updates: Updates(info: [:])))
         // Far to the left of any display. In the window list, so that it draws and animates.
         let window = NSWindow(contentRect: CGRect(x: -4000, y: 0, width: 600, height: 960), styleMask: [.borderless], backing: .buffered, defer: false)
         window.appearance = NSAppearance(named: .darkAqua)

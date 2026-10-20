@@ -18,6 +18,7 @@ struct SettingsView: View {
     @ObservedObject var settings: Settings
     @ObservedObject var answers: AnswerStore
     @ObservedObject var limits: PlanLimitsClient
+    @ObservedObject var updates: Updates
     /// Why the shortcut does nothing although it is switched on, when that is so.
     var shortcutNote: String? = nil
     /// The page shown. Kept by the panel, which also sends the person to a row on one.
@@ -99,7 +100,7 @@ struct SettingsView: View {
         if settings.answers {
             // The person installs the plugin themselves: the app never writes into ~/.claude.
             VStack(alignment: .leading, spacing: 6) {
-                let command = Format.installCommand(resources: Bundle.main.resourceURL ?? Bundle.main.bundleURL)
+                let command = Format.installCommand(resources: Bundle.main.resourceURL ?? Bundle.main.bundleURL, replacing: answers.pluginLost)
                 // What it does before how to put it in, and each in full: none of it may end in "…".
                 Group {
                     Text(verbatim: Format.pluginWhat)
@@ -108,6 +109,10 @@ struct SettingsView: View {
                 .foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                 // Whole, however long the app's path is: it is run in a terminal as it stands.
                 commandRow(command, spoken: "Copy the install command")
+                if answers.pluginLost {
+                    // In full white, as a failure on this page is.
+                    Text(verbatim: Format.pluginLostNote).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                }
                 Group {
                     Text(verbatim: Format.installSteps.restart)
                     Text(verbatim: Format.marketplaceNote)
@@ -158,12 +163,28 @@ struct SettingsView: View {
         SettingRow(title: "Open at login", note: loginError) {
             Switch(title: "Open at login", isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin))
         }
+        // Only in a release: a build to work on the app has nothing to update from.
+        if updates.isAvailable {
+            SettingRow(title: Format.updatesTitle, caption: Format.updatesCaption) {
+                Switch(title: Format.updatesTitle, isOn: Binding(get: { updates.checksAutomatically }, set: { updates.checksAutomatically = $0 }))
+            }
+            Button { updates.checkNow() } label: {
+                Text(verbatim: Format.checkNow)
+                    .foregroundStyle(.white.opacity(0.6))
+                    .padding(.horizontal, 6)
+                    .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .hoverFill()
+                    .padding(.horizontal, -6)
+            }
+            .buttonStyle(.plain)
+        }
         // Which app this is and what it will not do, for someone it was handed to.
         VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: Format.about(name: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String,
                                         version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String))
             // In full: a promise cut short is no promise.
-            Text(verbatim: Format.readOnly).foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+            Text(verbatim: Format.readOnly(updates: updates.isAvailable)).foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
         }
         // The crew's tip jar. The browser opens it; the app itself stays offline.
         Button { NSWorkspace.shared.open(URL(string: "https://github.com/sponsors/morsechimwai")!) } label: {
