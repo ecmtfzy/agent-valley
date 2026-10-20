@@ -8,7 +8,7 @@ We moved house. AgentValley is now an app you download, signed with a Developer 
 - We check GitHub for a new version once a day and ask before we install it. The switch, and Check now, are in Settings.
 - Open us from the dmg or from Downloads and we'll offer to move ourselves to Applications.
 - Only one of us runs at a time. Open another copy and the old one steps out.
-- On 0.1 from Homebrew? Run `brew uninstall agent-valley`, then download the dmg or install the cask. Homebrew won't move you over by itself.
+- On 0.1 from Homebrew? Run `brew uninstall --formula agent-valley`, then download the dmg or install the cask. Homebrew won't move you over by itself.
 - The plugin may still point at the old copy. The panel says so when it does; copy its command from Settings once more.
 - Put the crew in Claude Code's terminal on 0.1? Its status line still calls the old copy and goes blank once that's gone. Copy the crew's install command from the Actions settings and run it once more.
 - To macOS we're a new app, so it may ask again: to let us work your terminal when you jump to an agent, and, with Plan limits on, to read your Claude Code login from the Keychain.

@@ -41,7 +41,7 @@ Signed, and Apple checked our papers. Needs macOS 15 or later and Claude Code. M
 
 Once a day we check for a new version, and we ask before we install it.
 
-We moved house in 0.2. On 0.1 from Homebrew? Run `brew uninstall agent-valley`, then install again as above. Using the plugin? Copy its command from Settings once more, so it finds the new address. Put the crew in your terminal? Run its install command from the Actions settings once more too.
+We moved house in 0.2. On 0.1 from Homebrew? Run `brew uninstall --formula agent-valley`, then install again as above. Using the plugin? Copy its command from Settings once more, so it finds the new address. Put the crew in your terminal? Run its install command from the Actions settings once more too.
 
 <details>
 <summary>Remove</summary>
