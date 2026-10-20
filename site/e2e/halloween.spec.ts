@@ -309,15 +309,16 @@ test.describe('Trick or treat, lights out', () => {
     expect(await lightsOut(page)).toBe(0);
   });
 
-  test('the crew still blink, any day: the blink frame turns its opacity', async ({ page }) => {
+  test('the crew still move, any day: each strip of frames steps along', async ({ page }) => {
     // The lights-out eyes once took the mascots' keyframes' name, and the crew stopped blinking.
+    // The blinks are frames of the strips now.
     await off(page);
     await page.goto('/');
     await expect(html(page)).toHaveAttribute('data-live', '');
     const props = await page.evaluate(() =>
-      document.querySelector('.work img+img')!.getAnimations().flatMap((a) =>
+      document.querySelector('.holds>span img')!.getAnimations().flatMap((a) =>
         (a.effect as KeyframeEffect).getKeyframes().flatMap((k) => Object.keys(k))));
-    expect(props).toContain('opacity');
+    expect(props).toContain('transform');
   });
 
   test('Deny with Stop on shows only the words', async ({ page }) => {

@@ -23,18 +23,20 @@ export function Mascot({ who, pose, holds, size, dot, className }: { who: Person
   if (holds && pose === 'still') {
     return <span className={cn('m', className)} style={style}><img src={`/mascots/${who}-${holds}.svg`} alt="" loading="lazy" /></span>;
   }
-  // At work: the thing in hand, moving, for six seconds, then two with it put down, as the app does.
-  if (holds && pose === 'work') {
-    return (
-      <span className={cn('m holds', className)} style={{ ...style, '--n': LOOP[holds] } as React.CSSProperties}>
-        <span className="bare"><Mascot who={who} pose="work" /></span>
-        <span className="strip"><img src={`/mascots/${who}-${holds}-run.svg`} alt="" loading="lazy" /></span>
+  // At work: the thing in hand, moving, for six seconds, then two with it put down and a thought coming, as the app
+  // does; with nothing to hold, the thought alone. Never bare and bobbing: that read as idle.
+  if (pose === 'work') {
+    const thing = holds === 'thinking' ? undefined : holds;
+    const strip = (shown: Thing, part?: string) => (
+      <span className={part} style={{ '--n': LOOP[shown] } as React.CSSProperties}>
+        <img src={`/mascots/${who}-${shown}-run.svg`} alt="" loading="lazy" />
       </span>
     );
+    return <span className={cn('m holds', className)} style={style}>{strip('thinking', thing && 'bare')}{thing && strip(thing, 'strip')}</span>;
   }
   return (
     <span
-      className={cn('m', (pose === 'work' || pose === 'wave') && pose, className)}
+      className={cn('m', pose === 'wave' && pose, className)}
       style={style}
     >
       {FRAMES[pose].map((frame) => <img key={frame} src={`/mascots/${who}-${frame}.svg`} alt="" loading="lazy" />)}

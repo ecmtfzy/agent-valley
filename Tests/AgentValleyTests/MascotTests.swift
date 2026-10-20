@@ -152,7 +152,7 @@ final class MascotTests: XCTestCase {
         XCTAssertFalse(MascotView.animates(.quiet, reduceMotion: false))
         XCTAssertFalse(MascotView.animates(.done, reduceMotion: false))
         // Claude Code calls it busy, but nothing has been written for minutes: it must not go
-        // on bobbing as if all were well.
+        // on moving as if all were well.
         XCTAssertFalse(MascotView.animates(.working, reduceMotion: false, still: true))
     }
 
@@ -198,14 +198,20 @@ final class MascotTests: XCTestCase {
         }
     }
 
-    // In hand for most of each round, put down for the rest. Under Reduce Motion it stays in hand.
-    func testTheThingIsPutDownForPartOfEachRound() {
+    // In hand for most of each round, put down for the rest, and then it thinks: a mascot at work
+    // never stands bare, as a bob read as idle. Under Reduce Motion the thing stays in hand.
+    func testTheThingIsPutDownForPartOfEachRoundAndAThoughtTakesItsPlace() {
         let start = Date(timeIntervalSinceReferenceDate: 0)
-        let at = { (seconds: TimeInterval, reduced: Bool) in MascotView.inHand(.reading, since: start, at: start + seconds, reduceMotion: reduced) }
+        let at = { (seconds: TimeInterval, reduced: Bool) in MascotView.inHand(.reading, atWork: true, since: start, at: start + seconds, reduceMotion: reduced) }
         XCTAssertEqual(at(1, false), .reading)
-        XCTAssertNil(at(7, false))
+        XCTAssertEqual(at(7, false), .thinking)
         XCTAssertEqual(at(9, false), .reading)
         XCTAssertEqual(at(7, true), .reading)
-        XCTAssertNil(MascotView.inHand(nil, since: start, at: start, reduceMotion: true))
+        // A call with no picture of its own: a thought, moving or not.
+        XCTAssertEqual(MascotView.inHand(nil, atWork: true, since: start, at: start, reduceMotion: false), .thinking)
+        XCTAssertEqual(MascotView.inHand(nil, atWork: true, since: start, at: start, reduceMotion: true), .thinking)
+        // Not at work, stalled, or calling the person: nothing in hand.
+        XCTAssertNil(MascotView.inHand(.reading, atWork: false, since: start, at: start + 1, reduceMotion: false))
+        XCTAssertNil(MascotView.inHand(nil, atWork: false, since: start, at: start, reduceMotion: false))
     }
 }

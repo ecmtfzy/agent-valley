@@ -291,10 +291,10 @@ enum Activity: Equatable, CaseIterable {
     }
 }
 
-/// A pixel person. It bobs and blinks while its agent works, looks aside and dims while the
-/// agent is quiet, opens its mouth and waves while it calls the person, and fades further with
-/// its eyes shut once the agent has finished. At work it now and then picks up a thing that
-/// says what the agent is doing, and puts it down again.
+/// A pixel person. While its agent works it blinks and holds a thing that says what the agent is
+/// doing, or thinks, chin in hand, between things: it never stands bare and bobs, which read as
+/// idle. It looks aside and dims while the agent is quiet, opens its mouth and waves while it
+/// calls the person, and fades further with its eyes shut once the agent has finished.
 struct MascotView: View {
     let status: AgentStatus
     var kind = MascotKind.general
@@ -304,7 +304,7 @@ struct MascotView: View {
     /// Whether the flag is drawn as a dot. Not on the bar while the red count stands right beside
     /// the mascot: the count is that flag, and the mascot still calls out.
     var dot = true
-    /// Its agent is called busy and has written nothing for a long while: it stops bobbing.
+    /// Its agent is called busy and has written nothing for a long while: it stops moving.
     var still = false
     /// What its agent is doing, when it works and the tool has a picture.
     var activity: Activity? = nil
@@ -322,7 +322,7 @@ struct MascotView: View {
     static let stillTick = 3
 
     /// Dim while quiet, fainter still once done, in its own colours: who it was still shows.
-    /// Under Reduce Motion nothing bobs, and this with the eyes has to tell the three apart.
+    /// Under Reduce Motion nothing moves, and this with the eyes has to tell the three apart.
     static func fade(_ status: AgentStatus) -> Double {
         switch status {
         case .quiet: 0.5
@@ -332,7 +332,7 @@ struct MascotView: View {
     }
 
     /// `still` is for a row Claude Code calls busy whose transcript has gone silent: it must not
-    /// go on bobbing as if all were well.
+    /// go on moving as if all were well.
     static func animates(_ status: AgentStatus, reduceMotion: Bool, still: Bool = false) -> Bool {
         status == .working && !reduceMotion && !still
     }
@@ -383,12 +383,14 @@ struct MascotView: View {
         }
     }
 
-    /// Whether the thing is in hand at `date`, by the round that began `since`. Each agent
-    /// began its activity at its own time, so they do not all put things down together.
-    /// Under Reduce Motion it stays in hand.
-    static func inHand(_ activity: Activity?, since: Date, at date: Date, reduceMotion: Bool) -> Activity? {
-        guard let activity else { return nil }
-        return reduceMotion || date.timeIntervalSince(since).truncatingRemainder(dividingBy: round) < inHand ? activity : nil
+    /// What it holds at `date`, by the round that began `since`: the thing for the first part of
+    /// the round, then a thought, as it does with no thing to show. Each agent began its activity
+    /// at its own time, so they do not all put things down together. Under Reduce Motion the
+    /// thing stays in hand. `atWork`: working, not stalled, not calling the person.
+    static func inHand(_ activity: Activity?, atWork: Bool, since: Date, at date: Date, reduceMotion: Bool) -> Activity? {
+        guard atWork else { return nil }
+        guard let activity, reduceMotion || date.timeIntervalSince(since).truncatingRemainder(dividingBy: round) < inHand else { return .thinking }
+        return activity
     }
 
     /// `cells` with the thing for `activity` in hand at `tick`: a page feeding, a key going
@@ -446,17 +448,15 @@ struct MascotView: View {
         let person = kind.person
         let fade = Self.fade(status)
         // Only at work, and never while it calls the person: the wave must say the most.
-        let busy = status == .working && !still && flag != .needsYou ? shown : nil
+        let atWork = status == .working && !still && flag != .needsYou
         TimelineView(.animation(minimumInterval: 0.4, paused: !moving && !waving)) { context in
             let tick = Int(context.date.timeIntervalSinceReferenceDate / 0.4)
             let posed = Self.pose(person, status: status, callsOut: flag == .needsYou,
                                   blink: moving && tick % 8 == 0, wave: waving ? tick : 0)
-            let holding = Self.inHand(busy, since: shownSince, at: context.date, reduceMotion: reduceMotion)
+            let holding = Self.inHand(shown, atWork: atWork, since: shownSince, at: context.date, reduceMotion: reduceMotion)
             Pixels(cells: holding.map { Self.hold($0, posed, under: person.underEyes, tick: moving ? tick : Self.stillTick) } ?? posed,
                    size: size, colour: person.colour)
             .opacity(fade)
-            // While it holds something, that moves in place of the bob.
-            .offset(y: moving && holding == nil && tick % 2 == 0 ? -size / 12 : 0)
         }
         .task(id: activity) {
             let wait = Self.minimumHold - Date.now.timeIntervalSince(shownSince)

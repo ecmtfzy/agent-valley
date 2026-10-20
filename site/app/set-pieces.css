@@ -133,31 +133,24 @@ html{scroll-padding-top:80px}
 .panel .m,.anatomy .m{--s:2.2em}
 
 /* A mascot: the pose, and over it the pose it moves to. Timed as the app's: a tick of 0.4 s. */
-.m{--hop:max(-2px,calc(var(--s,20px) / -12));position:relative;display:inline-block;flex:none;width:var(--s,20px);height:var(--s,20px)}
+.m{position:relative;display:inline-block;flex:none;width:var(--s,20px);height:var(--s,20px)}
 .m img{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
 .m img+img{opacity:0}
-.work{animation:bob .8s steps(1) infinite}
-.work img+img{animation:blink 3.2s steps(1) infinite}
-/* Neighbours out of step: alternate bobs, blinks a third of a cycle apart, waves half a beat apart. */
-.work:nth-of-type(even){animation-delay:-.4s}
-.work:nth-of-type(3n+2) img+img{animation-delay:-1.2s}
-.work:nth-of-type(3n) img+img{animation-delay:-2.4s}
+/* Neighbours out of step: waves half a beat apart. */
 .wave img:first-child,.steam img:first-child{animation:first .8s steps(1) infinite}
 .wave img+img,.steam img+img{animation:second .8s steps(1) infinite}
 /* After the shorthand above, which would reset the delay of one frame and not the other. */
 .wave:nth-of-type(even) img{animation-delay:-.4s}
 .steam img:first-child,.steam img+img{animation-duration:1.6s}
-@keyframes bob{0%{transform:translateY(var(--hop))}50%{transform:none}}
-@keyframes blink{0%{opacity:1}12.5%{opacity:0}}
 @keyframes first{0%{opacity:1}50%{opacity:0}}
 @keyframes second{0%{opacity:0}50%{opacity:1}}
 /* A thing in hand: its strip of frames (13 cells apart, 12 shown) steps by on the same 0.4 s tick, for six seconds of an
-   eight-second round; then it is put down and the bare mascot bobs. With motion off, held still. */
-.holds>span{position:absolute;inset:0}
+   eight-second round; then it is put down and a thought comes, chin in hand. It never stands bare and bobs: that read
+   as idle. With motion off, held still. */
+.holds>span{position:absolute;inset:0;overflow:hidden}
 .holds .bare{opacity:0;animation:putdown 8s steps(1) infinite}
-.holds .bare .m{width:100%;height:100%}
-.holds .strip{overflow:hidden;animation:inhand 8s steps(1) infinite}
-.holds .strip img{inset:0 auto auto 0;width:calc(var(--n) * 100% * 13 / 12);max-width:none;animation:frames calc(var(--n) * .4s) steps(var(--n)) infinite}
+.holds .strip{animation:inhand 8s steps(1) infinite}
+.holds>span img{inset:0 auto auto 0;width:calc(var(--n) * 100% * 13 / 12);max-width:none;animation:frames calc(var(--n) * .4s) steps(var(--n)) infinite}
 .holds:nth-of-type(3n+2)>span{animation-delay:-2.8s}
 .holds:nth-of-type(3n)>span{animation-delay:-5.6s}
 @keyframes inhand{0%{opacity:1}75%{opacity:0}}
@@ -458,7 +451,6 @@ a.w:hover{text-decoration-style:solid}
   html:not(.still) .screen[data-answered=deny] .lights b{animation:lids 1.2s steps(1) 1}
 }
 @keyframes lights-out{0%{opacity:0}30%,70%{opacity:.94}100%{opacity:0}}
-/* Not "blink": that name is the crew's own blink above, and the later one would win. */
 @keyframes lids{0%,100%{transform:none}50%{transform:scaleY(.15)}}
 /* Halloween's band (halloween-bar.tsx): one terminal line over the top bar, faint scan lines on
    night purple, the greeting glowing a little the way a CRT's phosphor did. */

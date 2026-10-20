@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 — 2026-10-20
+
+- We no longer bob up and down at work. It looked like waiting. Between things, and on a call we have no picture for, we think, chin in hand, the dots coming.
+
 ## 0.2.1 — 2026-10-20
 
 - Homebrew leaves our 0.1 installed when you move to the cask, and it kept opening at login beside us. Now it steps out as soon as it opens, and the panel shows the one command that takes it out for good: `brew uninstall --formula agent-valley`.
