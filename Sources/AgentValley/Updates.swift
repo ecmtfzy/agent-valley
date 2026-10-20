@@ -9,6 +9,9 @@ final class Updates: NSObject, ObservableObject, SPUStandardUserDriverDelegate {
     /// no Dock icon, and Sparkle keeps a window of its own from taking the keys someone is typing
     /// with, so it may wait behind other windows: the panel says it is there.
     @Published private(set) var waiting: String?
+    /// 0.1 from Homebrew is still installed beside this copy: the panel and Settings say how to
+    /// take it out.
+    @Published private(set) var oldCopyLeft = false
     let isAvailable: Bool
     private var controller: SPUStandardUpdaterController!
 
@@ -41,6 +44,11 @@ final class Updates: NSObject, ObservableObject, SPUStandardUserDriverDelegate {
         willShowWindow?()
         NSApp.activate()
         controller.checkForUpdates(nil)
+    }
+
+    func lookForOldCopy(_ cellars: [String] = AppPlace.formulaCellars) {
+        let left = AppPlace.oldFormulaLeft(cellars)
+        if left != oldCopyLeft { oldCopyLeft = left }
     }
 
     /// Brings the window of the update that waits to the front, as Sparkle does for a check asked for.

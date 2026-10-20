@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // First, before the answers socket or anything else of this copy is set up.
         AppPlace.quitOtherCopies()
+        AppPlace.quitOlderCopiesThatOpen()
         let misplaced = AppPlace.needsMove()
         if misplaced, AppPlace.offerMove() { return }
         // Both fire once now with the stored value, then again on every change.

@@ -446,6 +446,8 @@ enum Format {
     static let pluginLostLine = "Allow and Deny can't find us anymore."
     static let pluginLostFix = "Fix it"
     static let pluginLostNote = "The plugin still points at a copy of us that's gone. Run this once more."
+    static let oldCopyLine = "Our 0.1 from Homebrew is still installed."
+    static let oldCopyNote = "Homebrew left our 0.1 on this Mac, and it opens at login beside us. Run this once in a terminal to take it out."
     static let moveFailed = "We couldn't make the move. Drag AgentValley into Applications yourself and open it from there."
     static let movedNotOpened = "We made it to Applications but didn't wake up. Open AgentValley from there."
     static let idleCaption = "Sessions whose agents have all stopped."
@@ -1431,6 +1433,14 @@ struct PanelView: View {
                 NoticeLine(text: Format.pluginLostLine, button: Format.pluginLostFix) {
                     // The page with the command, which now takes the old list out first.
                     state.settingsTab = .actions
+                    state.showingSettings = true
+                }
+                    .modifier(Reveal(shown: state.expanded, index: list.cards.count + 3, motion: motion))
+            }
+            if updates.oldCopyLeft {
+                // Settings opens on General, where the command is first.
+                NoticeLine(text: Format.oldCopyLine, button: Format.pluginLostFix) {
+                    state.settingsTab = .general
                     state.showingSettings = true
                 }
                     .modifier(Reveal(shown: state.expanded, index: list.cards.count + 3, motion: motion))

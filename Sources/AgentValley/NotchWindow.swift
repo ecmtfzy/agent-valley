@@ -454,6 +454,7 @@ final class NotchWindowController: NSObject {
     private let answers: AnswerStore
     /// For the "Token use" switch, which History hangs on.
     private let settings: Settings
+    private let updates: Updates
     private var tokenWatch: AnyCancellable?
     private var leadLooksWatch: AnyCancellable?
     /// The bytes last written for `crew status`, so a refresh that changes nothing writes nothing.
@@ -476,6 +477,7 @@ final class NotchWindowController: NSObject {
         self.limits = limits
         self.answers = answers
         self.settings = settings
+        self.updates = updates
         let state = self.state
         cards = {
             AgentStore.arrange(AgentStore.ordered(AgentStore.showing(answers.overlay(store.sessions), hidden: state.hidden), by: settings.grouping), idle: settings.idleSessions, keeping: answers.settledSessions)
@@ -572,8 +574,8 @@ final class NotchWindowController: NSObject {
 
     private func setExpanded(_ expanded: Bool) {
         isExpanded = expanded
-        // The plugin list may have changed since: the person may just have run the command.
-        if expanded { answers.checkPlugin() }
+        // The plugin list and the old 0.1 may have changed since: the person may just have run the command.
+        if expanded { answers.checkPlugin(); updates.lookForOldCopy() }
         openings += expanded ? 1 : 0
         layout()
         // One turn later the window already has its new size, so the island is the only thing that animates.

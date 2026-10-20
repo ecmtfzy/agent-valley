@@ -28,6 +28,31 @@ enum AppPlace {
         wait(for: others, seconds: 1)
     }
 
+    /// A 0.1 opened later, as its own Open at login does, is made to quit: it does not know to ask
+    /// this one to. Any later copy does, as it starts, and stays (quitOtherCopies).
+    @MainActor static func quitOlderCopiesThatOpen() {
+        _ = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { note in
+            guard let other = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  other != NSRunningApplication.current, other.bundleIdentifier == Bundle.main.bundleIdentifier,
+                  is01(other.bundleURL.flatMap { Bundle(url: $0)?.infoDictionary?["CFBundleVersion"] as? String })
+            else { return }
+            other.terminate()
+        }
+    }
+
+    /// 0.1 was builds 1 to 5 (CFBundleVersion). Build 6, 0.2.0, is the first to quit the others.
+    static func is01(_ build: String?) -> Bool {
+        build.flatMap { Int($0) }.map { $0 < 6 } ?? false
+    }
+
+    /// 0.1 came as a Homebrew formula. Homebrew leaves it installed when it moves someone to the
+    /// cask, and its Open at login keeps opening it. Its keg in the Cellar is what tells.
+    static let formulaCellars = ["/opt/homebrew/Cellar/agent-valley", "/usr/local/Cellar/agent-valley"]
+    static let removeOldFormula = "brew uninstall --formula agent-valley"
+    static func oldFormulaLeft(_ cellars: [String] = formulaCellars) -> Bool {
+        cellars.contains { FileManager.default.fileExists(atPath: $0) }
+    }
+
     @MainActor private static func wait(for apps: [NSRunningApplication], seconds: TimeInterval) {
         let deadline = Date().addingTimeInterval(seconds)
         while apps.contains(where: { !$0.isTerminated }), Date() < deadline {

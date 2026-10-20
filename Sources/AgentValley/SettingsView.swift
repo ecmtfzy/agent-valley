@@ -40,6 +40,7 @@ struct SettingsView: View {
             }
             switch tab {
             case .general:
+                if updates.oldCopyLeft { oldCopy }
                 list
                 sounds
                 app
@@ -157,6 +158,14 @@ struct SettingsView: View {
                 ChoiceBar(title: "Shortcut keys", choices: ShortcutKey.allCases, label: { Format.shortcut($0) }, selection: $settings.shortcutKey)
             }
         }
+    }
+
+    /// 0.1 from Homebrew is still installed: the one command that takes it out, first on the
+    /// page the panel's Fix it opens.
+    @ViewBuilder private var oldCopy: some View {
+        // In full white, as a failure on this page is.
+        Text(verbatim: Format.oldCopyNote).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+        commandRow(AppPlace.removeOldFormula, spoken: "Copy the command that takes our 0.1 out")
     }
 
     @ViewBuilder private var app: some View {

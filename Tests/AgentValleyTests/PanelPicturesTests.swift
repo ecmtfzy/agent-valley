@@ -129,8 +129,9 @@ final class PanelPicturesTests: XCTestCase {
         let usage = scene == "tokens" ? try countedLedger(in: home + "/tokens")
             : scene.hasPrefix("history") ? try madeUpLedger(in: home + "/history")
             : UsageLedger(root: root, database: URL(fileURLWithPath: home + "/history.sqlite"))
+        let updates = Updates(info: [:])
         host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: PlanLimitsClient(), answers: answers,
-                                                 sound: SoundPlayer(settings: settings), usage: usage, updates: Updates(info: [:])))
+                                                 sound: SoundPlayer(settings: settings), usage: usage, updates: updates))
         // Far to the left of any display. In the window list, so that it draws and animates.
         let window = NSWindow(contentRect: CGRect(x: -4000, y: 0, width: 600, height: 960), styleMask: [.borderless], backing: .buffered, defer: false)
         window.appearance = NSAppearance(named: .darkAqua)
@@ -233,6 +234,16 @@ final class PanelPicturesTests: XCTestCase {
                             ["label": "Skip on CI", "description": "Keep it for local runs"]],
             ]]])
             picture("question")
+        case "oldcopy":
+            // 0.1 from Homebrew left behind: the line in the list, then the page its Fix it opens.
+            updates.lookForOldCopy([home])
+            // The sessions put away, so that the line at the foot of the list is in sight.
+            for card in store.sessions { state.hidden[card.id] = Date() }
+            open()
+            picture("line")
+            state.showingSettings = true
+            state.settingsTab = .general
+            picture("settings")
         case "tokens":
             // The sessions put away, so that the line at the foot of the list is in sight.
             for card in store.sessions { state.hidden[card.id] = Date() }

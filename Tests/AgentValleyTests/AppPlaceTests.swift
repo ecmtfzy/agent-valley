@@ -114,4 +114,29 @@ final class AppPlaceTests: XCTestCase {
         XCTAssertTrue(text.contains("if !misplaced { LoginItem.follow(settings) }"))
         XCTAssertEqual(text.components(separatedBy: "LoginItem.follow(").count, 2)
     }
+
+    // 0.1 came as a Homebrew formula, and Homebrew leaves it installed when it moves someone to
+    // the cask: its own Open at login then opens it beside us. Its keg is what tells.
+    func testTheOld01FromHomebrewIsFoundByItsKeg() throws {
+        let cellar = try folder()
+        let keg = cellar.appendingPathComponent("agent-valley")
+        XCTAssertFalse(AppPlace.oldFormulaLeft([keg.path, "/nowhere/agent-valley"]))
+        try FileManager.default.createDirectory(at: keg.appendingPathComponent("0.1.4"), withIntermediateDirectories: true)
+        XCTAssertTrue(AppPlace.oldFormulaLeft([keg.path, "/nowhere/agent-valley"]))
+        XCTAssertEqual(AppPlace.removeOldFormula, "brew uninstall --formula agent-valley")
+    }
+
+    // A 0.1 that opens while we run steps out: it cannot ask us to. From 0.2.0 on, a copy that
+    // opens quits us itself and stays, older or not: were it made to quit too, none would be left.
+    func testOnlyA01ThatOpensLaterStepsOut() {
+        XCTAssertTrue(AppPlace.is01("1"))
+        XCTAssertTrue(AppPlace.is01("5"))
+        XCTAssertFalse(AppPlace.is01("6"))
+        XCTAssertFalse(AppPlace.is01("7"))
+        XCTAssertFalse(AppPlace.is01(nil))
+        XCTAssertFalse(AppPlace.is01("x"))
+        let main = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/AgentValley/main.swift")
+        XCTAssertTrue((try? String(contentsOf: main, encoding: .utf8))?.contains("AppPlace.quitOlderCopiesThatOpen()") ?? false)
+    }
 }

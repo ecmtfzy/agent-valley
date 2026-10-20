@@ -35,4 +35,19 @@ final class UpdatesTests: XCTestCase {
             .appendingPathComponent("Sources/AgentValley/NotchWindow.swift")
         XCTAssertTrue(try String(contentsOf: window, encoding: .utf8).contains("updates.willShowWindow = { [weak self] in self?.closeFromKeyboard() }"))
     }
+
+    // Looked at each time the panel opens: the person may just have run the command.
+    func testThePanelSaysWhenThe01FromHomebrewIsStillThere() throws {
+        let cellar = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        addTeardownBlock { try? FileManager.default.removeItem(at: cellar) }
+        let updates = Updates(info: [:])
+        updates.lookForOldCopy([cellar.path])
+        XCTAssertFalse(updates.oldCopyLeft)
+        try FileManager.default.createDirectory(at: cellar, withIntermediateDirectories: true)
+        updates.lookForOldCopy([cellar.path])
+        XCTAssertTrue(updates.oldCopyLeft)
+        let window = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/AgentValley/NotchWindow.swift")
+        XCTAssertTrue(try String(contentsOf: window, encoding: .utf8).contains("if expanded { answers.checkPlugin(); updates.lookForOldCopy() }"))
+    }
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 — 2026-10-20
+
+- Homebrew leaves our 0.1 installed when you move to the cask, and it kept opening at login beside us. Now it steps out as soon as it opens, and the panel shows the one command that takes it out for good: `brew uninstall --formula agent-valley`.
+
 ## 0.2.0 — 2026-10-20
 
 We moved house. AgentValley is now an app you download, signed with a Developer ID and checked by Apple.

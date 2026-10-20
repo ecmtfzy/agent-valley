@@ -14,6 +14,7 @@
 #     settings  each page of the settings, and the plugin's command with its switch on
 #     request   a command to allow and a question to answer, by pointer and by key
 #     reader    what a screen reader is told: open, with the ring, in the settings, and shut
+#     oldcopy   the line and the settings when Homebrew left our 0.1 installed
 #     tokens    the token line at the foot of the list, and what a screen reader is told of it
 #     history          the History page in the panel over a made-up month
 #     history-project  the same, one project deep
@@ -24,7 +25,7 @@ ROOT="/Users/Shared/pt"
 FAKE_HOME="$ROOT/pictures"
 OUT="$PWD/build/pictures"
 SCENES=("$@")
-[ ${#SCENES[@]} -gt 0 ] || SCENES=(list status keys idle intro legend settings request reader tokens history history-project)
+[ ${#SCENES[@]} -gt 0 ] || SCENES=(list status keys idle intro legend settings request reader oldcopy tokens history history-project)
 
 # Every account on this Mac can write to /Users/Shared, so ROOT has to be this user's own
 # folder, closed to the others, before anything under it is removed: were it a link someone
