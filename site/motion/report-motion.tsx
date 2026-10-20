@@ -7,7 +7,7 @@ import totals from './report-totals.json';
 // page's head, drawn `bare`, on nothing; the README's GIF plays it round with `loop`, which fades it in and out.
 // Files here import one another by relative paths: Remotion's bundler does not read tsconfig paths.
 
-export const REPORT_MOTION = { width: 1200, height: 900, fps: 30, durationInFrames: 424 } as const;
+export const REPORT_MOTION = { width: 1200, height: 900, fps: 30, durationInFrames: 448 } as const;
 export type ReportMotionProps = { readonly loop: boolean; readonly bare?: boolean };
 
 const PICTURE = {
@@ -32,31 +32,43 @@ const tween = (f: number, a: number, b: number, from: number, to: number, easing
 // In frames; with `loop` it fades in before start and out after end. The count ends before the
 // camera moves in, so the zoom shows the PDF's own total. The moves stay quick; the rests between
 // them are long enough to read: a second on the page before the pointer comes, two on each PDF.
+// While the pointer presses, the camera looks at the panel (lookA, lookB) so the press can be
+// seen; it pulls back as the PDF comes out.
 export const BEATS = {
   start: 8,
-  toExport: [30, 46],
-  pressExport: 50,
-  outA: [52, 68],
-  countA: [52, 76],
-  zoomA: [86, 102, 162, 176],
-  toShopWeb: [190, 206],
-  pressShopWeb: 210,
-  page: [210, 220],
-  toExport2: [232, 246],
-  pressExport2: 250,
-  outB: [252, 268],
-  countB: [252, 276],
-  zoomB: [286, 302, 362, 376],
-  away: [384, 400],
-  end: 412,
+  lookA: [22, 38, 58, 74],
+  toExport: [28, 44],
+  pressExport: 48,
+  outA: [60, 76],
+  countA: [60, 84],
+  zoomA: [94, 110, 170, 184],
+  lookB: [196, 212, 274, 290],
+  toShopWeb: [198, 214],
+  pressShopWeb: 220,
+  page: [220, 230],
+  toExport2: [244, 258],
+  pressExport2: 262,
+  outB: [276, 292],
+  countB: [276, 300],
+  zoomB: [310, 326, 386, 400],
+  away: [408, 424],
+  end: 436,
   total: REPORT_MOTION.durationInFrames,
 } as const;
 
 // The History page as the app draws it (1088 wide), shrunk beside the paper.
-const PANEL = { x: 50, y: 188, scale: 0.55 };
+const PANEL = { x: 50, y: 188, scale: 0.55, height: 522 };
 const inPanel = (x: number, y: number) => ({ x: PANEL.x + x * PANEL.scale, y: PANEL.y + y * PANEL.scale });
 const EXPORT = inPanel(600, 190);
 const SHOP_WEB = inPanel(112, 707);
+// Looking at the panel: twice as big, the panel's full width, cut to its head (Export PDF) or its
+// foot (the projects).
+const LOOK = {
+  scale: 2,
+  x: PANEL.x + (1088 * PANEL.scale) / 2,
+  head: PANEL.y + H / 4,
+  foot: PANEL.y + PANEL.height - H / 4,
+};
 // Below the bottom edge: the cursor comes in from there and leaves the way it came.
 const OFF = { x: 900, y: 940 };
 
@@ -150,6 +162,13 @@ export const ReportMotion: React.FC<ReportMotionProps> = ({ loop, bare = false }
   const on = zoomB > 0 ? sheetB : sheetA;
   const focus = { x: on.x + 848 * SHEET_SCALE, y: on.y + 260 * SHEET_SCALE };
   const zoom = Math.max(zoomA, zoomB);
+  const look = Math.max(interpolate(f, B.lookA, [0, 1, 1, 0], { ...clamp, easing: swing }), interpolate(f, B.lookB, [0, 1, 1, 0], { ...clamp, easing: swing }));
+  // On the projects for shop-web, then along with the pointer back up to Export PDF.
+  const lookY = f < B.lookB[0] ? LOOK.head : tween(f, B.toExport2[0], B.toExport2[1], LOOK.foot, LOOK.head);
+  const camera =
+    zoom > 0
+      ? { focus, scale: 1 + zoom * 1.35, to: H * 0.42, t: zoom }
+      : { focus: { x: LOOK.x, y: lookY }, scale: 1 + look * (LOOK.scale - 1), to: H / 2, t: look };
 
   const count = (span: readonly [number, number]) =>
     f >= span[0] && f < span[1] ? tween(f, span[0], span[1], 0, 1, Easing.out(Easing.cubic)) : null;
@@ -168,13 +187,14 @@ export const ReportMotion: React.FC<ReportMotionProps> = ({ loop, bare = false }
       <AbsoluteFill
         style={{
           opacity: fade,
-          transformOrigin: `${focus.x}px ${focus.y}px`,
-          scale: String(1 + zoom * 1.35),
-          translate: `${zoom * (W / 2 - focus.x)}px ${zoom * (H * 0.42 - focus.y)}px`,
+          transformOrigin: `${camera.focus.x}px ${camera.focus.y}px`,
+          scale: String(camera.scale),
+          translate: `${camera.t * (W / 2 - camera.focus.x)}px ${camera.t * (camera.to - camera.focus.y)}px`,
         }}
       >
         <div style={{ position: 'absolute', left: PANEL.x, top: PANEL.y, width: 1088 * PANEL.scale, filter: `brightness(${1 - outA * 0.12 - zoom * 0.5})` }}>
-          <Img src={staticFile(PICTURE.page)} style={{ width: '100%', display: 'block', opacity: 1 - projectPage }} />
+          {/* Whole under the project's page as that fades in, or the cream shows through both. */}
+          <Img src={staticFile(PICTURE.page)} style={{ width: '100%', display: 'block', opacity: projectPage < 1 ? 1 : 0 }} />
           <Img src={staticFile(PICTURE.projectPage)} style={{ width: '100%', display: 'block', position: 'absolute', top: 0, opacity: projectPage }} />
         </div>
         <Ring x={EXPORT.x - 4} y={EXPORT.y} w={118} h={38} t={ring(B.pressExport)} />

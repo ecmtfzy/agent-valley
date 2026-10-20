@@ -179,13 +179,13 @@ PY
     python3 -I -c 'import sys; from PIL import Image; i = Image.open(sys.argv[1]).convert("RGBA"); i.crop(i.getchannel("A").getbbox()).save(sys.argv[2], quality=86, alpha_quality=90, method=6)' \
         "$work/still.png" site/public/report-sheet.webp
     # As a video first, then a GIF with one palette for the whole loop and each rest kept as one long
-    # frame, so each frame stores only what changed: under 5 MB at 960 wide. Remotion's own ffmpeg
-    # lacks the filters for it.
-    (cd site && npx remotion render motion/index.tsx ReportMotion "$work/report.mp4" --codec=h264 --crf=1 --scale=0.8 \
+    # frame, so each frame stores only what changed: under 5 MB at 768 wide and 12 frames a second,
+    # since the camera's looks at the panel change every pixel. Remotion's own ffmpeg lacks the filters for it.
+    (cd site && npx remotion render motion/index.tsx ReportMotion "$work/report.mp4" --codec=h264 --crf=1 --scale=0.64 \
         --props='{"loop":true}' --public-dir="$work/public" --log=error)
     command -v ffmpeg >/dev/null || { echo "Needs ffmpeg: brew install ffmpeg" >&2; exit 1; }
     (ffmpeg -loglevel error -y -i "$work/report.mp4" -fps_mode vfr \
-        -vf 'fps=15,mpdecimate,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle' \
+        -vf 'fps=12,mpdecimate,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle' \
         docs/report-motion.gif)
     ls -l site/public/report-sheet.webp site/motion/report-totals.json docs/report-motion.gif
     sips -g pixelWidth -g pixelHeight site/public/report-sheet.webp docs/report-motion.gif | grep pixel
