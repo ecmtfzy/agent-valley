@@ -88,13 +88,13 @@ function Night() {
       <i className="moon" />
       {['b1', 'b2', 'b3'].map((b) => (
         <span key={b} className={`m wave bat ${b}`}>
-          <img src="/mascots/bat-0.svg" alt="" loading="lazy" />
-          <img src="/mascots/bat-1.svg" alt="" loading="lazy" />
+          <img src="/mascots/bat-0.svg" alt="" fetchPriority="high" />
+          <img src="/mascots/bat-1.svg" alt="" fetchPriority="high" />
         </span>
       ))}
       <span className="web">
         <i className="silk" />
-        <img className="spider" src="/mascots/spider.svg" alt="" loading="lazy" />
+        <img className="spider" src="/mascots/spider.svg" alt="" fetchPriority="high" />
       </span>
       <p className="spider-note">He moved in last week. Pays no rent.</p>
     </div>
@@ -161,15 +161,15 @@ function ScreenDrawing() {
         <i className="lights hw" aria-hidden="true"><b /><b /></i>
       </div>
       <div className="bar" aria-hidden="true">
-        <span className="wing"><Mascot who="guru" pose="wave" className="wait-only" /><Mascot who="guru" pose="work" holds="running" className="after-only" /><span className="count wait-only">1</span></span>
+        <span className="wing"><Mascot who="guru" pose="wave" className="wait-only" eager /><Mascot who="guru" pose="work" holds="running" className="after-only" /><span className="count wait-only">1</span></span>
         <span className="lens" />
         <span className="wing"><span className="gauge" /></span>
       </div>
       <div className="valley" aria-hidden="true">
-        <Mascot who="guru" pose="wave" />
-        <Mascot who="walrus" pose="work" holds="reading" />
-        <Mascot who="afro" pose="work" holds="searching" />
-        <Mascot who="beatnik" pose="work" holds="typing" />
+        <Mascot who="guru" pose="wave" eager />
+        <Mascot who="walrus" pose="work" holds="reading" eager />
+        <Mascot who="afro" pose="work" holds="searching" eager />
+        <Mascot who="beatnik" pose="work" holds="typing" eager />
       </div>
     </>
   );

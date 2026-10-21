@@ -15,8 +15,8 @@ export function FloatingBits() {
         needs you
       </Badge>
       <span className="float-mug" style={{ top: '0', left: '10%', animationDelay: '-5s', animationDuration: '9s' }}>
-        <Mug className="not-hw" />
-        <Pumpkin className="hw" />
+        <Mug className="not-hw" eager />
+        <Pumpkin className="hw" eager />
       </span>
       <Badge variant="outline" className="float-chip bg-background font-mono text-[.8125rem] font-normal" style={{ bottom: '4%', right: '14%', '--r': '3deg', animationDelay: '-1s', animationDuration: '8s' } as React.CSSProperties}>
         Sonnet 5.5
