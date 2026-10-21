@@ -422,7 +422,8 @@ test.describe('the small things', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('This page is a ghost.');
     await expect(page.getByText('We looked under every desk.')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Back to the valley' })).toHaveAttribute('href', '/');
-    await expect(page.getByRole('img', { name: /^Faye/ })).toBeHidden();
+    await expect(page.getByRole('img', { name: /bedsheet ghost costume/ })).toBeVisible();
+    await expect(page.getByRole('img', { name: /desert of printouts/ })).toBeHidden();
   });
 });
 

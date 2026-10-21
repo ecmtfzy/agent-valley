@@ -20,7 +20,7 @@ test('on 5 November Faye says the page is not there', async ({ page }) => {
 test("the tag sits on the picture's top left", async ({ page }) => {
   await off(page);
   await page.goto('/404.html');
-  const tag = (await page.getByText('Explore · 404 tool uses').boundingBox())!;
+  const tag = (await page.getByText('Explore · 404 tool uses').filter({ visible: true }).boundingBox())!;
   const art = (await page.getByRole('img', { name: ALT }).boundingBox())!;
   expect(tag.x).toBeGreaterThanOrEqual(art.x);
   expect(tag.y).toBeGreaterThanOrEqual(art.y);
