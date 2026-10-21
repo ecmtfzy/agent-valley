@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const off = (page: Page) => page.clock.setFixedTime(new Date('2026-11-05T12:00:00'));
-const ALT = 'Faye, the Explore agent, stands in a desert of printouts holding up an empty folder.';
+const ALT = 'Faye, the Explore agent, stands by the file shelves of the computer room holding an open folder, sand still on her jeans from the search.';
 
 test('on 5 November Faye says the page is not there', async ({ page }) => {
   await off(page);
@@ -17,15 +17,14 @@ test('on 5 November Faye says the page is not there', async ({ page }) => {
   await expect(page.getByText('This page is a ghost.')).toBeHidden();
 });
 
-test("the tag sits on the picture's top left", async ({ page }) => {
+test("the tag sits above the picture's left half, off the drawing", async ({ page }) => {
   await off(page);
   await page.goto('/404.html');
   const tag = (await page.getByText('Explore · 404 tool uses').filter({ visible: true }).boundingBox())!;
   const art = (await page.getByRole('img', { name: ALT }).boundingBox())!;
   expect(tag.x).toBeGreaterThanOrEqual(art.x);
-  expect(tag.y).toBeGreaterThanOrEqual(art.y);
   expect(tag.x + tag.width).toBeLessThanOrEqual(art.x + art.width / 2);
-  expect(tag.y + tag.height).toBeLessThanOrEqual(art.y + art.height / 2);
+  expect(tag.y + tag.height).toBeLessThanOrEqual(art.y);
 });
 
 test('a wide screen puts the words left of the picture', async ({ page }) => {

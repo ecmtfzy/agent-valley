@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 
 const BACK = 'inline-flex min-h-11 items-center font-mono';
 
-// Words beside a picture of the crew; on a phone the picture comes first.
-// A cut-out picture (no backdrop) stands on the page as it is; a scene gets rounded corners.
-function Lost({ className, title, lead, art, alt, cutout = false }: { className: string; title: string; lead: string; art: string; alt: string; cutout?: boolean }) {
+// Words beside a cut-out picture of the crew, standing on the page with no backdrop; on a phone
+// the picture comes first. The tag sits above it, where it covers nothing.
+function Lost({ className, title, lead, art, alt }: { className: string; title: string; lead: string; art: string; alt: string }) {
   return (
     <div className={`${className} grid items-center gap-8 md:grid-cols-[2fr_3fr] md:gap-12`}>
       <div className="grid justify-items-start gap-4">
@@ -21,25 +21,25 @@ function Lost({ className, title, lead, art, alt, cutout = false }: { className:
         <p className="lead">{lead}</p>
         <a className={BACK} href="/">Back to the valley</a>
       </div>
-      <figure className="relative -order-1 m-0 md:order-none">
+      <figure className="-order-1 m-0 md:order-none">
+        <span className="tool-tag">Explore · 404 tool uses</span>
         <img
-          className={`block h-auto w-full ${cutout ? '' : 'rounded-[14px]'}`}
+          className="block h-auto w-full"
           src={`/${art}.webp`}
           srcSet={`/${art}-640.webp 640w, /${art}-1024.webp 1024w, /${art}.webp 2048w`}
           sizes="(min-width: 1180px) 640px, (min-width: 768px) 56vw, calc(100vw - 32px)"
           width={2048}
-          height={1530}
+          height={1536}
           // Lazy, or React preloads it on every page of the site, and the hidden one here too.
           loading="lazy"
           alt={alt}
         />
-        <span className="tool-tag">Explore · 404 tool uses</span>
       </figure>
     </div>
   );
 }
 
-// Faye in the desert any day; Pearl in a bedsheet at Halloween (globals.css .hw).
+// Faye at the filing cabinet any day; Pearl in a bedsheet at Halloween (globals.css .hw).
 export default function NotFound() {
   return (
     <>
@@ -50,14 +50,13 @@ export default function NotFound() {
           title="Faye looked everywhere."
           lead="Every folder, twice. No page by that name."
           art="faye-404"
-          alt="Faye, the Explore agent, stands in a desert of printouts holding up an empty folder."
+          alt="Faye, the Explore agent, stands by the file shelves of the computer room holding an open folder, sand still on her jeans from the search."
         />
         <Lost
           className="hw"
           title="This page is a ghost."
           lead="We looked under every desk."
           art="pearl-ghost-404"
-          cutout
           alt="Pearl, in a bedsheet ghost costume with her cat-eye glasses and pearls on top, hides under a desk beside a jack-o'-lantern."
         />
       </main>
