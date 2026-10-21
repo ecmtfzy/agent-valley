@@ -18,12 +18,13 @@ if [ ! -e "$SDK/../../usr/lib/swift/host/plugins/libSwiftUIMacros.dylib" ]; then
 fi
 
 # Both kinds of Mac in one program. That takes Xcode's build system; with the Command Line
-# Tools alone, the build is for this Mac's kind only.
-if swift build -c release --arch arm64 --arch x86_64; then
-    BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
+# Tools alone, the build is for this Mac's kind only. The packages are public: SwiftPM has no
+# reason to look in the Keychain, and once sat waiting on a prompt there.
+if swift build -c release --disable-keychain --arch arm64 --arch x86_64; then
+    BIN="$(swift build -c release --disable-keychain --arch arm64 --arch x86_64 --show-bin-path)"
 else
-    swift build -c release
-    BIN="$(swift build -c release --show-bin-path)"
+    swift build -c release --disable-keychain
+    BIN="$(swift build -c release --disable-keychain --show-bin-path)"
 fi
 
 APP="$DEST/AgentValley.app"
@@ -61,9 +62,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.2</string>
+	<string>0.2.3</string>
 	<key>CFBundleVersion</key>
-	<string>8</string>
+	<string>9</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>LSUIElement</key>

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3 — 2026-10-21
+
+- When your 5-hour or weekly limit hits 100%, we go fishing. The coffee on the bar turns into a fish on the line, and a sign over the list says when we're back. It needs Plan limits on in Settings.
+
 ## 0.2.2 — 2026-10-20
 
 - We no longer bob up and down at work. It looked like waiting. Between things, and on a call we have no picture for, we think, chin in hand, the dots coming.

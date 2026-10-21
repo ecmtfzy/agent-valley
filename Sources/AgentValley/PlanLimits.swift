@@ -35,6 +35,23 @@ struct PlanLimit: Equatable {
 struct PlanLimits: Equatable {
     var fiveHour: PlanLimit?
     var week: PlanLimit?
+
+    /// The window that has run out and comes back last, or nil while there is room: Claude Code
+    /// waits for it. Out once its meter reads 100%. Past its reset time it is back, whatever the
+    /// last numbers said.
+    func runOut(now: Date) -> RunOut? {
+        let out = [(false, fiveHour), (true, week)].compactMap { weekly, limit -> RunOut? in
+            guard let limit, limit.usedPercent.rounded() >= 100, limit.resetsAt.map({ $0 > now }) ?? true else { return nil }
+            return RunOut(weekly: weekly, resetsAt: limit.resetsAt)
+        }
+        return out.max { ($0.resetsAt ?? .distantFuture) < ($1.resetsAt ?? .distantFuture) }
+    }
+}
+
+/// A plan window that has run out: the crew has gone fishing until it resets.
+struct RunOut: Equatable {
+    let weekly: Bool
+    let resetsAt: Date?
 }
 
 /// What the ring on the shut bar draws: the 5-hour window, the one that stops work soonest.
@@ -290,6 +307,11 @@ final class PlanLimitsClient: ObservableObject {
         var ring: LimitRing? {
             guard case .limits(let limits, let asOf) = self, let limit = limits.fiveHour else { return nil }
             return LimitRing(limit: limit, stale: asOf != nil)
+        }
+
+        func runOut(now: Date) -> RunOut? {
+            guard case .limits(let limits, _) = self else { return nil }
+            return limits.runOut(now: now)
         }
     }
 

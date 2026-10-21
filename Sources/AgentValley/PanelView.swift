@@ -177,6 +177,32 @@ enum Format {
 
     static let limitsLoading = "Checking limits…"
 
+    /// The sign the crew hangs up when a plan limit has run out.
+    static let fishingSign = "Gone fishin\u{2019}"
+
+    /// Beside the sign, in the crew's words: which limit it was, and where they went.
+    static func fishingLine(weekly: Bool) -> String {
+        weekly ? "The weekly limit ran out. Norm packed the cooler for the whole trip."
+            : "The 5-hour limit ran out, so we went to the lake. Walt swears they're biting."
+    }
+
+    private static let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+    /// When the sign says the crew is back: the time today, or tomorrow, or the day's name. On a
+    /// 24-hour clock in English, as the quiet hours are, whatever the Mac's language and calendar.
+    static func backAt(_ date: Date?, now: Date, calendar: Calendar = HistoryReport.calendar()) -> String {
+        guard let date else { return "Back soon" }
+        // A reset a moment before the minute is that minute.
+        let at = calendar.dateComponents([.weekday, .hour, .minute], from: date.addingTimeInterval(30))
+        let time = String(format: "%02d:%02d", at.hour ?? 0, at.minute ?? 0)
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: date.addingTimeInterval(30))).day ?? 0
+        switch days {
+        case ...0: return "Back at \(time)"
+        case 1: return "Back tomorrow at \(time)"
+        default: return "Back \(weekdays[((at.weekday ?? 1) - 1) % 7]) at \(time)"
+        }
+    }
+
     /// What to tell the person under the Plan limits switch: the cause, and what they can do.
     static func limitsReason(_ failure: LimitsFailure) -> String {
         switch failure {
@@ -919,7 +945,11 @@ struct PanelView: View {
                                    size: 18, flag: AgentStore.flag(sessions), dot: bar.waiting == 0, still: lead.isStalled,
                                    activity: lead.activity)
                     } else {
-                        Mug(size: 18)
+                        // Once a plan limit has run out, a fish on the line: the crew went fishing.
+                        // Looked at twice a minute, so the coffee is back once the limit resets.
+                        TimelineView(.periodic(from: .now, by: 30)) { context in
+                            if limits.display.runOut(now: context.date) != nil { Fish(size: 18) } else { Mug(size: 18) }
+                        }
                     }
                 }
                     // One hop when the cursor arrives: the bar noticed. Keyframes drive the offset
@@ -1338,6 +1368,12 @@ struct PanelView: View {
                 // One line whatever it says, so the cards under it do not move as the ring does.
                 // What a chord answers is drawn on the buttons it fires.
                 notice(Format.keysHint(app: list.walked(idleExpanded: state.idleExpanded).first { $0.id == state.selected }?.owner?.name), motion).lineLimit(1)
+            }
+            // While a plan limit has run out, the crew's sign over the list. It goes when the
+            // numbers do: opening the panel fetches them again once they are a minute old.
+            if let out = limits.display.runOut(now: Date()) {
+                GoneFishin(out: out, now: Date())
+                    .modifier(Reveal(shown: state.expanded, index: 0, motion: motion))
             }
             if let empty = Format.emptyState(loaded: store.loaded, rootMissing: store.rootMissing, isEmpty: list.cards.isEmpty && list.folded.isEmpty && away.isEmpty) {
                 // A folder that is not there is something wrong, and as bright as every other such line.

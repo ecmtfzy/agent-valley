@@ -10,6 +10,16 @@ import XCTest
 /// For looking at a change while the owner works on this Mac: it moves no pointer, presses no
 /// key and puts nothing on the screen. It is not a click or a key on the panel itself, and what
 /// was checked this way should be said to have been checked this way.
+/// Hands the panel the same plan limits every time it asks.
+private struct FixedLimits: PlanLimitsSource {
+    let limits: PlanLimits
+
+    func fetch(_ done: @escaping (Result<PlanLimits, LimitsFailure>) -> Void) -> () -> Void {
+        done(.success(limits))
+        return {}
+    }
+}
+
 @MainActor
 final class PanelPicturesTests: XCTestCase {
     private var host: NSHostingView<PanelView>!
@@ -130,7 +140,18 @@ final class PanelPicturesTests: XCTestCase {
             : scene.hasPrefix("history") ? try madeUpLedger(in: home + "/history")
             : UsageLedger(root: root, database: URL(fileURLWithPath: home + "/history.sqlite"))
         let updates = Updates(info: [:])
-        host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: PlanLimitsClient(), answers: answers,
+        // For the fishing scenes, a plan limit that has run out: the 5-hour one, or the weekly one.
+        let limits: PlanLimitsClient
+        if scene.hasPrefix("fishing") {
+            let soon = Date().addingTimeInterval(2 * 3600 + 600), later = Date().addingTimeInterval(3 * 86400)
+            limits = PlanLimitsClient(source: FixedLimits(limits: scene == "fishing-week"
+                ? PlanLimits(fiveHour: PlanLimit(usedPercent: 12, resetsAt: soon), week: PlanLimit(usedPercent: 100, resetsAt: later))
+                : PlanLimits(fiveHour: PlanLimit(usedPercent: 100, resetsAt: soon), week: PlanLimit(usedPercent: 64, resetsAt: later))))
+            limits.setEnabled(true)
+        } else {
+            limits = PlanLimitsClient()
+        }
+        host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: limits, answers: answers,
                                                  sound: SoundPlayer(settings: settings), usage: usage, updates: updates))
         // Far to the left of any display. In the window list, so that it draws and animates.
         let window = NSWindow(contentRect: CGRect(x: -4000, y: 0, width: 600, height: 960), styleMask: [.borderless], backing: .buffered, defer: false)
@@ -256,6 +277,16 @@ final class PanelPicturesTests: XCTestCase {
             open()
             picture("page")
             spoken("page")
+        case "fishing", "fishing-week":
+            // Everyone done for now, so that the bar has the fish and the sign hangs over an empty list.
+            for card in store.sessions { state.hidden[card.id] = Date() }
+            picture("shut")
+            open()
+            picture("open")
+            spoken("open")
+            // Then over the sessions, back in the list.
+            state.hidden = [:]
+            picture("over-list")
         case "reader":
             open()
             spoken("list-open")

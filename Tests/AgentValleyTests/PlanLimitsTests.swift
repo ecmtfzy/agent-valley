@@ -224,4 +224,25 @@ final class PlanLimitsTests: XCTestCase {
         // Numbers kept from before a refresh that failed: still drawn, and marked as old.
         XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: nil), asOf: Date()).ring, LimitRing(limit: five, stale: true))
     }
+
+    // The crew goes fishing only while a window has run out, and is back with the later of two.
+    func testARunOutWindowIsTheOneThatComesBackLast() {
+        let now = date("2026-10-21T08:00:00Z")
+        let soon = now.addingTimeInterval(3600), later = now.addingTimeInterval(3 * 86400)
+        XCTAssertNil(PlanLimits(fiveHour: PlanLimit(usedPercent: 99, resetsAt: soon), week: nil).runOut(now: now))
+        XCTAssertEqual(PlanLimits(fiveHour: PlanLimit(usedPercent: 100, resetsAt: soon), week: PlanLimit(usedPercent: 40, resetsAt: later)).runOut(now: now),
+                       RunOut(weekly: false, resetsAt: soon))
+        XCTAssertEqual(PlanLimits(fiveHour: PlanLimit(usedPercent: 100, resetsAt: soon), week: PlanLimit(usedPercent: 100, resetsAt: later)).runOut(now: now),
+                       RunOut(weekly: true, resetsAt: later))
+        // Out as soon as the meter says 100%.
+        XCTAssertNotNil(PlanLimits(fiveHour: PlanLimit(usedPercent: 99.6, resetsAt: soon), week: nil).runOut(now: now))
+        // Past its reset time it is back, whatever the last numbers said.
+        XCTAssertNil(PlanLimits(fiveHour: PlanLimit(usedPercent: 100, resetsAt: now), week: nil).runOut(now: now))
+        // With no reset time it is out until new numbers say otherwise.
+        XCTAssertEqual(PlanLimits(fiveHour: nil, week: PlanLimit(usedPercent: 104, resetsAt: nil)).runOut(now: now), RunOut(weekly: true, resetsAt: nil))
+        typealias Display = PlanLimitsClient.Display
+        let out = PlanLimits(fiveHour: PlanLimit(usedPercent: 100, resetsAt: soon), week: nil)
+        XCTAssertNil(Display.off.runOut(now: now))
+        XCTAssertNotNil(Display.limits(out, asOf: now).runOut(now: now))
+    }
 }

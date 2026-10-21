@@ -510,7 +510,6 @@ struct Pixels: View {
 /// Motion the steam holds still.
 struct Mug: View {
     var size: CGFloat = 18
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The steam leans one way, then the other. Below it nothing moves.
     static let frames: [[String]] = [[
@@ -549,9 +548,65 @@ struct Mug: View {
     }
 
     var body: some View {
+        Flipbook(frames: Self.frames, colour: Self.colour, size: size)
+    }
+}
+
+/// What the bar shows in the mug's place once a plan limit has run out: the crew has gone
+/// fishing, and a fish on the line flicks its tail. Under Reduce Motion it holds still.
+struct Fish: View {
+    var size: CGFloat = 18
+
+    /// The tail up, then down. The line and the body stay put.
+    static let frames: [[String]] = [[
+        ".l...FF...F.",
+        ".l.FFFFF.FF.",
+        ".lFffffffFF.",
+        ".ffeffffffF.",
+        "..wwwwwwwF..",
+        "...wwwww....",
+        "............",
+    ], [
+        ".l...FF.....",
+        ".l.FFFFF....",
+        ".lFffffffF..",
+        ".ffeffffffF.",
+        "..wwwwwwwFF.",
+        "...wwwww.FF.",
+        "..........F.",
+    ]].map { Array(repeating: ".l..........", count: 5) + $0 }
+
+    static func hex(_ cell: Character) -> UInt32? {
+        switch cell {
+        case "l": 0xFFFFFF  // the line
+        case "F": 0x4F7A8C  // its back, fins and tail
+        case "f": 0x8DB6C4  // its silver side
+        case "w": 0xE6EEF0  // its belly
+        case "e": 0x1C1C1C  // its eye
+        default: nil
+        }
+    }
+
+    static func colour(_ cell: Character) -> Color? {
+        hex(cell).map(rgb)
+    }
+
+    var body: some View {
+        Flipbook(frames: Self.frames, colour: Self.colour, size: size)
+    }
+}
+
+/// Two frames in turn, a little under a second each. Under Reduce Motion the first, held still.
+struct Flipbook: View {
+    let frames: [[String]]
+    let colour: (Character) -> Color?
+    let size: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
         TimelineView(.animation(minimumInterval: 0.8, paused: reduceMotion)) { context in
-            let frame = reduceMotion ? 0 : Int(context.date.timeIntervalSinceReferenceDate / 0.8) % 2
-            Pixels(cells: Self.frames[frame].map(Array.init), size: size, colour: Self.colour)
+            let frame = reduceMotion ? 0 : Int(context.date.timeIntervalSinceReferenceDate / 0.8) % frames.count
+            Pixels(cells: frames[frame].map(Array.init), size: size, colour: colour)
         }
         .accessibilityHidden(true)
     }

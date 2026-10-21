@@ -41,6 +41,22 @@ final class MascotTests: XCTestCase {
         XCTAssertTrue(changed.allSatisfy { !Mug.frames[0][$0].contains { "pPn".contains($0) } }, "only the steam moves")
     }
 
+    // Once a plan limit has run out the bar shows a fish on the line, flicking its tail.
+    func testTheFishFlicksItsTailAndNothingElse() {
+        XCTAssertEqual(Fish.frames.count, 2)
+        for frame in Fish.frames {
+            XCTAssertEqual(frame.count, 12)
+            for row in frame {
+                XCTAssertEqual(row.count, 12)
+                for cell in row where cell != "." { XCTAssertNotNil(Fish.colour(cell), "\(cell)") }
+            }
+        }
+        let moved = (0..<12).flatMap { y in (0..<12).compactMap { x in
+            Array(Fish.frames[0][y])[x] != Array(Fish.frames[1][y])[x] ? x : nil } }
+        XCTAssertFalse(moved.isEmpty)
+        XCTAssertTrue(moved.allSatisfy { $0 >= 9 }, "only the tail moves")
+    }
+
     // A beard in nearly the colour of the shirt under it runs into it: of all the hair and
     // shirts, these two pairs are that close, and only these.
     func testOnlyGingerOnOrangeAndBlondeOnGoldAreTooClose() {

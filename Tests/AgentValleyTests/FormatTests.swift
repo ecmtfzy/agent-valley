@@ -727,4 +727,21 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.exportPDFHint, "Makes a PDF report of this period and opens it")
         XCTAssertEqual(Format.couldNotMakePDF("The disk is full."), "Couldn't make the PDF. The disk is full.")
     }
+
+    // The sign on the bar says when the crew is back, in English on a 24-hour clock.
+    func testTheFishingSignSaysWhenTheCrewIsBack() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Bangkok")!
+        let now = ISO8601DateFormatter().date(from: "2026-10-21T03:00:00Z")!  // Wednesday 10:00 in Bangkok
+        func back(_ hours: Double) -> String { Format.backAt(now.addingTimeInterval(hours * 3600), now: now, calendar: calendar) }
+        XCTAssertEqual(back(5), "Back at 15:00")
+        // A reset a moment before the minute reads as that minute.
+        XCTAssertEqual(back(5 - 0.3 / 3600), "Back at 15:00")
+        XCTAssertEqual(back(23), "Back tomorrow at 09:00")
+        XCTAssertEqual(back(71), "Back Saturday at 09:00")
+        XCTAssertEqual(Format.backAt(nil, now: now, calendar: calendar), "Back soon")
+        // The Mac's own calendar may count years otherwise: the default is the common era's.
+        XCTAssertEqual(Format.backAt(now.addingTimeInterval(71 * 3600), now: now).hasPrefix("Back "), true)
+        XCTAssertNotEqual(Format.fishingLine(weekly: false), Format.fishingLine(weekly: true))
+    }
 }
