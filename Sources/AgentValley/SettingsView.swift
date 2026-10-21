@@ -235,14 +235,14 @@ struct SettingsView: View {
                 SettingRow(title: Format.updatesTitle, caption: Format.updatesCaption) {
                     Switch(title: Format.updatesTitle, isOn: Binding(get: { updates.checksAutomatically }, set: { updates.checksAutomatically = $0 }))
                 }
-                Button { updates.checkNow() } label: { quietLabel(Format.checkNow) }
+                Button { updates.checkNow() } label: { quietLabel(Format.checkNow, symbol: "arrow.triangle.2.circlepath") }
                     .buttonStyle(.plain)
             }
         }
         SettingGroup {
             // The crew's tip jar. The browser opens it; the app itself stays offline.
             Button { NSWorkspace.shared.open(URL(string: "https://github.com/sponsors/morsechimwai")!) } label: {
-                quietLabel("Sponsor the crew")
+                quietLabel("Sponsor the crew", symbol: "heart")
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens GitHub Sponsors in your browser")
@@ -253,21 +253,25 @@ struct SettingsView: View {
                     version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
                     macOS: ProcessInfo.processInfo.operatingSystemVersion, mac: Self.macModel))
             } label: {
-                quietLabel("Report a bug")
+                quietLabel("Report a bug", symbol: "ladybug")
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens a new GitHub issue in your browser")
         }
         // Last, quiet and out of the boxes: the rarest action, kept away from anything clicked in passing.
         Button { NSApp.terminate(nil) } label: {
-            quietLabel(Format.quit(appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String))
+            quietLabel(Format.quit(appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String), symbol: "power")
         }
         .buttonStyle(.plain)
     }
 
-    /// A row-wide button in grey text that lights up under the pointer.
-    private func quietLabel(_ title: String) -> some View {
-        Text(verbatim: title)
+    /// A row-wide button in grey text that lights up under the pointer, its symbol before it.
+    /// The symbols stand in one column, whatever their width; the words say what they do.
+    private func quietLabel(_ title: String, symbol: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol).font(.system(size: 11)).frame(width: 14).accessibilityHidden(true)
+            Text(verbatim: title)
+        }
             .foregroundStyle(.white.opacity(0.6))
             .padding(.horizontal, 6)
             .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)

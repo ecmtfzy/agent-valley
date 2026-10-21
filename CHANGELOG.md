@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.6 — 2026-10-21
+
+- Every button on the About page has a small picture in front of it now. Report a bug got a ladybug, the only kind of bug we're happy to see.
+
 ## 0.2.5 — 2026-10-21
 
 - Settings had grown into one long scroll, and we kept losing Quit at the bottom of it. Now there are five pages: General, Sounds, Shortcuts, Claude Code and About, and their names stay at the top while you scroll. Quit lives on About.
