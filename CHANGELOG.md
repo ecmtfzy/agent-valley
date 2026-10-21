@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4 — 2026-10-21
+
+- When the weekly limit runs out we don't go fishing, we take the van. The bar shows it on the road, and the sign over the list says On vacation.
+- The signs are painted boards on a real rope now, lettered in the same square pixels as us.
+
 ## 0.2.3 — 2026-10-21
 
 - When your 5-hour or weekly limit hits 100%, we go fishing. The coffee on the bar turns into a fish on the line, and a sign over the list says when we're back. It needs Plan limits on in Settings.

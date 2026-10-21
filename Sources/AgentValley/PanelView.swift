@@ -177,12 +177,14 @@ enum Format {
 
     static let limitsLoading = "Checking limits…"
 
-    /// The sign the crew hangs up when a plan limit has run out.
-    static let fishingSign = "Gone fishin\u{2019}"
+    /// The sign the crew hangs up when a plan limit has run out: a few hours out fishing, or days away.
+    static func fishingSign(weekly: Bool) -> String {
+        weekly ? "On vacation" : "Gone fishin\u{2019}"
+    }
 
     /// Beside the sign, in the crew's words: which limit it was, and where they went.
     static func fishingLine(weekly: Bool) -> String {
-        weekly ? "The weekly limit ran out. Norm packed the cooler for the whole trip."
+        weekly ? "The weekly limit ran out. Everyone piled into the van, and Felix brought the bongos."
             : "The 5-hour limit ran out, so we went to the lake. Walt swears they're biting."
     }
 
@@ -948,7 +950,11 @@ struct PanelView: View {
                         // Once a plan limit has run out, a fish on the line: the crew went fishing.
                         // Looked at twice a minute, so the coffee is back once the limit resets.
                         TimelineView(.periodic(from: .now, by: 30)) { context in
-                            if limits.display.runOut(now: context.date) != nil { Fish(size: 18) } else { Mug(size: 18) }
+                            if let out = limits.display.runOut(now: context.date) {
+                                if out.weekly { Van(size: 18) } else { Fish(size: 18) }
+                            } else {
+                                Mug(size: 18)
+                            }
                         }
                     }
                 }

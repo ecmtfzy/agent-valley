@@ -141,8 +141,11 @@ final class PanelPicturesTests: XCTestCase {
             : UsageLedger(root: root, database: URL(fileURLWithPath: home + "/history.sqlite"))
         let updates = Updates(info: [:])
         // For the fishing scenes, a plan limit that has run out: the 5-hour one, or the weekly one.
+        // Their signs' pictures from the repo: here there is no app bundle to find them in.
         let limits: PlanLimitsClient
         if scene.hasPrefix("fishing") {
+            SignArt.folder = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                .deletingLastPathComponent().appendingPathComponent("signs")
             let soon = Date().addingTimeInterval(2 * 3600 + 600), later = Date().addingTimeInterval(3 * 86400)
             limits = PlanLimitsClient(source: FixedLimits(limits: scene == "fishing-week"
                 ? PlanLimits(fiveHour: PlanLimit(usedPercent: 12, resetsAt: soon), week: PlanLimit(usedPercent: 100, resetsAt: later))

@@ -57,6 +57,20 @@ final class MascotTests: XCTestCase {
         XCTAssertTrue(moved.allSatisfy { $0 >= 9 }, "only the tail moves")
     }
 
+    // Once the weekly limit has run out the bar shows the crew's van, the road going by under it.
+    func testTheVanDrivesOnAndOnlyTheRoadMoves() {
+        XCTAssertEqual(Van.frames.count, 2)
+        for frame in Van.frames {
+            XCTAssertEqual(frame.count, 12)
+            for row in frame {
+                XCTAssertEqual(row.count, 12)
+                for cell in row where cell != "." { XCTAssertNotNil(Van.colour(cell), "\(cell)") }
+            }
+        }
+        let changed = Van.frames[0].indices.filter { Van.frames[0][$0] != Van.frames[1][$0] }
+        XCTAssertEqual(changed, [11], "only the road moves")
+    }
+
     // A beard in nearly the colour of the shirt under it runs into it: of all the hair and
     // shirts, these two pairs are that close, and only these.
     func testOnlyGingerOnOrangeAndBlondeOnGoldAreTooClose() {

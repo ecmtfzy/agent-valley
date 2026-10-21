@@ -596,6 +596,47 @@ struct Fish: View {
     }
 }
 
+/// In the fish's place once the weekly limit has run out: the crew took the van, surfboard on
+/// the roof, and the road goes by under it. Under Reduce Motion it holds still.
+struct Van: View {
+    var size: CGFloat = 18
+
+    static let frames: [[String]] = ["g...g...g...", "..g...g...g."].map { road in [
+        "............",
+        "............",
+        "...tttttttt.",
+        "..pppppppp..",
+        ".pwwpwwpwwp.",
+        ".pwwpwwpwwp.",
+        ".pppppppppp.",
+        ".oooooooooo.",
+        ".oooooooooo.",
+        ".oKKooooKKo.",
+        "..KK....KK..",
+        road,
+    ] }
+
+    static func hex(_ cell: Character) -> UInt32? {
+        switch cell {
+        case "p": 0xF2EAD8  // the upper half, the mug's cream
+        case "o": 0xE07B39  // the lower half, the mug's orange
+        case "w": 0x3A4A58  // windows
+        case "t": 0x3E9C9A  // the surfboard
+        case "K": 0x222222  // tyres
+        case "g": 0x808080  // the road's lines
+        default: nil
+        }
+    }
+
+    static func colour(_ cell: Character) -> Color? {
+        hex(cell).map(rgb)
+    }
+
+    var body: some View {
+        Flipbook(frames: Self.frames, colour: Self.colour, size: size)
+    }
+}
+
 /// Two frames in turn, a little under a second each. Under Reduce Motion the first, held still.
 struct Flipbook: View {
     let frames: [[String]]

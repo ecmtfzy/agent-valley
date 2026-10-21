@@ -744,4 +744,32 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.backAt(now.addingTimeInterval(71 * 3600), now: now).hasPrefix("Back "), true)
         XCTAssertNotEqual(Format.fishingLine(weekly: false), Format.fishingLine(weekly: true))
     }
+
+    // Everything a sign can say is in its pixel font: a letter it lacks would simply be missing.
+    func testTheSignsFontHasEveryLetterTheySay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Bangkok")!
+        let now = ISO8601DateFormatter().date(from: "2026-10-21T03:00:00Z")!
+        var said = [Format.fishingSign(weekly: false), Format.fishingSign(weekly: true), Format.backAt(nil, now: now, calendar: calendar)]
+        for hours in stride(from: 0.0, through: 24 * 7, by: 1.25) {
+            said.append(Format.backAt(now.addingTimeInterval(hours * 3600), now: now, calendar: calendar))
+        }
+        for words in said { XCTAssertTrue(PixelFont.covers(words), words) }
+        XCTAssertNotEqual(Format.fishingSign(weekly: false), Format.fishingSign(weekly: true))
+        // A pixel apart, letters line up: "AT" is a 5-wide A, a gap and a 5-wide T.
+        XCTAssertEqual(PixelFont.cells("AT", bold: false).width, 11)
+        XCTAssertEqual(PixelFont.cells("AT", bold: true).width, 13)
+    }
+
+    // The boards' pictures are where build-app.sh copies them from, twice the size they are drawn.
+    func testTheSignsPicturesAreTwiceTheirSize() throws {
+        let signs = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("signs")
+        for art in [SignArt.fishing, SignArt.vacation] {
+            let picture = try XCTUnwrap(NSImage(contentsOf: signs.appendingPathComponent(art.file))?.representations.first, art.file)
+            XCTAssertEqual(picture.pixelsWide, Int(art.size.width * 2), art.file)
+            XCTAssertEqual(picture.pixelsHigh, Int(art.size.height * 2), art.file)
+            XCTAssertLessThan(art.boardMiddle, art.size.height)
+        }
+    }
 }
