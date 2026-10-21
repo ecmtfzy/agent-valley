@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.5 — 2026-10-21
+
+- Settings had grown into one long scroll, and we kept losing Quit at the bottom of it. Now there are five pages: General, Sounds, Shortcuts, Claude Code and About, and their names stay at the top while you scroll. Quit lives on About.
+- A setting's name is bold now, with what it does in smaller grey underneath. Rows that only matter when another switch is on stay on the page greyed out, instead of disappearing.
+
 ## 0.2.4 — 2026-10-21
 
 - When the weekly limit runs out we don't go fishing, we take the van. The bar shows it on the road, and the sign over the list says On vacation.

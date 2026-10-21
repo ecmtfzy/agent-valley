@@ -32,10 +32,10 @@ export function Install() {
           Once a day we check for a new version, and we ask before we install it.
         </p>
         <p className="small">
-          We moved house in 0.2. On 0.1 from Homebrew? Run <code>brew uninstall --formula <span className="nw">agent-valley</span></code>, then install again as above. Using the plugin? Copy its command from Settings once more, so it finds the new address. Put the crew in your terminal? Run its install command from the Actions settings once more too.
+          We moved house in 0.2. On 0.1 from Homebrew? Run <code>brew uninstall --formula <span className="nw">agent-valley</span></code>, then install again as above. Using the plugin? Copy its command from Settings once more, so it finds the new address. Put the crew in your terminal? Run its install command from the Claude Code settings once more too.
         </p>
         <p className="small">
-          To remove: first take out what you added yourself. For the plugin, run <code>claude plugin uninstall <span className="nw">notch-answers@agent-valley</span> &amp;&amp; claude plugin marketplace remove <span className="nw">agent-valley</span></code>. For the crew in your terminal, run the command under How to take it out in the app&apos;s Actions settings. Then quit the app and move it from Applications to the Bin, or run <code>brew uninstall --cask <span className="nw">agent-valley</span></code>. Your <Word id="history">History</Word> stays in ~/Library/<wbr />Application Support/<wbr />AgentValley until you delete that folder.
+          To remove: first take out what you added yourself. For the plugin, run <code>claude plugin uninstall <span className="nw">notch-answers@agent-valley</span> &amp;&amp; claude plugin marketplace remove <span className="nw">agent-valley</span></code>. For the crew in your terminal, run the command under How to take it out in the app&apos;s Claude Code settings. Then quit the app and move it from Applications to the Bin, or run <code>brew uninstall --cask <span className="nw">agent-valley</span></code>. Your <Word id="history">History</Word> stays in ~/Library/<wbr />Application Support/<wbr />AgentValley until you delete that folder.
         </p>
         <p className="small">
           Stuck? <a href="https://github.com/morsechimwai/agent-valley/issues">Ask on GitHub</a>.

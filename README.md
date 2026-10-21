@@ -41,7 +41,7 @@ Signed, and Apple checked our papers. Needs macOS 15 or later and Claude Code. M
 
 Once a day we check for a new version, and we ask before we install it.
 
-We moved house in 0.2. On 0.1 from Homebrew? Run `brew uninstall --formula agent-valley`, then install again as above. Using the plugin? Copy its command from Settings once more, so it finds the new address. Put the crew in your terminal? Run its install command from the Actions settings once more too.
+We moved house in 0.2. On 0.1 from Homebrew? Run `brew uninstall --formula agent-valley`, then install again as above. Using the plugin? Copy its command from Settings once more, so it finds the new address. Put the crew in your terminal? Run its install command from the Claude Code settings once more too.
 
 <details>
 <summary>Remove</summary>
@@ -49,7 +49,7 @@ We moved house in 0.2. On 0.1 from Homebrew? Run `brew uninstall --formula agent
 First take out what you added yourself:
 
 - The plugin: `claude plugin uninstall notch-answers@agent-valley && claude plugin marketplace remove agent-valley`
-- The crew in your terminal: the command under How to take it out, in the app's Actions settings.
+- The crew in your terminal: the command under How to take it out, in the app's Claude Code settings.
 
 Then quit the app and move it from Applications to the Bin, or run `brew uninstall --cask agent-valley`. Your History stays in `~/Library/Application Support/AgentValley` until you delete that folder.
 
@@ -69,8 +69,8 @@ When an agent asks a question or waits for permission, a red count appears besid
 
 <p align="center"><img src="docs/needs-you.gif" alt="The top of a Mac screen. An agent works in a terminal while the crew stands in the valley. It asks to run git push origin preview: the terminal waits, a red 1 appears beside the notch, and the one who asks waves. The pointer opens the panel over the terminal and presses Allow once. The panel shuts and the push goes through." width="544"></p>
 
-- **Jump to its app in one click.** Turn on Go to the session's tab in the Actions settings, and Terminal and iTerm2 open the exact tab. Ghostty does too, unless two sessions run in the same folder.
-- **Answer from the notch.** Allow once or Deny, using a plugin you install yourself: turn on Answer from the notch in the Actions settings, run the command it shows, then start Claude Code again.
+- **Jump to its app in one click.** Turn on Go to the session's tab in the Shortcuts settings, and Terminal and iTerm2 open the exact tab. Ghostty does too, unless two sessions run in the same folder.
+- **Answer from the notch.** Allow once or Deny, using a plugin you install yourself: turn on Answer from the notch in the Claude Code settings, run the command it shows, then start Claude Code again.
 - **Sounds stay off** until you turn them on.
 
 ### See what each project cost
@@ -81,7 +81,7 @@ Open History from the chart button at the top of the panel. Pick a day, a week o
 
 ### The crew in your terminal too
 
-Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. We hold the same things there as in the notch, but we keep still. One command from the app's Actions settings sets it up, and it keeps working with the app closed. We travel as a font, and we've been seen in Terminal, iTerm2, Ghostty and Cursor.
+Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. We hold the same things there as in the notch, but we keep still. One command from the app's Claude Code settings sets it up, and it keeps working with the app closed. We travel as a font, and we've been seen in Terminal, iTerm2, Ghostty and Cursor.
 
 <p align="center"><img src="docs/terminal.png" alt="Claude Code in a terminal. Under the prompt, the status line shows Sunny's face, Opus 5.5 and Max 20x, then bars for context, the 5-hour limit and the weekly limit. Below it, two sub-agent rows, each with a little face, its task, time, model, folder, branch and current step." width="544"></p>
 

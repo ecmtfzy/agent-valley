@@ -2,16 +2,24 @@ import AppKit
 import ServiceManagement
 import SwiftUI
 
-/// The pages of the settings: one long page had grown to twenty rows, and four pages split it
-/// until two of them held a row or two. Two since 2026-10-15.
+/// The pages of the settings, split the way a Mac app's settings are. One long page had grown to
+/// twenty rows; four pages, until 2026-10-15, left two of them a row or two; two pages then grew
+/// to fifteen rows on one. Five since 2026-10-21, each on one subject, and none of them bare: a
+/// row that hangs on a switch is dimmed while it is off, not taken away.
 enum SettingsTab: String, CaseIterable {
-    /// What the list shows, the sounds, and the app itself, with the way out at the end.
+    /// What the list shows and counts, and opening at login.
     case general
-    /// What a click or a key does, and what reaches outside the app.
-    case actions
+    /// The sounds, and the hours they keep still.
+    case sounds
+    /// The key that opens the panel, and where a session leads.
+    case shortcuts
+    /// What is put into Claude Code by hand: the plugin that answers, and the crew in the terminal.
+    case claudeCode
+    /// Which app this is and what it will not do, its updates, and the way out at the end.
+    case about
 
     /// The word on its tab.
-    var label: String { rawValue.capitalized }
+    var label: String { self == .claudeCode ? "Claude Code" : rawValue.capitalized }
 }
 
 struct SettingsView: View {
@@ -31,46 +39,76 @@ struct SettingsView: View {
     @State private var loginError: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 13) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 // The way back, in words: the gear that led here is the only other one.
                 BackToAgents(action: back)
                 Spacer(minLength: 0)
                 PageTabs(title: "Settings pages", pages: SettingsTab.allCases, label: { $0.label }, selection: $tab)
             }
-            switch tab {
-            case .general:
-                if updates.oldCopyLeft { oldCopy }
-                list
-                sounds
-                app
-            case .actions: actions
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            // What scrolls under it does not show through, and fades in across the room under
+            // the pages rather than being cut through a line of words. Within it: unscrolled,
+            // nothing of the page is under it.
+            .background {
+                VStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(colors: [.black, .black.opacity(0)], startPoint: .top, endPoint: .bottom).frame(height: 12)
+                }
             }
+            // The way back and the pages stay at the top while a long page scrolls under them:
+            // moved down by as far as the page has gone up. Not a pinned header of a lazy
+            // stack: that is drawn after the page, and a screen reader read the pages last.
+            .visualEffect { content, proxy in
+                content.offset(y: max(0, -proxy.frame(in: .scrollView).minY))
+            }
+            .zIndex(1)
+            VStack(alignment: .leading, spacing: 12) {
+                switch tab {
+                case .general: general
+                case .sounds: sounds
+                case .shortcuts: shortcuts
+                case .claudeCode: claudeCode
+                case .about: about
+                }
+            }
+            .padding([.horizontal, .bottom], 14)
         }
-        .padding(14)
     }
 
-    @ViewBuilder private var list: some View {
-        SettingRow(title: "Idle sessions", caption: Format.idleCaption) {
-            ChoiceBar(title: "Idle sessions", choices: IdleSessions.allCases, label: { $0.label }, selection: $settings.idleSessions)
+    @ViewBuilder private var general: some View {
+        SettingGroup {
+            SettingRow(title: "Idle sessions", caption: Format.idleCaption) {
+                ChoiceBar(title: "Idle sessions", choices: IdleSessions.allCases, label: { $0.label }, selection: $settings.idleSessions)
+            }
+            // The panel's own two words for what has stopped: a session is idle, an agent is done.
+            SettingRow(title: Format.keepTitle, caption: Format.keepCaption) {
+                ChoiceBar(title: Format.keepTitle, choices: Settings.keepFinishedChoices, label: { "\($0)m" }, selection: $settings.keepFinishedMinutes)
+            }
         }
-        // The panel's own two words for what has stopped: a session is idle, an agent is done.
-        SettingRow(title: Format.keepTitle, caption: Format.keepCaption) {
-            ChoiceBar(title: Format.keepTitle, choices: Settings.keepFinishedChoices, label: { "\($0)m" }, selection: $settings.keepFinishedMinutes)
+        SettingGroup {
+            SettingRow(title: "Plan limits", caption: Format.limitsCaption, note: limitsNote) {
+                Switch(title: "Plan limits", isOn: $settings.planLimits)
+            }
+            SettingRow(title: "Token use", caption: Format.usageCaption) {
+                Switch(title: "Token use", isOn: $settings.tokenUse)
+            }
         }
-        SettingRow(title: "Plan limits", caption: Format.limitsCaption, note: limitsNote) {
-            Switch(title: "Plan limits", isOn: $settings.planLimits)
-        }
-        SettingRow(title: "Token use", caption: Format.usageCaption) {
-            Switch(title: "Token use", isOn: $settings.tokenUse)
+        SettingGroup {
+            SettingRow(title: "Open at login", note: loginError) {
+                Switch(title: "Open at login", isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin))
+            }
         }
     }
 
     @ViewBuilder private var sounds: some View {
-        SettingRow(title: "Sounds", caption: Format.soundsCaption) {
-            Switch(title: "Sounds", isOn: $settings.sounds)
+        SettingGroup {
+            SettingRow(title: "Sounds", caption: Format.soundsCaption) {
+                Switch(title: "Sounds", isOn: $settings.sounds)
+            }
         }
-        if settings.sounds {
+        SettingGroup {
             SettingRow(title: "When an agent needs you") {
                 Switch(title: "Sound when an agent needs you", isOn: $settings.soundNeedsYou)
             }
@@ -80,10 +118,13 @@ struct SettingsView: View {
             SettingRow(title: "Remind again", caption: Format.remindCaption) {
                 ChoiceBar(title: "Remind again", choices: Settings.remindChoices, label: { $0 == 0 ? "Off" : "\($0)m" }, selection: $settings.remindMinutes)
             }
+        }
+        .dimmed(!settings.sounds)
+        SettingGroup {
             SettingRow(title: "Quiet hours") {
                 Switch(title: "Quiet hours", isOn: $settings.quietHours)
             }
-            if settings.quietHours {
+            Group {
                 SettingRow(title: "From") {
                     HourStepper(title: "Quiet hours from", hour: $settings.quietFrom)
                 }
@@ -91,71 +132,79 @@ struct SettingsView: View {
                     HourStepper(title: "Quiet hours until", hour: $settings.quietUntil)
                 }
             }
+            .dimmed(!settings.quietHours)
         }
+        .dimmed(!settings.sounds)
     }
 
-    @ViewBuilder private var actions: some View {
-        SettingRow(title: "Answer from the notch", caption: Format.answersCaption(on: settings.answers)) {
-            Switch(title: "Answer from the notch", isOn: $settings.answers)
-        }
-        if settings.answers {
-            // The person installs the plugin themselves: the app never writes into ~/.claude.
-            VStack(alignment: .leading, spacing: 6) {
-                let command = Format.installCommand(resources: Bundle.main.resourceURL ?? Bundle.main.bundleURL, replacing: answers.pluginLost)
-                // What it does before how to put it in, and each in full: none of it may end in "…".
-                Group {
-                    Text(verbatim: Format.pluginWhat)
-                    Text(verbatim: Format.installSteps.run).padding(.top, 2)
-                }
-                .foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-                // Whole, however long the app's path is: it is run in a terminal as it stands.
-                commandRow(command, spoken: "Copy the install command")
-                if answers.pluginLost {
-                    // In full white, as a failure on this page is.
-                    Text(verbatim: Format.pluginLostNote).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-                }
-                Group {
-                    Text(verbatim: Format.installSteps.restart)
-                    Text(verbatim: Format.marketplaceNote)
-                }
-                .foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-                if let status = Format.answersStatus(answers.state, now: Date()) {
-                    // A failure in full white, as every other one on this page.
-                    Text(verbatim: status).foregroundStyle(.white.opacity(answers.state.isFailure ? 1 : 0.6)).lineLimit(3).fixedSize(horizontal: false, vertical: true)
-                }
+    @ViewBuilder private var shortcuts: some View {
+        SettingGroup {
+            SettingRow(title: "Shortcut", caption: Format.shortcutCaption, note: settings.shortcut ? shortcutNote : nil) {
+                Switch(title: "Keyboard shortcut", isOn: $settings.shortcut)
             }
-        }
-        // What was put in by hand comes out by hand, and the way out is there whether or not
-        // the switch is on: switching off does not take the plugin out. Under the switch, after
-        // the command that puts it in, and folded: it is rarely needed.
-        Fold(title: Format.removePlugin) {
-            commandRow(Format.uninstallCommand, spoken: "Copy the command that removes the plugin")
-        }
-        SettingRow(title: Format.crewTitle, caption: Format.crewWhat) { EmptyView() }
-        let crewExe = Format.stablePath(Bundle.main.executableURL ?? Bundle.main.bundleURL)
-        Fold(title: Format.crewSetup) {
-            Text(verbatim: Format.crewSteps.run)
-                .foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-            commandRow(Format.crewCommand(executable: crewExe, "install"), spoken: "Copy the command that puts the crew in the terminal")
-            Text(verbatim: Format.crewSteps.restart)
-                .foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-        }
-        Fold(title: Format.removeCrew) {
-            commandRow(Format.crewCommand(executable: crewExe, "uninstall"), spoken: "Copy the command that takes the crew out of the terminal")
-            Text(verbatim: Format.removeCrewNote)
-                .foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-        }
-        SettingRow(title: "Go to the session's tab", caption: Format.tabCaption) {
-            Switch(title: "Go to the session's tab", isOn: $settings.goToTab)
-        }
-        SettingRow(title: "Shortcut", caption: Format.shortcutCaption, note: settings.shortcut ? shortcutNote : nil) {
-            Switch(title: "Keyboard shortcut", isOn: $settings.shortcut)
-        }
-        .id(ScrollTarget.shortcutID)
-        if settings.shortcut {
             // More than one: another app can hold a chord already.
             SettingRow(title: "Shortcut keys") {
                 ChoiceBar(title: "Shortcut keys", choices: ShortcutKey.allCases, label: { Format.shortcut($0) }, selection: $settings.shortcutKey)
+            }
+            .dimmed(!settings.shortcut)
+        }
+        .id(ScrollTarget.shortcutID)
+        SettingGroup {
+            SettingRow(title: "Go to the session's tab", caption: Format.tabCaption) {
+                Switch(title: "Go to the session's tab", isOn: $settings.goToTab)
+            }
+        }
+    }
+
+    @ViewBuilder private var claudeCode: some View {
+        SettingGroup {
+            VStack(alignment: .leading, spacing: 10) {
+                SettingRow(title: "Answer from the notch", caption: Format.answersCaption(on: settings.answers)) {
+                    Switch(title: "Answer from the notch", isOn: $settings.answers)
+                }
+                if settings.answers { install }
+            }
+            // What was put in by hand comes out by hand, and the way out is there whether or not
+            // the switch is on: switching off does not take the plugin out. After the command
+            // that puts it in, and folded: it is rarely needed.
+            Fold(title: Format.removePlugin) {
+                commandRow(Format.uninstallCommand, spoken: "Copy the command that removes the plugin")
+            }
+        }
+        SettingGroup {
+            SettingRow(title: Format.crewTitle, caption: Format.crewWhat) { EmptyView() }
+            let crewExe = Format.stablePath(Bundle.main.executableURL ?? Bundle.main.bundleURL)
+            Fold(title: Format.crewSetup) {
+                Text(verbatim: Format.crewSteps.run).settingCaption()
+                commandRow(Format.crewCommand(executable: crewExe, "install"), spoken: "Copy the command that puts the crew in the terminal")
+                Text(verbatim: Format.crewSteps.restart).settingCaption()
+            }
+            Fold(title: Format.removeCrew) {
+                commandRow(Format.crewCommand(executable: crewExe, "uninstall"), spoken: "Copy the command that takes the crew out of the terminal")
+                Text(verbatim: Format.removeCrewNote).settingCaption()
+            }
+        }
+    }
+
+    /// What the plugin does and how to put it in, under its switch once that is on.
+    /// The person installs it themselves: the app never writes into ~/.claude.
+    @ViewBuilder private var install: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            let command = Format.installCommand(resources: Bundle.main.resourceURL ?? Bundle.main.bundleURL, replacing: answers.pluginLost)
+            // What it does before how to put it in, and each in full: none of it may end in "…".
+            Text(verbatim: Format.pluginWhat).settingCaption()
+            Text(verbatim: Format.installSteps.run).settingCaption().padding(.top, 2)
+            // Whole, however long the app's path is: it is run in a terminal as it stands.
+            commandRow(command, spoken: "Copy the install command")
+            if answers.pluginLost {
+                // In full white, as a failure on this page is.
+                Text(verbatim: Format.pluginLostNote).settingCaption(failure: true)
+            }
+            Text(verbatim: Format.installSteps.restart).settingCaption()
+            Text(verbatim: Format.marketplaceNote).settingCaption()
+            if let status = Format.answersStatus(answers.state, now: Date()) {
+                // A failure in full white, as every other one on this page.
+                Text(verbatim: status).settingCaption(failure: answers.state.isFailure).lineLimit(3)
             }
         }
     }
@@ -168,51 +217,48 @@ struct SettingsView: View {
         commandRow(AppPlace.removeOldFormula, spoken: "Copy the command that takes our 0.1 out")
     }
 
-    @ViewBuilder private var app: some View {
-        SettingRow(title: "Open at login", note: loginError) {
-            Switch(title: "Open at login", isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin))
+    @ViewBuilder private var about: some View {
+        if updates.oldCopyLeft { oldCopy }
+        // Which app this is and what it will not do, for someone it was handed to.
+        SettingGroup {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verbatim: Format.about(name: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String,
+                                            version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String))
+                    .fontWeight(.semibold)
+                // In full: a promise cut short is no promise.
+                Text(verbatim: Format.readOnly(updates: updates.isAvailable)).settingCaption()
+            }
         }
         // Only in a release: a build to work on the app has nothing to update from.
         if updates.isAvailable {
-            SettingRow(title: Format.updatesTitle, caption: Format.updatesCaption) {
-                Switch(title: Format.updatesTitle, isOn: Binding(get: { updates.checksAutomatically }, set: { updates.checksAutomatically = $0 }))
+            SettingGroup {
+                SettingRow(title: Format.updatesTitle, caption: Format.updatesCaption) {
+                    Switch(title: Format.updatesTitle, isOn: Binding(get: { updates.checksAutomatically }, set: { updates.checksAutomatically = $0 }))
+                }
+                Button { updates.checkNow() } label: { quietLabel(Format.checkNow) }
+                    .buttonStyle(.plain)
             }
-            Button { updates.checkNow() } label: {
-                Text(verbatim: Format.checkNow)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .padding(.horizontal, 6)
-                    .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .hoverFill()
-                    .padding(.horizontal, -6)
+        }
+        SettingGroup {
+            // The crew's tip jar. The browser opens it; the app itself stays offline.
+            Button { NSWorkspace.shared.open(URL(string: "https://github.com/sponsors/morsechimwai")!) } label: {
+                quietLabel("Sponsor the crew")
             }
             .buttonStyle(.plain)
+            .accessibilityHint("Opens GitHub Sponsors in your browser")
+            // A new issue with the version, macOS and Mac filled in. Also only the browser: the person
+            // reads it all before they send it.
+            Button {
+                NSWorkspace.shared.open(Format.bugReport(
+                    version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+                    macOS: ProcessInfo.processInfo.operatingSystemVersion, mac: Self.macModel))
+            } label: {
+                quietLabel("Report a bug")
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens a new GitHub issue in your browser")
         }
-        // Which app this is and what it will not do, for someone it was handed to.
-        VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: Format.about(name: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String,
-                                        version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String))
-            // In full: a promise cut short is no promise.
-            Text(verbatim: Format.readOnly(updates: updates.isAvailable)).foregroundStyle(.white.opacity(0.6)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-        }
-        // The crew's tip jar. The browser opens it; the app itself stays offline.
-        Button { NSWorkspace.shared.open(URL(string: "https://github.com/sponsors/morsechimwai")!) } label: {
-            quietLabel("Sponsor the crew")
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Opens GitHub Sponsors in your browser")
-        // A new issue with the version, macOS and Mac filled in. Also only the browser: the person
-        // reads it all before they send it.
-        Button {
-            NSWorkspace.shared.open(Format.bugReport(
-                version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
-                macOS: ProcessInfo.processInfo.operatingSystemVersion, mac: Self.macModel))
-        } label: {
-            quietLabel("Report a bug")
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Opens a new GitHub issue in your browser")
-        // Last and quiet: the rarest action, kept away from anything clicked in passing.
+        // Last, quiet and out of the boxes: the rarest action, kept away from anything clicked in passing.
         Button { NSApp.terminate(nil) } label: {
             quietLabel(Format.quit(appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String))
         }
@@ -476,33 +522,68 @@ struct Legend: View {
     }
 }
 
+/// One setting: its name in bold, what it does under it, smaller and grey. At one size and
+/// weight the two read as one block, and a name could not be told from its caption.
 private struct SettingRow<Control: View>: View {
     let title: String
     var caption: String? = nil
-    /// Something that needs the person's attention, in full white under the caption.
+    /// Something that needs the person's attention, in full white under the name.
     var note: String? = nil
     @ViewBuilder let control: Control
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(verbatim: title)
+                Text(verbatim: title).fontWeight(.semibold)
                 Spacer()
                 control
             }
             // What is wrong comes first, in full white: under a caption of four lines it sat
             // below the edge of the page.
             if let note {
-                Text(verbatim: note).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                Text(verbatim: note).settingCaption(failure: true).lineLimit(2)
             }
             if let caption {
                 // Room for the longest caption in full: a promise about the login must not end in "…".
-                Text(verbatim: caption)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .lineLimit(6)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text(verbatim: caption).settingCaption().lineLimit(6)
             }
         }
+    }
+}
+
+/// Settings on one subject in one box, a thin line between each, as System Settings has them.
+private struct SettingGroup<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(subviews: content) { row in
+                row.padding(.vertical, 10)
+                    .overlay(alignment: .top) { Color.white.opacity(0.08).frame(height: 1) }
+            }
+        }
+        // The first row's line falls on the box's own edge, and is clipped with its corner.
+        .padding(.top, -1)
+        .padding(.horizontal, 12)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+extension Text {
+    /// What a setting does, under its name: a size smaller and grey, or white for a failure.
+    func settingCaption(failure: Bool = false) -> some View {
+        font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(.white.opacity(failure ? 1 : 0.55))
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private extension View {
+    /// A setting that hangs on a switch that is off: there, to be read, but not to be pressed.
+    func dimmed(_ off: Bool) -> some View {
+        disabled(off).opacity(off ? 0.4 : 1)
     }
 }
 

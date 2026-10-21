@@ -520,7 +520,7 @@ enum Format {
     /// The line that unfolds the way out. Not "Remove the plugin": standing there before
     /// anything was installed, that read as if a plugin were already in.
     static let removePlugin = "How to remove the plugin"
-    /// The crew's row on the Actions page: what it does, the two steps, and the way out. It is
+    /// The crew's row on the Claude Code page: what it does, the two steps, and the way out. It is
     /// a command the person runs themselves, like the plugin: the app does not write into ~/.claude.
     static let crewTitle = "Crew in the terminal"
     static let crewWhat = "We show up in Claude Code's terminal too. The status line under the prompt gets this session's face, model, plan and limits, and each sub-agent row gets its face, model and current step. Works with this app closed."
@@ -537,7 +537,7 @@ enum Format {
     /// On the band at the bottom of the settings: what is past the edge.
     /// Under a page of the settings that runs past the edge. Quit is named on the page it is on.
     static func settingsBelow(_ tab: SettingsTab) -> String {
-        tab == .general ? "More and Quit below" : "More settings below"
+        tab == .about ? "More and Quit below" : "More settings below"
     }
     static let moreBelow = "more below"
     /// "For a while" left a person to guess whether quiet meant ten seconds or ten minutes: "a
@@ -766,7 +766,8 @@ struct PanelView: View {
                 }
                 .overlay(alignment: .top) {
                     // Scrolled, the list has gone on above its top edge too, and says so the same way.
-                    let scrolled = state.expanded && !atTop
+                    // Not the settings: their pages stay at the top, and the band would cover them.
+                    let scrolled = state.expanded && !atTop && !state.showingSettings
                     let hidden = AgentStore.arrange(sessions, idle: settings.idleSessions, keeping: answers.settledSessions).cards.filter { above.contains($0.id) }
                     let waiting = AgentStore.count(.needsYou, in: hidden)
                     let label = state.showingPage ? nil : Format.below(sessions: hidden.count, quiet: AgentStore.count(.quiet, in: hidden), needsYou: waiting)
@@ -1342,7 +1343,7 @@ struct PanelView: View {
                 // Where it will be seen, and a click away from where it is put right.
                 Button {
                     // The page the row is on.
-                    state.settingsTab = .actions
+                    state.settingsTab = .shortcuts
                     state.showingSettings = true
                     // To the row itself, once the page is there to scroll.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { scrollTarget = .shortcut }
@@ -1474,15 +1475,15 @@ struct PanelView: View {
             if answers.pluginLost {
                 NoticeLine(text: Format.pluginLostLine, button: Format.pluginLostFix) {
                     // The page with the command, which now takes the old list out first.
-                    state.settingsTab = .actions
+                    state.settingsTab = .claudeCode
                     state.showingSettings = true
                 }
                     .modifier(Reveal(shown: state.expanded, index: list.cards.count + 3, motion: motion))
             }
             if updates.oldCopyLeft {
-                // Settings opens on General, where the command is first.
+                // To About, where the command is first.
                 NoticeLine(text: Format.oldCopyLine, button: Format.pluginLostFix) {
-                    state.settingsTab = .general
+                    state.settingsTab = .about
                     state.showingSettings = true
                 }
                     .modifier(Reveal(shown: state.expanded, index: list.cards.count + 3, motion: motion))

@@ -718,8 +718,9 @@ final class FormatTests: XCTestCase {
 
     // The band under a page that runs past the edge names Quit only on the page that has it.
     func testTheBandUnderTheSettingsNamesQuitOnlyWhereItIs() {
-        XCTAssertEqual(Format.settingsBelow(.general), "More and Quit below")
-        XCTAssertEqual(Format.settingsBelow(.actions), "More settings below")
+        XCTAssertEqual(Format.settingsBelow(.about), "More and Quit below")
+        XCTAssertEqual(Format.settingsBelow(.general), "More settings below")
+        XCTAssertEqual(Format.settingsBelow(.claudeCode), "More settings below")
     }
 
     func testExportWords() {

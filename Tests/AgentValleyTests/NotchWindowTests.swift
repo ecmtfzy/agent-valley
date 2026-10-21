@@ -607,11 +607,12 @@ final class NotchWindowTests: XCTestCase {
         XCTAssertEqual(frame, CGRect(x: 100, y: 726, width: 400, height: 124))
     }
 
-    // The settings are two pages since 2026-10-15: four had grown short, two of them a row or two.
-    // The first is the general one, and the page last read is the one found again, until the app quits.
-    func testTheSettingsOpenOnGeneralAndAreTwoPages() {
+    // Five pages since 2026-10-21, the way a Mac app's settings are split: two had grown long,
+    // a page of fifteen rows. The first is the general one, and the page last read is the one
+    // found again, until the app quits.
+    func testTheSettingsOpenOnGeneralAndAreFivePages() {
         XCTAssertEqual(NotchState().settingsTab, .general)
-        XCTAssertEqual(SettingsTab.allCases.map(\.label), ["General", "Actions"])
+        XCTAssertEqual(SettingsTab.allCases.map(\.label), ["General", "Sounds", "Shortcuts", "Claude Code", "About"])
     }
 
     // The legend is three short pages. The pointer finds the page it last read. The key that is

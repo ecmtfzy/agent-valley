@@ -43,6 +43,30 @@ final class PanelPicturesTests: XCTestCase {
         try? image.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: name(what) + ".png"))
     }
 
+    /// A click at a point of the panel, measured from its top left in points, sent to its window.
+    private func click(atTopLeftOffset point: CGPoint) {
+        guard let window = host.window else { return }
+        let at = host.convert(NSPoint(x: point.x, y: host.isFlipped ? point.y : host.bounds.height - point.y), to: nil)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            if let event = NSEvent.mouseEvent(with: type, location: at, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                              windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                window.sendEvent(event)
+            }
+            pump(0.1)
+        }
+    }
+
+    /// Scrolls the panel's list, or the page in its place, to its foot, as a wheel would.
+    private func scrollToEnd() {
+        func find(_ view: NSView) -> NSScrollView? {
+            (view as? NSScrollView) ?? view.subviews.lazy.compactMap(find).first
+        }
+        guard let scroll = find(host), let document = scroll.documentView else { return }
+        let end = NSPoint(x: 0, y: document.isFlipped ? max(0, document.frame.height - scroll.contentView.bounds.height) : 0)
+        scroll.contentView.scroll(to: end)
+        scroll.reflectScrolledClipView(scroll.contentView)
+    }
+
     /// What a screen reader is told, asked from outside as one asks: SwiftUI only builds that
     /// tree for a client that comes through the system. The answers come from this thread, so
     /// it has to keep turning while the tool asks.
@@ -146,7 +170,9 @@ final class PanelPicturesTests: XCTestCase {
         if scene.hasPrefix("fishing") {
             SignArt.folder = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
                 .deletingLastPathComponent().appendingPathComponent("signs")
-            let soon = Date().addingTimeInterval(2 * 3600 + 600), later = Date().addingTimeInterval(3 * 86400)
+            // On the hour, as the plan's windows reset.
+            let hour = Date(timeIntervalSinceReferenceDate: (Date().timeIntervalSinceReferenceDate / 3600).rounded(.up) * 3600)
+            let soon = hour.addingTimeInterval(2 * 3600), later = hour.addingTimeInterval(3 * 86400)
             limits = PlanLimitsClient(source: FixedLimits(limits: scene == "fishing-week"
                 ? PlanLimits(fiveHour: PlanLimit(usedPercent: 12, resetsAt: soon), week: PlanLimit(usedPercent: 100, resetsAt: later))
                 : PlanLimits(fiveHour: PlanLimit(usedPercent: 100, resetsAt: soon), week: PlanLimit(usedPercent: 64, resetsAt: later))))
@@ -225,8 +251,15 @@ final class PanelPicturesTests: XCTestCase {
             }
             // The page the plugin's command is on, with its switch on.
             settings.answers = true
-            state.settingsTab = .actions
-            picture("actions-answering")
+            state.settingsTab = .claudeCode
+            picture("claude-code-answering")
+            // Scrolled to its foot: the way back and the pages stay at the top.
+            scrollToEnd()
+            picture("claude-code-scrolled")
+            // And a click on a page there still lands on it. A click sent to the window: the
+            // pointer does not move.
+            click(atTopLeftOffset: CGPoint(x: 518, y: 91))
+            picture("about-after-click")
         case "request":
             // What the plugin's hook would send for two of the made-up sessions, handed straight
             // to the store: a command to allow, then a question with options.
@@ -266,7 +299,7 @@ final class PanelPicturesTests: XCTestCase {
             open()
             picture("line")
             state.showingSettings = true
-            state.settingsTab = .general
+            state.settingsTab = .about
             picture("settings")
         case "tokens":
             // The sessions put away, so that the line at the foot of the list is in sight.
@@ -285,6 +318,8 @@ final class PanelPicturesTests: XCTestCase {
             for card in store.sessions { state.hidden[card.id] = Date() }
             picture("shut")
             open()
+            // demo.py may have started more sessions meanwhile: those go too.
+            for card in store.sessions { state.hidden[card.id] = Date() }
             picture("open")
             spoken("open")
             // Then over the sessions, back in the list.
