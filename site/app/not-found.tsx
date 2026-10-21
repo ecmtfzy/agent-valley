@@ -12,7 +12,8 @@ export const metadata: Metadata = {
 const BACK = 'inline-flex min-h-11 items-center font-mono';
 
 // Words beside a picture of the crew; on a phone the picture comes first.
-function Lost({ className, title, lead, art, alt }: { className: string; title: string; lead: string; art: string; alt: string }) {
+// A cut-out picture (no backdrop) stands on the page as it is; a scene gets rounded corners.
+function Lost({ className, title, lead, art, alt, cutout = false }: { className: string; title: string; lead: string; art: string; alt: string; cutout?: boolean }) {
   return (
     <div className={`${className} grid items-center gap-8 md:grid-cols-[2fr_3fr] md:gap-12`}>
       <div className="grid justify-items-start gap-4">
@@ -22,7 +23,7 @@ function Lost({ className, title, lead, art, alt }: { className: string; title: 
       </div>
       <figure className="relative -order-1 m-0 md:order-none">
         <img
-          className="block h-auto w-full rounded-[14px]"
+          className={`block h-auto w-full ${cutout ? '' : 'rounded-[14px]'}`}
           src={`/${art}.webp`}
           srcSet={`/${art}-640.webp 640w, /${art}-1024.webp 1024w, /${art}.webp 2048w`}
           sizes="(min-width: 1180px) 640px, (min-width: 768px) 56vw, calc(100vw - 32px)"
@@ -56,7 +57,8 @@ export default function NotFound() {
           title="This page is a ghost."
           lead="We looked under every desk."
           art="pearl-ghost-404"
-          alt="Pearl, in a bedsheet ghost costume with her cat-eye glasses and pearls on top, hides under a desk at night beside a jack-o'-lantern."
+          cutout
+          alt="Pearl, in a bedsheet ghost costume with her cat-eye glasses and pearls on top, hides under a desk beside a jack-o'-lantern."
         />
       </main>
       <Footer />
