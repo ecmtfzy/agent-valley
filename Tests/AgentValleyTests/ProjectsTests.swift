@@ -40,6 +40,37 @@ final class ProjectsTests: XCTestCase {
         }
     }
 
+    // A folder git was asked about while it was there goes by its checkout's folder: Superset
+    // names its worktrees' folders by its own name for the project, which need not be that one.
+    // A worktree gone before git was asked goes by any worktree of the same Superset project
+    // that was asked about.
+    func testAFolderGitWasAskedAboutGoesByItsCheckout() {
+        let checkouts = [
+            "/Users/me/.superset/worktrees/AgentValley/live-ws": "/Users/me/.superset/projects/agent-valley",
+            "/Users/me/.superset/projects/agent-valley": "/Users/me/.superset/projects/agent-valley",
+            "/Users/me/.superset/worktrees/Other/ws": "/Users/me/.superset/worktrees/Other/ws",
+            // A home folder kept in git, for its settings, is no project.
+            "/Users/me/notes": "/Users/me",
+            "/Users/me/.superset/worktrees/Dots/ws": "/Users/me",
+        ]
+        let known = Projects.known(["/Users/me/.superset/worktrees/AgentValley/old-ws"])
+        let cases: [(String, String)] = [
+            ("/Users/me/.superset/worktrees/AgentValley/live-ws", "agent-valley"),
+            ("/Users/me/.superset/projects/agent-valley", "agent-valley"),
+            ("/Users/me/.superset/worktrees/AgentValley/old-ws", "agent-valley"),
+            ("/Users/me/.superset/worktrees/AgentValley/old-ws/site", "agent-valley"),
+            ("/private/tmp/claude-501/-Users-me--superset-worktrees-AgentValley-old-ws/9b5c/scratchpad", "agent-valley"),
+            // Not a worktree of the project, though its name starts the same.
+            ("/Users/me/.superset/worktrees/AgentValleyKit/ws", "AgentValleyKit"),
+            ("/Users/me/.superset/worktrees/Never/ws", "Never"),
+            ("/Users/me/notes", "notes"),
+            ("/Users/me/.superset/worktrees/Dots/old", "Dots"),
+        ]
+        for (folder, name) in cases {
+            XCTAssertEqual(Projects.name(of: folder, home: home, known: known, checkouts: checkouts), name, folder)
+        }
+    }
+
     func testAFolderEncodedAsClaudeCodeSpellsIt() {
         XCTAssertEqual(Projects.encoded("/Users/me/.superset/projects/agents-visualizer"), "-Users-me--superset-projects-agents-visualizer")
         XCTAssertEqual(Projects.encoded("/a/b_c.d e"), "-a-b-c-d-e")

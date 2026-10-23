@@ -119,6 +119,19 @@ final class HistoryReportTests: XCTestCase {
         XCTAssertEqual(Format.spanTitle(.week, across, calendar: monday), "Sep 28 – Oct 4, 2026")
     }
 
+    // A project's worktrees and its checkout are one line, whatever Superset calls the project.
+    func testAProjectsWorktreesAreOneLineWithItsCheckout() {
+        let checkout = "/Users/me/.superset/projects/agent-valley"
+        let slice = LedgerSlice(answers: [
+            answer("1", "2026-10-12T10:00:00.000Z", folder: checkout, output: 50_000),
+            answer("2", "2026-10-12T11:00:00.000Z", folder: "/Users/me/.superset/worktrees/AgentValley/live", output: 50_000),
+            answer("3", "2026-10-12T12:00:00.000Z", folder: "/Users/me/.superset/worktrees/AgentValley/gone", output: 50_000),
+        ], checkouts: ["/Users/me/.superset/worktrees/AgentValley/live": checkout])
+        let report = HistoryReport.make(slice, pick: HistoryPick(span: .month, anchor: date("2026-10-15T12:00:00.000Z")), calendar: utc, home: home)
+        XCTAssertEqual(report.projects.map(\.name), ["agent-valley"])
+        XCTAssertEqual(report.projects.first?.cost ?? 0, 3, accuracy: 1e-9)
+    }
+
     func testWhatWasSpentOnWhatAndByWhom() throws {
         let slice = LedgerSlice(answers: [
             answer("1", "2026-10-12T10:00:00.000Z", folder: "/Users/me/.superset/worktrees/api/a", session: "rate", output: 500_000),   // $10

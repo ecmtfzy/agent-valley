@@ -157,7 +157,7 @@ struct HistoryReport: Equatable {
         let known = Projects.known(slice.folders)
         var names: [String: String] = [:]
         return slice.answers.filter { stretch.start <= $0.at && $0.at < stretch.end }.map { answer -> Priced in
-            let project = names[answer.folder] ?? Projects.name(of: answer.folder, home: home, known: known)
+            let project = names[answer.folder] ?? Projects.name(of: answer.folder, home: home, known: known, checkouts: slice.checkouts)
             names[answer.folder] = project
             return Priced(answer: answer, cost: Pricing.cost(of: answer), project: project)
         }

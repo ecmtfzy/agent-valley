@@ -23,6 +23,8 @@ struct LedgerSlice: Equatable {
     /// Every folder in the history: a session's scratch folder names its session's folder only
     /// in encoded form, and is named by them.
     var folders: [String] = []
+    /// Folders to the checkouts git said they were in, for those it was asked about while they were there.
+    var checkouts: [String: String] = [:]
     /// When the first answer in the history was given.
     var since: Date?
     /// The stretch it was read for. None until one has been read.
@@ -48,6 +50,7 @@ final class UsageLedger: ObservableObject {
         CREATE INDEX IF NOT EXISTS answers_at ON answers(at);
         CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS files (path TEXT PRIMARY KEY, bytes INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS checkouts (folder TEXT PRIMARY KEY, checkout TEXT NOT NULL);
         PRAGMA user_version = 1;
         """
 
@@ -84,6 +87,11 @@ final class UsageLedger: ObservableObject {
     private var bytes: [String: UInt64] = [:]
     /// What became of a database file that could not be read, said on every pass while the app runs.
     private var putAside: String?
+    /// The folders git has been asked about since the database was opened, or whose checkout
+    /// it holds. nil until the first pass has asked about every folder in the history.
+    private var asked: Set<String>?
+    /// The folders of the answers read in this pass.
+    private var fresh: Set<String> = []
 
     init(root: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects"),
          database: URL = UsageLedger.defaultDatabase, piece: Int = 1 << 20) {
@@ -101,6 +109,8 @@ final class UsageLedger: ObservableObject {
             guard on else {
                 db = nil
                 bytes = [:]
+                asked = nil
+                fresh = []
                 DispatchQueue.main.async { [weak self] in
                     self?.summary = nil
                     self?.reading = nil
@@ -158,11 +168,14 @@ final class UsageLedger: ObservableObject {
                 bytes[gone] = nil
                 try db.rows("DELETE FROM files WHERE path = ?", [.text(gone)])
             }
+            try learnCheckouts(db)
             try db.execute("COMMIT")
         } catch {
             try? db.execute("ROLLBACK")
             // Read again next time, from where the last pass that was kept had got.
             bytes = before
+            asked = nil
+            fresh = []
             return LedgerPass(summary: (try? lastDay(db, now: now, calendar: calendar)) ?? UsageSummary(), problem: Self.cannotSave(error))
         }
         return LedgerPass(summary: (try? lastDay(db, now: now, calendar: calendar)) ?? UsageSummary(), added: added, problem: putAside)
@@ -184,10 +197,13 @@ final class UsageLedger: ObservableObject {
         }
         let titles = try db.rows("SELECT id, title FROM sessions WHERE id IN (SELECT session FROM answers WHERE at >= ? AND at < ?)", span)
         let folders = try db.rows("SELECT DISTINCT folder FROM answers ORDER BY folder").map { $0[0].text }
+        let checkouts = try db.rows("SELECT folder, checkout FROM checkouts")
         let first = try db.rows("SELECT min(at) FROM answers").first?.first ?? .null
         return LedgerSlice(answers: answers,
                            titles: Dictionary(titles.map { ($0[0].text, $0[1].text) }, uniquingKeysWith: { first, _ in first }),
-                           folders: folders, since: first == .null ? nil : Date(timeIntervalSince1970: first.real))
+                           folders: folders,
+                           checkouts: Dictionary(checkouts.map { ($0[0].text, $0[1].text) }, uniquingKeysWith: { first, _ in first }),
+                           since: first == .null ? nil : Date(timeIntervalSince1970: first.real))
     }
 
     /// `slice` on the ledger's queue, for the History page. `done` hears on the main thread.
@@ -217,6 +233,7 @@ final class UsageLedger: ObservableObject {
             putAside = "An earlier history file could not be read. It was kept as \((aside as NSString).lastPathComponent)."
             made = try Self.prepare(database.path)
         }
+        asked = nil
         bytes = try Dictionary(made.rows("SELECT path, bytes FROM files").map { ($0[0].text, UInt64(max(0, $0[1].int))) },
                                uniquingKeysWith: { first, _ in first })
         db = made
@@ -246,6 +263,7 @@ final class UsageLedger: ObservableObject {
         done += try TranscriptReader.readLines(from: handle, piece: piece) { line in
             if let answer = LedgerAnswer(line: line, agent: agent) {
                 try db.rows(Self.upsert, Self.values(answer))
+                fresh.insert(answer.folder)
                 found = true
             } else if let title = Self.title(fromLine: line, session: session) {
                 try db.rows("INSERT INTO sessions VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title",
@@ -255,6 +273,22 @@ final class UsageLedger: ObservableObject {
         bytes[path] = done
         try db.rows("INSERT INTO files VALUES (?, ?) ON CONFLICT(path) DO UPDATE SET bytes = excluded.bytes", [.text(path), .int(Int64(done))])
         return found
+    }
+
+    /// Asks git which checkout each folder not asked about yet is in: on the first pass every
+    /// folder in the history, then those of the answers just read. Most folders are gone by the
+    /// time History names them, and a Superset worktree's folder need not say whose it is.
+    private func learnCheckouts(_ db: SQLite) throws {
+        var folders = fresh
+        fresh = []
+        if asked == nil {
+            asked = Set(try db.rows("SELECT folder FROM checkouts").map { $0[0].text })
+            folders = Set(try db.rows("SELECT DISTINCT folder FROM answers").map { $0[0].text })
+        }
+        for folder in folders where asked?.insert(folder).inserted == true {
+            guard let place = AgentStore.gitPlace(of: folder) else { continue }
+            try db.rows("INSERT INTO checkouts VALUES (?, ?) ON CONFLICT(folder) DO NOTHING", [.text(folder), .text(place.checkout)])
+        }
     }
 
     /// "main" for a session's own transcript. For a sub-agent's, its type from the meta file

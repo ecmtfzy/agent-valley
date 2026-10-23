@@ -12,8 +12,8 @@ final class LedgerTests: XCTestCase {
         return calendar
     }
 
-    private func line(id: String, at: String, input: Int = 0, output: Int = 0, session: String = "s1") -> String {
-        #"{"type":"assistant","timestamp":"\#(at)","cwd":"/Users/me/app","sessionId":"\#(session)","message":{"id":"\#(id)","model":"claude-opus-5-5","usage":{"input_tokens":\#(input),"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":\#(output)},"content":[]}}"#
+    private func line(id: String, at: String, input: Int = 0, output: Int = 0, session: String = "s1", cwd: String = "/Users/me/app") -> String {
+        #"{"type":"assistant","timestamp":"\#(at)","cwd":"\#(cwd)","sessionId":"\#(session)","message":{"id":"\#(id)","model":"claude-opus-5-5","usage":{"input_tokens":\#(input),"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":\#(output)},"content":[]}}"#
     }
 
     /// A folder of its own: transcripts under `projects`, the database under `support`.
@@ -164,6 +164,33 @@ final class LedgerTests: XCTestCase {
         let ledger = ledger(base)
         _ = ledger.scan(now: now, calendar: utc)
         XCTAssertEqual(try ledger.slice(all).titles, ["s1": "Better name", "s2": "Named by its file"])
+    }
+
+    // Most folders are gone by the time History names them, so each one's checkout is kept
+    // while the folder is there to ask, and for good.
+    func testEachFoldersCheckoutIsKeptWhileTheFolderIsThere() throws {
+        let base = try folder()
+        let repo = base.path + "/agent-valley", ws = base.path + "/AgentValley/ws"
+        try FileManager.default.createDirectory(atPath: repo + "/.git/worktrees/ws", withIntermediateDirectories: true)
+        try write("gitdir: \(repo)/.git/worktrees/ws\n", to: URL(fileURLWithPath: ws + "/.git"))
+        try FileManager.default.createDirectory(atPath: base.path + "/loose", withIntermediateDirectories: true)
+        let transcript = base.appendingPathComponent("projects/proj/s1.jsonl")
+        try write([line(id: "a", at: "2026-10-13T10:00:00.000Z", output: 1, cwd: ws),
+                   line(id: "b", at: "2026-10-13T10:01:00.000Z", output: 1, cwd: repo),
+                   line(id: "c", at: "2026-10-13T10:02:00.000Z", output: 1, cwd: base.path + "/loose"),
+                   line(id: "d", at: "2026-10-13T10:03:00.000Z", output: 1, cwd: base.path + "/gone")].joined(separator: "\n") + "\n", to: transcript)
+        _ = ledger(base).scan(now: now, calendar: utc)
+        // The worktree is gone: what was learned stays, in a ledger opened afresh.
+        try FileManager.default.removeItem(atPath: base.path + "/AgentValley")
+        let again = ledger(base)
+        _ = again.scan(now: now, calendar: utc)
+        XCTAssertEqual(try again.slice(all).checkouts, [ws: repo, repo: repo])
+        // A folder first met on a later pass is asked about then.
+        let side = base.path + "/agent-valley/site"
+        try FileManager.default.createDirectory(atPath: side, withIntermediateDirectories: true)
+        try append(line(id: "e", at: "2026-10-13T10:04:00.000Z", output: 1, cwd: side) + "\n", to: transcript)
+        _ = again.scan(now: now, calendar: utc)
+        XCTAssertEqual(try again.slice(all).checkouts, [ws: repo, repo: repo, side: repo])
     }
 
     func testASliceIsItsStretchOfTime() throws {

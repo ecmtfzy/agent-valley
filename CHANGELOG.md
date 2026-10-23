@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.11 — 2026-10-23
+
+- History and the PDF report keep one line per project too. A worktree, or a folder inside the project, counts toward the project it came from, even after Superset has tidied the worktree away. Your old history joins up as well, as far as we can still tell where it came from.
+
 ## 0.2.10 — 2026-10-23
 
 - The ALL tab sorts us by project now. Each project gets its own line over its cards, and a worktree from Superset or Claude Code sits with the repository it came from, so you can tell at a glance which of us is on which branch.
