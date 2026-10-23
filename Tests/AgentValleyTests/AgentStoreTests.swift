@@ -43,16 +43,20 @@ final class AgentStoreTests: XCTestCase {
         return file
     }
 
-    private func card(_ id: String, main: AgentStatus?, agents: [AgentStatus] = []) -> SessionCard {
+    private func card(_ id: String, main: AgentStatus?, agents: [AgentStatus] = [], repo: String = "", folder: String? = nil,
+                      git: GitPlace? = nil) -> SessionCard {
         func row(_ name: String, _ status: AgentStatus) -> AgentRow {
             AgentRow(id: id + name, info: AgentInfo(), status: status, elapsed: 0)
         }
-        return SessionCard(
-            id: id, project: id, branch: "",
+        var card = SessionCard(
+            id: id, project: folder ?? id, branch: "",
             main: main.map { row("/main", $0) },
             agents: agents.enumerated().map { row("/agent\($0.offset)", $0.element) },
             startedAt: now
         )
+        card.repo = repo
+        card.git = git
+        return card
     }
 
     // A worktree's `.git` is a file that points into the repository's `worktrees`. The
@@ -68,6 +72,50 @@ final class AgentStoreTests: XCTestCase {
         XCTAssertFalse(AgentStore.isWorktree(store.root + "/repo"))
         XCTAssertFalse(AgentStore.isWorktree(store.root + "/repo/vendor"))
         XCTAssertFalse(AgentStore.isWorktree(""))
+    }
+
+    // A session goes under the folder of the repository it works in. A worktree's `.git` names
+    // the checkout it came from, wherever the worktree lives and whatever its parent folder is
+    // called, and a folder inside a checkout goes with that checkout.
+    func testAFolderKnowsItsWorktreeAndItsCheckout() throws {
+        try FileManager.default.createDirectory(atPath: store.root + "/agent-valley/.git/worktrees/ws", withIntermediateDirectories: true)
+        try write("", to: "agent-valley/site/x.ts")
+        try write("gitdir: \(store.root)/agent-valley/.git/worktrees/ws\n", to: "AgentValley/ws/.git")
+        try write("gitdir: ../../agent-valley/.git/worktrees/near\n", to: "AgentValley/near/.git")
+        try write("gitdir: ../.git/modules/vendor\n", to: "agent-valley/vendor/.git")
+        try write("", to: "loose/x.ts")
+        let root = store.root
+        XCTAssertEqual(AgentStore.gitPlace(of: root + "/AgentValley/ws"), GitPlace(worktree: root + "/AgentValley/ws", checkout: root + "/agent-valley"))
+        XCTAssertEqual(AgentStore.gitPlace(of: root + "/AgentValley/near"), GitPlace(worktree: root + "/AgentValley/near", checkout: root + "/agent-valley"))
+        // A folder inside the checkout is in the checkout's own worktree.
+        XCTAssertEqual(AgentStore.gitPlace(of: root + "/agent-valley/site"), GitPlace(worktree: root + "/agent-valley", checkout: root + "/agent-valley"))
+        // A submodule is a checkout of its own.
+        XCTAssertEqual(AgentStore.gitPlace(of: root + "/agent-valley/vendor"), GitPlace(worktree: root + "/agent-valley/vendor", checkout: root + "/agent-valley/vendor"))
+        XCTAssertNil(AgentStore.gitPlace(of: root + "/loose"))
+        XCTAssertNil(AgentStore.gitPlace(of: ""))
+    }
+
+    // Superset keeps its worktrees under the name the project has in Superset, which need not
+    // be the repository's folder: the card goes by the folder the worktree came from.
+    func testACardInAWorktreeGoesUnderItsRepositorysFolder() {
+        var file = tracked("/r/p/s1", main: true, idle: 5)
+        file.info.cwd = "/Users/me/.superset/worktrees/AgentValley/ws"
+        let place = GitPlace(worktree: "/Users/me/.superset/worktrees/AgentValley/ws", checkout: "/Users/me/projects/agent-valley")
+        let cards = AgentStore.cards(from: ["/r/p/s1.jsonl": file], now: now, home: "/Users/me",
+                                     git: { $0 == place.worktree ? place : nil })
+        XCTAssertEqual(cards.map(\.repo), ["agent-valley"])
+        XCTAssertEqual(cards.map(\.git), [place])
+    }
+
+    // A home folder kept in git, for the settings in it, is no project: a folder in it that is
+    // no checkout of its own is named by its path.
+    func testAHomeFolderInGitIsNoProject() {
+        var file = tracked("/r/p/s1", main: true, idle: 5)
+        file.info.cwd = "/Users/me/notes"
+        let cards = AgentStore.cards(from: ["/r/p/s1.jsonl": file], now: now, home: "/Users/me",
+                                     git: { _ in GitPlace(worktree: "/Users/me", checkout: "/Users/me") })
+        XCTAssertEqual(cards.map(\.repo), ["notes"])
+        XCTAssertEqual(cards.map(\.git), [nil])
     }
 
     // The folder is a checkout nobody vouches for. Its `.git` is read only when it is a plain
@@ -431,11 +479,11 @@ final class AgentStoreTests: XCTestCase {
     // Grouped by status, a card goes to the head of the list as it starts to wait. With the
     // list scrolled down that is above what is in view: the person has not seen it.
     func testAWaitInAGroupedListIsSeenOnlyWithTheListAtItsTop() {
-        XCTAssertTrue(WaitWatch.inView(showingList: true, pastEdge: false, grouping: .all, atTop: false))
+        XCTAssertTrue(WaitWatch.inView(showingList: true, pastEdge: false, grouping: .projects, atTop: false))
         XCTAssertTrue(WaitWatch.inView(showingList: true, pastEdge: false, grouping: .status, atTop: true))
         XCTAssertFalse(WaitWatch.inView(showingList: true, pastEdge: false, grouping: .status, atTop: false))
-        XCTAssertFalse(WaitWatch.inView(showingList: false, pastEdge: false, grouping: .all, atTop: true))
-        XCTAssertFalse(WaitWatch.inView(showingList: true, pastEdge: true, grouping: .all, atTop: true))
+        XCTAssertFalse(WaitWatch.inView(showingList: false, pastEdge: false, grouping: .projects, atTop: true))
+        XCTAssertFalse(WaitWatch.inView(showingList: true, pastEdge: true, grouping: .projects, atTop: true))
     }
 
     // A session is listed under what is most pressing in it, whichever of its agents that is.
@@ -446,12 +494,6 @@ final class AgentStoreTests: XCTestCase {
         XCTAssertEqual(card("d", main: .done, agents: [.working]).group, .working)
         XCTAssertEqual(card("e", main: .quiet, agents: [.done]).group, .quiet)
         XCTAssertEqual(card("f", main: .done, agents: [.done]).group, .idle)
-    }
-
-    func testInOneListTheOrderIsLeftAlone() {
-        let all = [card("idle", main: .done), card("working", main: .working), card("waiting", main: .needsYou)]
-        XCTAssertEqual(AgentStore.ordered(all, by: .all), all)
-        XCTAssertEqual(AgentStore.headers(of: all, by: .all), [:])
     }
 
     // Those that wait on the person first; inside a group the order they came in is kept.
@@ -502,6 +544,57 @@ final class AgentStoreTests: XCTestCase {
             XCTAssertEqual(AgentStore.headers(of: cards, by: .status), ["working": GroupHeader(group: .working, count: 1, agents: 1)], "\(idle)")
         }
         XCTAssertEqual(AgentStore.headers(of: AgentStore.arrange(all, idle: .show).cards, by: .status).count, 2)
+    }
+
+    // A session belongs to the project History names it by, from the folder it started in: a
+    // Superset or Claude Code worktree goes with the repository it was made from.
+    func testACardKnowsItsProjectByTheFolderItStartedIn() {
+        var file = tracked("/r/p/s1", main: true, idle: 5)
+        file.info.cwd = "/Users/me/.superset/worktrees/shop-web/fix-coupons"
+        let cards = AgentStore.cards(from: ["/r/p/s1.jsonl": file], now: now, home: "/Users/me")
+        XCTAssertEqual(cards.map(\.repo), ["shop-web"])
+        XCTAssertEqual(cards.map(\.project), ["fix-coupons"])
+    }
+
+    // By project, each project's sessions stand together. Projects come in the order of their
+    // newest session, and inside one the order the sessions came in is kept, so it holds
+    // still while agents work. A card that knows no project goes by its folder.
+    func testByProjectEachProjectsSessionsStandTogether() {
+        let all = [
+            card("w1", main: .working, repo: "web"), card("a1", main: .needsYou, repo: "api"),
+            card("w2", main: .done, repo: "web"), card("loose", main: .working), card("a2", main: .working, repo: "api"),
+        ]
+        XCTAssertEqual(AgentStore.ordered(all, by: .projects).map(\.id), ["w1", "w2", "a1", "a2", "loose"])
+        XCTAssertEqual(AgentStore.headers(of: all, by: .projects), [:])
+    }
+
+    // A project's line stands over its first card and counts the folders its sessions are in.
+    func testAProjectsLineStandsOverItsFirstCardAndCountsItsFolders() {
+        let listed = AgentStore.ordered([
+            card("w1", main: .working, repo: "web", folder: "web"), card("a1", main: .working, repo: "api", folder: "api"),
+            card("w2", main: .done, repo: "web", folder: "fix-x"), card("w3", main: .working, repo: "web", folder: "fix-x"),
+        ], by: .projects)
+        XCTAssertEqual(AgentStore.projectHeaders(of: listed), [
+            "w1": ProjectHeader(project: "web", worktrees: 2, sessions: 3),
+            "a1": ProjectHeader(project: "api", worktrees: 1, sessions: 1),
+        ])
+    }
+
+    // Two checkouts that happen to share a folder name are two projects. A session in a folder
+    // inside a checkout is in that checkout's worktree, not in one more.
+    func testByProjectACheckoutIsTheProjectNotItsName() {
+        let web = GitPlace(worktree: "/a/web", checkout: "/a/web")
+        let listed = AgentStore.ordered([
+            card("w1", main: .working, repo: "web", folder: "web", git: web),
+            card("x1", main: .working, repo: "web", folder: "web", git: GitPlace(worktree: "/b/web", checkout: "/b/web")),
+            card("w2", main: .working, repo: "web", folder: "site", git: web),
+            card("w3", main: .working, repo: "web", folder: "fix-x", git: GitPlace(worktree: "/a/fix-x", checkout: "/a/web")),
+        ], by: .projects)
+        XCTAssertEqual(listed.map(\.id), ["w1", "w2", "w3", "x1"])
+        XCTAssertEqual(AgentStore.projectHeaders(of: listed), [
+            "w1": ProjectHeader(project: "web", worktrees: 2, sessions: 3),
+            "x1": ProjectHeader(project: "web", worktrees: 1, sessions: 1),
+        ])
     }
 
     // Off, nothing of a session's process is read for its tab. On, the app a card carries

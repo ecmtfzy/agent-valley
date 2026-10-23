@@ -450,8 +450,30 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.countsHelp, "These count agents, sub-agents too. One session can run several.")
     }
 
+    // A project's line names it and counts its sessions. With them in more than one folder it
+    // counts the folders, and the sessions as well when some share one.
+    func testAProjectsLineNamesItAndCountsItsFolders() {
+        XCTAssertEqual(Format.projectHeader(ProjectHeader(project: "api", worktrees: 1, sessions: 1)), "api · 1 session")
+        XCTAssertEqual(Format.projectHeader(ProjectHeader(project: "docs", worktrees: 1, sessions: 2)), "docs · 2 sessions")
+        XCTAssertEqual(Format.projectHeader(ProjectHeader(project: "shop-web", worktrees: 2, sessions: 2)), "shop-web · 2 worktrees")
+        XCTAssertEqual(Format.projectHeader(ProjectHeader(project: "web", worktrees: 2, sessions: 3)), "web · 2 worktrees, 3 sessions")
+    }
+
+    // Under its project's line a card does not name the folder again when it is the project's
+    // own; a worktree's folder still says which one it is.
+    func testUnderItsProjectACardNamesOnlyAFolderOfItsOwn() {
+        func card(_ folder: String) -> SessionCard {
+            SessionCard(id: folder, project: folder, branch: "", main: nil, agents: [], startedAt: Date(), title: "Fix the coupon field")
+        }
+        XCTAssertTrue(Format.namesFolder(card("fix-coupons"), under: "shop-web"))
+        XCTAssertFalse(Format.namesFolder(card("shop-web"), under: "shop-web"))
+        XCTAssertTrue(Format.namesFolder(card("shop-web"), under: nil))
+        // A card without a title is called by its folder already.
+        XCTAssertFalse(Format.namesFolder(SessionCard(id: "x", project: "fix-coupons", branch: "", main: nil, agents: [], startedAt: Date()), under: "shop-web"))
+    }
+
     func testTheTabsSayWhatTheyDo() {
-        XCTAssertEqual(Format.groupingHelp(.all), "Sessions by when they started")
+        XCTAssertEqual(Format.groupingHelp(.projects), "All sessions, grouped by project")
         XCTAssertEqual(Format.groupingHelp(.status), "Sessions grouped by status")
     }
 

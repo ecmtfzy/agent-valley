@@ -106,8 +106,15 @@ struct WaitWatch: Equatable {
     /// goes to the head of the list as it starts to wait, so there the list has to be at its
     /// top as well: scrolled down, the card has gone above what is in view.
     static func inView(showingList: Bool, pastEdge: Bool, grouping: Grouping, atTop: Bool) -> Bool {
-        showingList && !pastEdge && (grouping == .all || atTop)
+        showingList && !pastEdge && (grouping == .projects || atTop)
     }
+}
+
+/// Where a folder sits in git: the top of the worktree it is in, and the checkout that worktree
+/// came from. The two are one folder unless the worktree is one of the checkout's own others.
+struct GitPlace: Equatable {
+    let worktree: String
+    let checkout: String
 }
 
 struct SessionCard: Identifiable, Equatable {
@@ -125,10 +132,22 @@ struct SessionCard: Identifiable, Equatable {
     var worktree = false
     /// Who sits in the session, as `Roster` seated it: nil until the store has.
     var look: LeadLook?
+    /// The project the session belongs to, as History names it from the folder it started in:
+    /// a worktree goes with its repository. Empty when the transcript gave no folder.
+    var repo = ""
+    /// Where the session's folder sits in git, while git can tell.
+    var git: GitPlace?
 }
 
 extension SessionCard {
     var rows: [AgentRow] { [main].compactMap { $0 } + agents }
+
+    /// The project the list puts the session under: its folder when it knows no other.
+    var belongsTo: String { repo.isEmpty ? project : repo }
+
+    /// What tells one project from another: its checkout, as two may share a name. Its name
+    /// when git cannot tell.
+    var projectKey: String { git?.checkout ?? belongsTo }
 
     /// What the session is called: its own title, or its folder until Claude Code has named it.
     var name: String { title.isEmpty ? project : title }
@@ -172,7 +191,7 @@ extension SessionCard {
         func quiet(_ row: AgentRow) -> AgentRow {
             row.status == .working ? AgentRow(id: row.id, info: row.info, status: .quiet, elapsed: row.elapsed, quietFor: row.quietFor, calledBusy: true) : row
         }
-        return SessionCard(id: id, project: project, branch: branch, main: main.map(quiet), agents: agents.map(quiet), startedAt: startedAt, title: title, owner: owner, worktree: worktree, look: look)
+        return SessionCard(id: id, project: project, branch: branch, main: main.map(quiet), agents: agents.map(quiet), startedAt: startedAt, title: title, owner: owner, worktree: worktree, look: look, repo: repo, git: git)
     }
 }
 
@@ -240,6 +259,14 @@ struct GroupHeader: Equatable {
     /// How many agents in those sessions are doing what the group is named for, which is what
     /// the line under the notch counts. At least one to a session, and none for the idle.
     var agents = 0
+}
+
+/// The line over a project's first card: the project, how many folders its sessions are in,
+/// and how many sessions.
+struct ProjectHeader: Equatable {
+    let project: String
+    let worktrees: Int
+    let sessions: Int
 }
 
 enum TranscriptPath: Equatable {
@@ -465,15 +492,32 @@ final class AgentStore: ObservableObject {
         }
     }
 
-    /// The sessions in the order the panel lists them. In one list they are left as they came.
-    /// By status, those that wait on the person come first, then those at work, the quiet and
-    /// the idle; inside a group the order they came in is kept.
+    /// The sessions in the order the panel lists them. By project, each project's sessions
+    /// stand together, the projects in the order their newest session came. By status, those
+    /// that wait on the person come first, then those at work, the quiet and the idle. Inside
+    /// a group the order they came in is kept.
     static func ordered(_ sessions: [SessionCard], by grouping: Grouping) -> [SessionCard] {
-        guard grouping == .status else { return sessions }
         // Gathered, not sorted: gathering keeps each group in the order it came in, which a
         // sort does not promise, and works out each card's group once.
-        let groups = Dictionary(grouping: sessions, by: \.group)
-        return StatusGroup.allCases.flatMap { groups[$0] ?? [] }
+        switch grouping {
+        case .projects:
+            var seen = Set<String>()
+            let order = sessions.map(\.projectKey).filter { seen.insert($0).inserted }
+            let groups = Dictionary(grouping: sessions, by: \.projectKey)
+            return order.flatMap { groups[$0] ?? [] }
+        case .status:
+            let groups = Dictionary(grouping: sessions, by: \.group)
+            return StatusGroup.allCases.flatMap { groups[$0] ?? [] }
+        }
+    }
+
+    /// The line over each project's first card, by card id. `cards` are the cards drawn, in
+    /// the order `ordered` gave them.
+    static func projectHeaders(of cards: [SessionCard]) -> [String: ProjectHeader] {
+        let groups = Dictionary(grouping: cards, by: \.projectKey)
+        return Dictionary(uniqueKeysWithValues: groups.values.compactMap { cards in
+            cards.first.map { ($0.id, ProjectHeader(project: $0.belongsTo, worktrees: Set(cards.map { $0.git?.worktree ?? $0.project }).count, sessions: cards.count)) }
+        })
     }
 
     /// The cards a group's line stands over, by card id: the first of each group, with how
@@ -684,6 +728,32 @@ final class AgentStore: ObservableObject {
         return false
     }
 
+    /// Where a folder sits in git: the worktree is the folder that holds the first `.git` on the
+    /// way up, the checkout that folder, or for a worktree the checkout its `.git` file names.
+    /// nil when there is no `.git`, or one that is neither a folder nor a plain file that says
+    /// where its repository is. Read as `isWorktree` reads it.
+    static func gitPlace(of folder: String) -> GitPlace? {
+        guard folder.hasPrefix("/") else { return nil }
+        var url = URL(fileURLWithPath: folder)
+        while url.path != "/" {
+            let git = url.appendingPathComponent(".git").path
+            var isFolder: ObjCBool = false
+            if FileManager.default.fileExists(atPath: git, isDirectory: &isFolder) {
+                if isFolder.boolValue { return GitPlace(worktree: url.path, checkout: url.path) }
+                let text = head(ofPlainFile: git)
+                guard text.hasPrefix("gitdir: ") else { return nil }
+                let named = text.dropFirst("gitdir: ".count).prefix { $0 != "\n" && $0 != "\r" }
+                // Written out in full, or from the worktree's own folder.
+                let target = URL(fileURLWithPath: String(named), relativeTo: URL(fileURLWithPath: url.path, isDirectory: true)).standardizedFileURL.path
+                // A submodule's points elsewhere: it is a checkout of its own.
+                guard let worktrees = target.range(of: "/.git/worktrees/") else { return GitPlace(worktree: url.path, checkout: url.path) }
+                return GitPlace(worktree: url.path, checkout: String(target[..<worktrees.lowerBound]))
+            }
+            url.deleteLastPathComponent()
+        }
+        return nil
+    }
+
     /// The first bytes of a file, or nothing when the path is a link, a pipe or a device.
     /// `limit` is well past the longest path a `gitdir:` line can name.
     static func head(ofPlainFile path: String, limit: Int = 4096) -> String {
@@ -703,7 +773,8 @@ final class AgentStore: ObservableObject {
     /// `worktree` says whether a folder is in one: asked of the disk, so handed in.
     static func cards(from files: [String: TrackedFile], now: Date, visibleFor: TimeInterval = AgentStore.defaultVisibleFor,
                       states: [String: SessionState] = [:], owners: [String: OwnerApp] = [:],
-                      worktree: (String) -> Bool = { _ in false }) -> [SessionCard] {
+                      worktree: (String) -> Bool = { _ in false }, home: String = NSHomeDirectory(),
+                      git: (String) -> GitPlace? = { _ in nil }) -> [SessionCard] {
         let claimed = claims(states, files: files)
         func row(_ path: String, _ file: TrackedFile) -> AgentRow {
             let state = signal(for: file, in: claimed)
@@ -730,6 +801,12 @@ final class AgentStore: ObservableObject {
                 if source.entrypoint.hasPrefix("sdk-") { return nil }
                 // The folder's name is drawn, and comes out of the transcript like the rest.
                 let project = TranscriptReader.clipped((source.cwd as NSString).lastPathComponent)
+                // By the checkout's own folder while it is there to ask; by the path alone, as
+                // History names it, once it is gone.
+                // A home folder kept in git, for its settings, is no project.
+                let place = source.cwd.isEmpty ? nil : git(source.cwd).flatMap { $0.checkout == home ? nil : $0 }
+                let repo = source.cwd.isEmpty ? "" : place.map { TranscriptReader.clipped(($0.checkout as NSString).lastPathComponent) }
+                    ?? Projects.name(of: source.cwd, home: home)
                 return SessionCard(
                     id: session,
                     project: project.isEmpty ? "Claude Code" : project,
@@ -740,7 +817,9 @@ final class AgentStore: ObservableObject {
                     title: main?.value.info.title ?? "",
                     // Only the transcript the record speaks for is known to run in that process.
                     owner: claimed[session] == nil ? nil : owners[(session as NSString).lastPathComponent],
-                    worktree: !source.branch.isEmpty && worktree(source.folder)
+                    worktree: !source.branch.isEmpty && worktree(source.folder),
+                    repo: repo,
+                    git: place
                 ).asShown
             }
             // By start, newest first: the order holds still while agents work.
@@ -841,7 +920,7 @@ final class AgentStore: ObservableObject {
     /// The cards as of `now`, from everything the store has read. Only called on `queue`.
     func cards(now: Date) -> [SessionCard] {
         // ponytail: the disk is asked again for every card on every publish, a stat or two each; keep the answers by folder if that ever shows.
-        Self.cards(from: files, now: now, visibleFor: visibleFor, states: states, owners: owners, worktree: Self.isWorktree)
+        Self.cards(from: files, now: now, visibleFor: visibleFor, states: states, owners: owners, worktree: Self.isWorktree, git: Self.gitPlace(of:))
     }
 
     /// Hands the cards to the main thread. Only called on `queue`, and by tests.

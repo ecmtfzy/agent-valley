@@ -211,7 +211,7 @@ final class PanelPicturesTests: XCTestCase {
             picture("grouped")
         case "keys":
             // The ring on each session in turn, down the list and back, in both orders.
-            for grouping in [Grouping.all, .status] {
+            for grouping in [Grouping.projects, .status] {
                 settings.grouping = grouping
                 open()
                 state.keyboard = true

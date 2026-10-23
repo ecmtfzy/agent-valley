@@ -37,13 +37,15 @@ enum ShortcutKey: String, CaseIterable {
 
 /// How the sessions are listed.
 enum Grouping: String, CaseIterable {
-    /// By when they started, newest first: the order holds still while agents work.
-    case all
+    /// By project, each project's sessions together and newest first: the order holds still
+    /// while agents work. Saved as "all", the one list it grew out of.
+    case projects = "all"
     /// By what they are doing, with those that wait on the person first.
     case status
 
-    /// The word on its tab.
-    var label: String { rawValue.uppercased() }
+    /// The word on its tab. "ALL", not "PROJECTS": every session is in it, each under its
+    /// project's line, and the longer word leaves the tabs no room beside a 14-inch notch.
+    var label: String { self == .projects ? "ALL" : "STATUS" }
 }
 
 /// The app's own preferences. The only place that reads and writes UserDefaults.
@@ -172,7 +174,7 @@ final class Settings: ObservableObject {
         quietFrom = Self.hour(defaults.object(forKey: Key.quietFrom), or: 22)
         quietUntil = Self.hour(defaults.object(forKey: Key.quietUntil), or: 8)
         goToTab = defaults.object(forKey: Key.goToTab) as? Bool ?? false
-        grouping = Grouping(rawValue: defaults.string(forKey: Key.grouping) ?? "") ?? .all
+        grouping = Grouping(rawValue: defaults.string(forKey: Key.grouping) ?? "") ?? .projects
         tokenUse = defaults.object(forKey: Key.tokenUse) as? Bool ?? true
     }
 

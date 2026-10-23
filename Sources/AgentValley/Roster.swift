@@ -1,9 +1,9 @@
 import Foundation
 
 /// Who sits in which session, kept on disk so it holds across launches. Each project has a
-/// regular, named by the folder its sessions start in, for good. A session gets the regular
-/// while the regular is free, and someone else while the regular is at another of the project's
-/// sessions: one person is never in two places. Nobody changes seats for as long as a session
+/// regular, named by its checkout (out of git, the folder its sessions start in), for good. A
+/// session gets the regular while the regular is free, and someone else while the regular is at
+/// another of the project's sessions: one person is never in two places. Nobody changes seats for as long as a session
 /// lasts. /clear starts a new session at the same desk, and the old one has let go of the
 /// regular by then, so the regular stays.
 struct Roster: Codable, Equatable {
@@ -14,7 +14,7 @@ struct Roster: Codable, Equatable {
         var seen: Date
     }
 
-    /// Each project's regular, by the folder its sessions start in.
+    /// Each project's regular, by its checkout, or the folder its sessions start in out of git.
     var regulars: [String: LeadLook] = [:]
     /// Who sits in each session, by session id.
     var seats: [String: Seat] = [:]
@@ -30,7 +30,8 @@ struct Roster: Codable, Equatable {
                 if now.timeIntervalSince(seat.seen) >= 3600 { seats[id]?.seen = now }
                 continue
             }
-            let project = main.info.cwd.isEmpty ? card.project : main.info.cwd
+            // A worktree sits at its checkout's desk.
+            let project = card.git?.checkout ?? (main.info.cwd.isEmpty ? card.project : main.info.cwd)
             let regular = regulars[project] ?? Self.pick(by: project, taken: Array(regulars.values))
             regulars[project] = regular
             let regularIsOut = seats.contains { $0.key != id && $0.value.project == project && $0.value.look == regular && busy($0.key) }

@@ -387,6 +387,21 @@ enum Format {
     static let remindCaption = "Repeats while an agent still waits and you have not opened the panel."
     static let tabCaption = "Asks Terminal, iTerm2 or Ghostty to show the session's own tab. macOS asks you to allow this once for each. To change your answer: System Settings > Privacy & Security > Automation."
 
+    /// The line over a project's sessions: its name and how many sessions, with the word, as on
+    /// a status group's line. With them in more than one folder it counts the folders, and the
+    /// sessions as well when some share one.
+    static func projectHeader(_ header: ProjectHeader) -> String {
+        let sessions = "\(header.sessions) \(header.sessions == 1 ? "session" : "sessions")"
+        guard header.worktrees > 1 else { return "\(header.project) · \(sessions)" }
+        return "\(header.project) · \(header.worktrees) worktrees" + (header.sessions > header.worktrees ? ", \(sessions)" : "")
+    }
+
+    /// Whether a card names its folder beside its branch. One without a title is called by its
+    /// folder already, and under its project's line the project's own folder goes without saying.
+    static func namesFolder(_ card: SessionCard, under project: String?) -> Bool {
+        !card.title.isEmpty && card.project != project
+    }
+
     /// The line over a group of sessions. With the word "sessions": the line under the notch
     /// counts agents, and a bare number here would be read as one of those. With the agents
     /// too, where a session holds more than one of them: "3 working" up there over
@@ -410,7 +425,7 @@ enum Format {
     /// What a tab over the list does, for the pointer and for VoiceOver.
     static func groupingHelp(_ grouping: Grouping) -> String {
         switch grouping {
-        case .all: return "Sessions by when they started"
+        case .projects: return "All sessions, grouped by project"
         case .status: return "Sessions grouped by status"
         }
     }
@@ -1334,7 +1349,10 @@ struct PanelView: View {
         let away = AgentStore.putAway(answers.overlay(store.sessions), hidden: state.hidden)
         // The line over each group's first card, when the list is grouped and there is more
         // than one session to group.
-        let headers = grouped ? AgentStore.headers(of: list.cards, by: settings.grouping) : [:]
+        let byProject = grouped && settings.grouping == .projects
+        let headers: [String: String] = !grouped ? [:] : byProject
+            ? AgentStore.projectHeaders(of: list.cards).mapValues(Format.projectHeader)
+            : AgentStore.headers(of: list.cards, by: settings.grouping).mapValues(Format.groupHeader)
         return VStack(alignment: .leading, spacing: 10) {
             if state.introducing {
                 notice(Format.intro(shortcut: settings.shortcut && !state.shortcutTaken ? settings.shortcutKey : nil), motion, dim: false, lines: 6)
@@ -1394,7 +1412,7 @@ struct PanelView: View {
             ForEach(Array(list.cards.enumerated()), id: \.element.id) { index, card in
                 if let header = headers[card.id] {
                     // What the cards under it have in common, in the app's own word for it.
-                    Text(verbatim: Format.groupHeader(header)).foregroundStyle(.white.opacity(0.6))
+                    Text(verbatim: header).foregroundStyle(.white.opacity(0.6))
                         // Where the list goes to for the card under it: the line comes into
                         // view with its card, and is not left under the band at the top.
                         .overlay(alignment: .top) { Self.mark(above: card.id) }
@@ -1404,7 +1422,8 @@ struct PanelView: View {
                         .transition(.opacity)
                 }
                 let asked = answers.pending.contains { $0.ask.session == AnswerStore.sessionID(of: card) }
-                SessionCardView(card: card, motion: motion, look: looks[card.main?.id ?? ""] ?? LeadLook(), showsApp: list.showsApps, asking: AnswerContext(
+                SessionCardView(card: card, motion: motion, look: looks[card.main?.id ?? ""] ?? LeadLook(), showsApp: list.showsApps,
+                                underProject: byProject ? card.belongsTo : nil, asking: AnswerContext(
                     requests: { [answers] in answers.requests(forRow: $0, in: card) },
                     settled: { [answers] in answers.settled(forRow: $0, in: card) },
                     armsAt: { [answers, state] in answers.armsAt($0, panelOpenedAt: state.openedAt) },
@@ -2100,6 +2119,8 @@ struct SessionCardView: View {
     var look = LeadLook()
     /// The list holds more than one app, so the card names its own.
     var showsApp = true
+    /// The project whose line the card stands under, when the list is grouped by project.
+    var underProject: String?
     /// Requests waiting on this card's rows, when answering from the panel is on.
     var asking: AnswerContext?
     /// Puts the session away until it moves again. nil when there is nothing to put away.
@@ -2160,10 +2181,11 @@ struct SessionCardView: View {
     /// line is full, in order: the app's name, then the branch, then the folder.
     @ViewBuilder
     private var place: some View {
-        if !card.title.isEmpty || !card.branch.isEmpty || (showsApp && card.owner != nil) {
+        let namesFolder = Format.namesFolder(card, under: underProject)
+        if namesFolder || !card.branch.isEmpty || (showsApp && card.owner != nil) {
             HStack(spacing: 8) {
                 HStack(spacing: 10) {
-                    if !card.title.isEmpty {
+                    if namesFolder {
                         // Two sessions in one folder differ by title; the folder and branch say where they run.
                         HStack(spacing: 4) {
                             Image(systemName: "folder").font(.system(size: 10, weight: .semibold)).accessibilityHidden(true)

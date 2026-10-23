@@ -60,6 +60,17 @@ final class RosterTests: XCTestCase {
 
     // A new worktree is a project of its own, with a regular of its own, and no two projects'
     // regulars look alike while there are faces, hair and shirts enough.
+    // A worktree's sessions get the regular of the checkout it came from, the way a new
+    // Superset workspace for each task does: the project has one regular, not one per folder.
+    func testAWorktreeGetsItsCheckoutsRegular() throws {
+        var roster = Roster()
+        let regular = try XCTUnwrap(look(&roster, [card("s1", in: "/work/app")], of: "s1"))
+        var side = card("s2", in: "/work/.superset/worktrees/App/ws")
+        side.git = GitPlace(worktree: "/work/.superset/worktrees/App/ws", checkout: "/work/app")
+        XCTAssertEqual(look(&roster, [side], of: "s2"), regular)
+        XCTAssertEqual(Array(roster.regulars.keys), ["/work/app"])
+    }
+
     func testEachProjectGetsARegularOfItsOwn() {
         var roster = Roster()
         let cards = (0..<Person.leadHair.count).map { card("s\($0)", in: "/work/app-\($0)", startedAt: Double($0)) }

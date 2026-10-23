@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.10 — 2026-10-23
+
+- The ALL tab sorts us by project now. Each project gets its own line over its cards, and a worktree from Superset or Claude Code sits with the repository it came from, so you can tell at a glance which of us is on which branch.
+- Under its project's line, a card no longer repeats the folder name when it's just the project's name again.
+- A worktree is part of its project now, regular included. A new Superset workspace no longer means a new face at the desk.
+
 ## 0.2.9 — 2026-10-23
 
 - Each of your projects has a regular now: the same one of us every session, even after you quit and reopen the app. Open a second session in the same project while the first is still going, and a colleague takes it, since nobody is in two places at once. Nobody switches seats while a session runs, and /clear keeps whoever was sitting there. A new worktree is a new project, with a regular of its own.

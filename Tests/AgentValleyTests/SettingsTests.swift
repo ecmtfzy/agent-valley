@@ -133,13 +133,16 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(Settings(defaults: defaults).goToTab)
     }
 
-    // One list is the order that holds still while agents work: grouping is asked for.
-    func testTheListStartsAsOneAndRemembersTheChoice() {
-        XCTAssertEqual(Settings(defaults: defaults).grouping, .all)
+    // By project is the order that holds still while agents work: grouping by status is asked for.
+    // What was saved as the one list before projects came reads as by project.
+    func testTheListStartsByProjectAndRemembersTheChoice() {
+        XCTAssertEqual(Settings(defaults: defaults).grouping, .projects)
         Settings(defaults: defaults).grouping = .status
         XCTAssertEqual(Settings(defaults: defaults).grouping, .status)
         defaults.set("agent", forKey: "grouping")
-        XCTAssertEqual(Settings(defaults: defaults).grouping, .all)
+        XCTAssertEqual(Settings(defaults: defaults).grouping, .projects)
+        defaults.set("all", forKey: "grouping")
+        XCTAssertEqual(Settings(defaults: defaults).grouping, .projects)
         XCTAssertEqual(Grouping.allCases.map(\.label), ["ALL", "STATUS"])
     }
 
