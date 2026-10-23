@@ -1838,6 +1838,25 @@ struct HiddenRow: View {
 }
 
 /// The panel is worked with the pointer alone, so what can be clicked answers the pointer.
+private struct GoesTo: ViewModifier {
+    let owner: OwnerApp?
+    @Environment(\.goTo) private var goTo
+
+    func body(content: Content) -> some View {
+        if let owner {
+            // Room around the row for the fill, taken back so the row stays in line.
+            content
+                .padding(4)
+                .contentShape(Rectangle())
+                .onTapGesture { goTo(owner) }
+                .hoverFill()
+                .padding(-4)
+        } else {
+            content
+        }
+    }
+}
+
 private struct HoverFill: ViewModifier {
     let radius: CGFloat
     /// For something already filled white: a lighter fill behind it would not show, so it darkens.
@@ -1858,6 +1877,13 @@ private struct HoverFill: ViewModifier {
 extension View {
     func hoverFill(radius: CGFloat = 6, darkens: Bool = false) -> some View {
         modifier(HoverFill(radius: radius, darkens: darkens))
+    }
+
+    /// The whole of a session's row, or a sub-agent's, leaves for the app the session runs in on
+    /// a click, as the session's name does. The buttons in it keep their own clicks. Nothing
+    /// when the app is not known.
+    func goesTo(_ owner: OwnerApp?) -> some View {
+        modifier(GoesTo(owner: owner))
     }
 
     /// How a button with words on it looks in the panel: outlined, or filled for the one way
@@ -2087,6 +2113,8 @@ enum CardStyle {
     static let row: CGFloat = 10
     /// Around the rows, between them and the card's edge.
     static let inset: CGFloat = 12
+    /// What stands under a row's lines, in from the card's edge by the mascot and its gap.
+    static let underMascot: CGFloat = 20 + 8
 }
 
 /// A session's branch behind the mark branches go by, and a second mark where the session runs
@@ -2216,7 +2244,8 @@ struct SessionCardView: View {
     private var heading: some View {
         HStack(spacing: 8) {
             if let owner = card.owner {
-                // A click on the name goes to the app the session runs in.
+                // A click on the name goes to the app the session runs in, as one anywhere on
+                // its row does. Kept a button for the keys and for VoiceOver.
                 Button { goTo(owner) } label: {
                     HStack(spacing: 8) {
                         name
@@ -2225,11 +2254,7 @@ struct SessionCardView: View {
                         Image(systemName: "arrow.up.forward").font(.system(size: 10, weight: .bold)).foregroundStyle(.white.opacity(0.8))
                             .help(Format.goTo(app: owner.name))
                     }
-                    // Room around the words for the fill, taken back so the name stays in line.
-                    .padding(.horizontal, 4)
                     .contentShape(Rectangle())
-                    .hoverFill()
-                    .padding(.horizontal, -4)
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint(Text(verbatim: Format.goTo(app: owner.name)))
@@ -2277,46 +2302,53 @@ struct SessionCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? CardStyle.block : CardStyle.row) {
-            // The main agent's row is built like a subagent's: mascot, then its lines under one another.
-            HStack(alignment: .top, spacing: 8) {
-                // Awake while agents it started work on: asleep over working rows read as a finished session.
-                // Still once every row called busy has gone silent: nothing here is known to move.
-                MascotView(status: card.workingAfterMain > 0 ? .working : card.main?.status ?? .done, kind: .lead(look),
-                           flag: card.main.flatMap { MascotFlag(status: $0.status) },
-                           still: card.rows.filter { $0.status == .working }.allSatisfy(\.isStalled),
-                           // Its own turn over while its helpers work: on the phone to them.
-                           activity: card.main?.activity ?? (card.workingAfterMain > 0 ? .calling : nil))
-                VStack(alignment: .leading, spacing: CardStyle.block) {
-                    // What it is and where it runs read as one: the place hugs the name, and
-                    // what the session is doing stands apart below.
-                    VStack(alignment: .leading, spacing: CardStyle.line) {
-                        heading
-                        place
-                    }
-                    // No step line above a request: the request says what is asked, in full, and
-                    // the step would repeat it or name something older.
-                    if let main = card.main, main.status != .done, asking?.requests(main.id).isEmpty ?? true,
-                       let line = Format.stepLine(main.step) {
-                        HStack(spacing: 6) {
-                            // What a waiting agent asks is why the person is here: all of it,
-                            // on up to three lines, and as bright as the name. Only a question
-                            // it wrote down: a wait Claude Code merely reports leaves the last
-                            // step as it was, a step. It is given the same three lines, and
-                            // shown by what it runs: a command cut at the card's edge was no
-                            // answer to "what does it want to run".
-                            // A question is not a step: without the mark that begins one.
-                            Text(verbatim: main.asksInWords ? main.step : line)
-                                .lineLimit(main.status == .needsYou ? 3 : 1)
-                                .fixedSize(horizontal: false, vertical: true)
-                                // A cut step can be read whole by resting the pointer on it.
-                                .help(Text(verbatim: main.step))
+            VStack(alignment: .leading, spacing: CardStyle.block) {
+                // The main agent's row is built like a subagent's: mascot, then its lines under one another.
+                HStack(alignment: .top, spacing: 8) {
+                    // Awake while agents it started work on: asleep over working rows read as a finished session.
+                    // Still once every row called busy has gone silent: nothing here is known to move.
+                    MascotView(status: card.workingAfterMain > 0 ? .working : card.main?.status ?? .done, kind: .lead(look),
+                               flag: card.main.flatMap { MascotFlag(status: $0.status) },
+                               still: card.rows.filter { $0.status == .working }.allSatisfy(\.isStalled),
+                               // Its own turn over while its helpers work: on the phone to them.
+                               activity: card.main?.activity ?? (card.workingAfterMain > 0 ? .calling : nil))
+                    VStack(alignment: .leading, spacing: CardStyle.block) {
+                        // What it is and where it runs read as one: the place hugs the name, and
+                        // what the session is doing stands apart below.
+                        VStack(alignment: .leading, spacing: CardStyle.line) {
+                            heading
+                            place
                         }
-                        .foregroundStyle(main.asksInWords ? Color.white : Color.white.opacity(0.8))
+                        // No step line above a request: the request says what is asked, in full, and
+                        // the step would repeat it or name something older.
+                        if let main = card.main, main.status != .done, asking?.requests(main.id).isEmpty ?? true,
+                           let line = Format.stepLine(main.step) {
+                            HStack(spacing: 6) {
+                                // What a waiting agent asks is why the person is here: all of it,
+                                // on up to three lines, and as bright as the name. Only a question
+                                // it wrote down: a wait Claude Code merely reports leaves the last
+                                // step as it was, a step. It is given the same three lines, and
+                                // shown by what it runs: a command cut at the card's edge was no
+                                // answer to "what does it want to run".
+                                // A question is not a step: without the mark that begins one.
+                                Text(verbatim: main.asksInWords ? main.step : line)
+                                    .lineLimit(main.status == .needsYou ? 3 : 1)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    // A cut step can be read whole by resting the pointer on it.
+                                    .help(Text(verbatim: main.step))
+                            }
+                            .foregroundStyle(main.asksInWords ? Color.white : Color.white.opacity(0.8))
+                        }
+                        if let main = card.main, hintRow == main.id {
+                            Text(verbatim: Format.quietHint(main: true, calledBusy: main.calledBusy)).foregroundStyle(.white.opacity(0.6))
+                                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                        }
                     }
-                    if let main = card.main, hintRow == main.id {
-                        Text(verbatim: Format.quietHint(main: true, calledBusy: main.calledBusy)).foregroundStyle(.white.opacity(0.6))
-                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                    }
+                }
+                .goesTo(card.owner)
+                // Under the row's lines, out of the part a click leaves by: a click that misses Allow
+                // must not take the person to another app.
+                Group {
                     Self.requests(asking, row: card.main?.id, title: card.name, owner: card.owner)
                     // Not beside requests: one that cannot be allowed here leads there itself,
                     // and one that can is answered here.
@@ -2325,6 +2357,7 @@ struct SessionCardView: View {
                         WayToAnswer(owner: card.owner)
                     }
                 }
+                .padding(.leading, CardStyle.underMascot)
             }
             // A finished agent with the outcome of a request under it keeps its row until the
             // line has gone: folded away, the line would go with it.
@@ -2346,7 +2379,7 @@ struct SessionCardView: View {
                 }
                 if showingDone {
                     ForEach(finished) { row in
-                        AgentRowView(row: row, compact: compact, reserveHide: hide != nil || reserveHide).transition(.opacity)
+                        AgentRowView(row: row, compact: compact, reserveHide: hide != nil || reserveHide, owner: card.owner).transition(.opacity)
                     }
                 }
             }
@@ -2432,79 +2465,86 @@ struct AgentRowView: View {
         // A request under the row says what is asked, in full: the step would repeat it or name something older.
         let asked = !(asking?.requests(row.id).isEmpty ?? true)
         let oneLine = compact && !asked && !row.asksInWords
-        HStack(alignment: .top, spacing: 8) {
-            MascotView(status: row.status, kind: MascotKind(type: row.info.type), size: oneLine ? 14 : 20,
-                       flag: MascotFlag(status: row.status), still: row.isStalled, activity: row.activity)
-                .frame(width: 20)
-                // The person stands for the type; resting the pointer on it says which.
-                // verbatim: the type is a transcript's text.
-                .help(Text(verbatim: row.info.type))
-            VStack(alignment: .leading, spacing: CardStyle.block) {
-                VStack(alignment: .leading, spacing: CardStyle.line) {
-                    // The same two columns as the session's own row: how long or which state, then which model.
-                    HStack(spacing: 8) {
-                        // verbatim: transcript text is untrusted and must never be read as Markdown or a link.
-                        if oneLine {
-                            // The name first and whole while there is room: it is what tells
-                            // the rows apart. The step keeps a little, and takes what is left.
-                            Text(verbatim: title).bold().help(Text(verbatim: title)).layoutPriority(1)
-                            if !done, row.info.steps > 0 {
-                                step(extras: "", counted: false).foregroundStyle(.white.opacity(0.6)).frame(minWidth: 96, alignment: .leading)
-                            }
-                        } else {
-                            Text(verbatim: title).bold().help(Text(verbatim: title))
-                        }
-                        Spacer(minLength: 12)
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(verbatim: Format.rowTime(row.status, elapsed: row.elapsed, quietFor: row.quietFor))
-                                .fontWeight(row.status == .needsYou ? .bold : .regular)
-                                .foregroundStyle(row.status == .needsYou ? MascotFlag.red : .white)
-                                .help(Format.timeHelp)
-                            // Dim on every row, as on the session's own. Coloured only where it
-                            // differed from the session's, the rule could not be read off the screen.
-                            Text(verbatim: row.info.model).font(CardStyle.aside).foregroundStyle(.white.opacity(0.6))
-                        }
-                        .fixedSize()
-                        // In line with the session's own row, which keeps a place for its hide button.
-                        if reserveHide { Color.clear.frame(width: 18, height: 1) }
-                    }
-                    // What it is doing and how far along. The step is the one thing here that differs
-                    // from row to row, so it is the last thing cut: the type and the tokens go first, whole.
-                    if !oneLine {
-                        Group {
-                            if done || row.info.steps == 0 || asked {
-                                // Always a second line, so a row keeps its height as its first step arrives.
-                                Text(verbatim: extras.isEmpty ? " " : extras)
-                            } else if row.asksInWords {
-                                // What it asks is why the person is here: all of it, on up to three
-                                // lines, and as bright as the name.
-                                // A question is not a step: without the mark that begins one.
-                                Text(verbatim: row.step).lineLimit(3).fixedSize(horizontal: false, vertical: true)
-                                    .foregroundStyle(.white)
-                                    .help(Text(verbatim: row.step))
+        VStack(alignment: .leading, spacing: CardStyle.block) {
+            HStack(alignment: .top, spacing: 8) {
+                MascotView(status: row.status, kind: MascotKind(type: row.info.type), size: oneLine ? 14 : 20,
+                           flag: MascotFlag(status: row.status), still: row.isStalled, activity: row.activity)
+                    .frame(width: 20)
+                    // The person stands for the type; resting the pointer on it says which.
+                    // verbatim: the type is a transcript's text.
+                    .help(Text(verbatim: row.info.type))
+                VStack(alignment: .leading, spacing: CardStyle.block) {
+                    VStack(alignment: .leading, spacing: CardStyle.line) {
+                        // The same two columns as the session's own row: how long or which state, then which model.
+                        HStack(spacing: 8) {
+                            // verbatim: transcript text is untrusted and must never be read as Markdown or a link.
+                            if oneLine {
+                                // The name first and whole while there is room: it is what tells
+                                // the rows apart. The step keeps a little, and takes what is left.
+                                Text(verbatim: title).bold().help(Text(verbatim: title)).layoutPriority(1)
+                                if !done, row.info.steps > 0 {
+                                    step(extras: "", counted: false).foregroundStyle(.white.opacity(0.6)).frame(minWidth: 96, alignment: .leading)
+                                }
                             } else {
-                                ViewThatFits(in: .horizontal) {
-                                    step(extras: extras)
-                                    step(extras: "")
+                                Text(verbatim: title).bold().help(Text(verbatim: title))
+                            }
+                            Spacer(minLength: 12)
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(verbatim: Format.rowTime(row.status, elapsed: row.elapsed, quietFor: row.quietFor))
+                                    .fontWeight(row.status == .needsYou ? .bold : .regular)
+                                    .foregroundStyle(row.status == .needsYou ? MascotFlag.red : .white)
+                                    .help(Format.timeHelp)
+                                // Dim on every row, as on the session's own. Coloured only where it
+                                // differed from the session's, the rule could not be read off the screen.
+                                Text(verbatim: row.info.model).font(CardStyle.aside).foregroundStyle(.white.opacity(0.6))
+                            }
+                            .fixedSize()
+                            // In line with the session's own row, which keeps a place for its hide button.
+                            if reserveHide { Color.clear.frame(width: 18, height: 1) }
+                        }
+                        // What it is doing and how far along. The step is the one thing here that differs
+                        // from row to row, so it is the last thing cut: the type and the tokens go first, whole.
+                        if !oneLine {
+                            Group {
+                                if done || row.info.steps == 0 || asked {
+                                    // Always a second line, so a row keeps its height as its first step arrives.
+                                    Text(verbatim: extras.isEmpty ? " " : extras)
+                                } else if row.asksInWords {
+                                    // What it asks is why the person is here: all of it, on up to three
+                                    // lines, and as bright as the name.
+                                    // A question is not a step: without the mark that begins one.
+                                    Text(verbatim: row.step).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                                        .foregroundStyle(.white)
+                                        .help(Text(verbatim: row.step))
+                                } else {
+                                    ViewThatFits(in: .horizontal) {
+                                        step(extras: extras)
+                                        step(extras: "")
+                                    }
                                 }
                             }
+                            .foregroundStyle(.white.opacity(0.6))
                         }
-                        .foregroundStyle(.white.opacity(0.6))
+                    }
+                    // Read out as one thing: what it is, how it is doing, which model, the step. The
+                    // buttons under it stay their own.
+                    .accessibilityElement(children: .combine)
+                    if hint {
+                        Text(verbatim: Format.quietHint(main: false, calledBusy: row.calledBusy)).foregroundStyle(.white.opacity(0.6))
+                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                // Read out as one thing: what it is, how it is doing, which model, the step. The
-                // buttons under it stay their own.
-                .accessibilityElement(children: .combine)
-                if hint {
-                    Text(verbatim: Format.quietHint(main: false, calledBusy: row.calledBusy)).foregroundStyle(.white.opacity(0.6))
-                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                }
+            }
+            // A sub-agent runs in its session's terminal: a click on its row goes there too.
+            .goesTo(owner)
+            Group {
                 SessionCardView.requests(asking, row: row.id, title: title, owner: owner)
                 if row.status == .needsYou, !asked {
                     // Under the row that asks, not under the session's own far above it.
                     WayToAnswer(owner: owner)
                 }
             }
+            .padding(.leading, CardStyle.underMascot)
         }
         // One level of dimming only: stacked on the 0.6 above, anything lower fails to read.
         .opacity(done ? 0.8 : 1)

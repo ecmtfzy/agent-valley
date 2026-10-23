@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.12 — 2026-10-23
+
+- A click anywhere on a session's row, or on one of its agents' rows, takes you to its terminal, not just a click on the name. Allow and Deny stay out of the clickable part, so a near miss keeps you here.
+
 ## 0.2.11 — 2026-10-23
 
 - History and the PDF report keep one line per project too. A worktree, or a folder inside the project, counts toward the project it came from, even after Superset has tidied the worktree away. Your old history joins up as well, as far as we can still tell where it came from.
