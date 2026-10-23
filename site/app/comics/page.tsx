@@ -4,7 +4,7 @@ import { masthead } from '@/app/fonts';
 import { Reveal } from '@/components/reveal';
 import { Footer } from '@/components/sections/footer';
 import { Nav } from '@/components/sections/nav';
-import { FEED, STRIPS } from './strips';
+import { AUTHOR, FEED, STRIPS } from './strips';
 import './funnies.css';
 
 // An old Sunday paper: a blackletter name (app/fonts.ts), and the rest in Newsreader, a serif drawn
@@ -30,15 +30,22 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image' },
 };
 
-// The edition is the newest strip's day, spelled the American way, in the Gregorian calendar.
+// A day in words, the American way, in the Gregorian calendar: Friday, October 23, 2026.
+const dayName = (d: string) =>
+  new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+
+// The edition is the newest strip's day.
 const latest = STRIPS.map((s) => s.date).sort().at(-1)!;
-const edition = new Date(`${latest}T00:00:00Z`).toLocaleDateString('en-US', {
-  weekday: 'long',
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-  timeZone: 'UTC',
-});
+const edition = dayName(latest);
+
+// The strips by the day they came out, newest first; each keeps its number. The seven of the first
+// day came out together, so they print as the first edition rather than seven strips on one date.
+const newestFirst = STRIPS.map((s, i) => ({ s, n: i + 1 })).reverse().map((x, i) => ({ ...x, i }));
+const days = [...new Set(newestFirst.map(({ s }) => s.date))].map((date) => ({
+  date,
+  strips: newestFirst.filter(({ s }) => s.date === date),
+}));
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 
 // For search engines: a collection of the strips, in order, and where it sits on the site.
 const LD = {
@@ -91,33 +98,49 @@ export default function Funnies() {
             </p>
           </header>
 
-          <ol className="f-strips" role="list">
-            {STRIPS.map((s, i) => {
-              // The first row is on screen at once, so it stands from the start; later cards print in.
-              const card = (
-                <article className="f-card" aria-labelledby={s.slug}>
-                  <p className="f-kicker">No. {i + 1} · Starring {s.starring}</p>
-                  <h2 id={s.slug} className="f-head">
-                    <a href={`/comics/${s.slug}/`}>{s.title}</a>
-                  </h2>
-                  <img
-                    className="f-strip"
-                    src={`/comics/${s.slug}-1024.webp`}
-                    srcSet={`/comics/${s.slug}-640.webp 640w, /comics/${s.slug}-1024.webp 1024w, /comics/${s.slug}.webp 2048w`}
-                    sizes="(min-width: 1180px) 480px, (min-width: 768px) calc(50vw - 90px), calc(100vw - 66px)"
-                    width={2048}
-                    height={2144}
-                    loading={i < 2 ? 'eager' : 'lazy'}
-                    fetchPriority={i === 0 ? 'high' : undefined}
-                    alt={s.alt}
-                  />
-                  <p className="f-deck">{s.deck}</p>
-                  <p className="f-inside">{s.inside}</p>
-                </article>
-              );
-              return <li key={s.slug}>{i < 2 ? card : <Reveal>{card}</Reveal>}</li>;
-            })}
-          </ol>
+          {/* Each day under its own dateline. A day with one strip lays it out wide, picture beside the
+              words; the newest day's strips wear a NEW stamp, which moves on when the next strip comes out. */}
+          {days.map(({ date, strips }) => (
+            <section key={date} className="f-day" aria-labelledby={`day-${date}`}>
+              <h2 id={`day-${date}`} className="f-dateline">
+                <time dateTime={date}>{dayName(date)}</time>
+              </h2>
+              {date === STRIPS[0].date && (
+                <p className="f-edition">The first edition: {WORDS[strips.length] ?? strips.length} strips</p>
+              )}
+              <ol className={strips.length === 1 ? 'f-strips f-one' : 'f-strips'} role="list">
+                {strips.map(({ s, n, i }) => {
+                  // The newest strip is on screen at once, so it stands from the start; later cards print in.
+                  const card = (
+                    <article className="f-card" aria-labelledby={s.slug}>
+                      <p className="f-kicker">
+                        No. {n} · Starring {s.starring}
+                        {s.date === latest && <span className="f-new">New</span>}
+                      </p>
+                      <h3 id={s.slug} className="f-head">
+                        <a href={`/comics/${s.slug}/`}>{s.title}</a>
+                      </h3>
+                      <p className="f-byline">By {AUTHOR.name}</p>
+                      <img
+                        className="f-strip"
+                        src={`/comics/${s.slug}-1024.webp`}
+                        srcSet={`/comics/${s.slug}-640.webp 640w, /comics/${s.slug}-1024.webp 1024w, /comics/${s.slug}.webp 2048w`}
+                        sizes="(min-width: 1180px) 480px, (min-width: 768px) calc(50vw - 90px), calc(100vw - 66px)"
+                        width={2048}
+                        height={2144}
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                        fetchPriority={i === 0 ? 'high' : undefined}
+                        alt={s.alt}
+                      />
+                      <p className="f-deck">{s.deck}</p>
+                      <p className="f-inside">{s.inside}</p>
+                    </article>
+                  );
+                  return <li key={s.slug}>{i === 0 ? card : <Reveal>{card}</Reveal>}</li>;
+                })}
+              </ol>
+            </section>
+          ))}
         </div>
       </main>
       <Footer />

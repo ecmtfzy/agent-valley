@@ -19,6 +19,10 @@
 .f-date{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 24px;margin-top:14px;padding:6px 0 5px;border-top:1px solid var(--f-ink);border-bottom:4px double var(--f-ink);font-size:.8125rem;letter-spacing:.08em;text-transform:uppercase}
 @media (min-width:640px){.f-date{justify-content:space-between}}
 
+/* A day's dateline: its date between two rules, and under the first day, the edition it was. */
+.f-dateline{display:flex;align-items:center;gap:16px;margin-top:24px;font-family:var(--font-news),Georgia,serif;font-size:.9375rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.f-dateline::before,.f-dateline::after{content:"";flex:1;border-top:1px solid var(--f-ink)}
+.f-edition{margin-top:4px;color:var(--f-dim);font-style:italic;text-align:center}
 .f-strips>li{padding-block:24px}
 .f-strips>li+li{border-top:1px solid var(--f-rule)}
 @media (min-width:768px){
@@ -26,9 +30,20 @@
   .f-strips>li:nth-child(2){border-top:0}
   .f-strips>li:nth-child(odd){padding-right:24px}
   .f-strips>li:nth-child(even){padding-left:24px;border-left:1px solid var(--f-rule)}
+  /* A day's only strip: the picture in the left column, its words beside it, the headline bigger. */
+  .f-one{grid-template-columns:1fr}
+  .f-one>li:nth-child(odd){padding-right:0}
+  .f-one .f-card{display:grid;grid-template-columns:1fr 1fr;column-gap:48px;align-content:start}
+  .f-one .f-card>*{grid-column:2}
+  .f-one .f-strip{grid-column:1;grid-row:1/span 6;margin-top:0}
+  .f-one .f-head{font-size:clamp(2.25rem,4vw,3.25rem)}
+  .f-one .f-deck{font-size:1.25rem}
 }
-.f-kicker{color:var(--f-dim);font-size:1rem;font-style:italic}
+.f-kicker{display:flex;align-items:center;gap:12px;color:var(--f-dim);font-size:1rem;font-style:italic}
+/* The one red on the page: a rubber stamp on the newest strips, 7.5:1 on the newsprint. */
+.f-new{padding:4px 7px 3px;border:2px solid #8f1d16;color:#8f1d16;font:700 .8125rem/1 var(--font-mono,ui-monospace),monospace;font-style:normal;letter-spacing:.14em;text-transform:uppercase;transform:rotate(-4deg)}
 .f-head{margin-top:2px;font-family:var(--font-news),Georgia,serif;font-size:clamp(1.625rem,3vw,2.125rem);font-weight:800;line-height:1.05;letter-spacing:.01em;text-transform:uppercase}
+.f-byline{margin-top:6px;color:var(--f-dim);font-size:.875rem;font-variant:small-caps;letter-spacing:.06em}
 .f-strip{display:block;width:100%;height:auto;margin-top:14px;border:1px solid var(--f-ink)}
 .f-deck{margin-top:12px;font-size:1.125rem;line-height:1.5}
 .f-inside{margin-top:6px;color:var(--f-dim);font-style:italic}

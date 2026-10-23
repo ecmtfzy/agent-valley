@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Footer } from '@/components/sections/footer';
 import { Nav } from '@/components/sections/nav';
-import { FEED, STRIPS } from './strips';
+import { AUTHOR, FEED, STRIPS, longDate } from './strips';
 
 // One strip's own page: the strip, its words, the story behind it (the page's children), the way
 // to the strips either side, and the same in schema.org terms for search engines.
@@ -45,7 +45,7 @@ export function ComicPage({ slug, children }: { slug: string; children: React.Re
         image: [`${SITE}/comics/${slug}-og.jpg`, `${SITE}/comics/${slug}.webp`],
         datePublished: s.date,
         dateModified: s.date,
-        author: { '@type': 'Person', name: 'morsechimwai', url: 'https://github.com/morsechimwai' },
+        author: { '@type': 'Person', ...AUTHOR },
         mainEntityOfPage: at(slug),
         isPartOf: { '@type': 'CollectionPage', '@id': `${SITE}/comics/`, name: 'The Valley Funnies' },
       },
@@ -68,6 +68,9 @@ export function ComicPage({ slug, children }: { slug: string; children: React.Re
             <a className="inline-flex min-h-11 items-center" href="/comics/">The Valley Funnies</a> · No. {i + 1}
           </nav>
           <h1 className="mt-2">{s.title}</h1>
+          <p className="mt-3 font-mono text-sm text-muted-foreground">
+            By <a href={AUTHOR.url} rel="author">{AUTHOR.name}</a> · <time dateTime={s.date}>{longDate(s.date)}</time>
+          </p>
           <p className="lead mt-5">{s.lead}</p>
 
           <figure className="mt-10">

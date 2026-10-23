@@ -54,6 +54,9 @@ for (const strip of STRIPS) {
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', url);
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `https://agentvalley.app/comics/${strip.slug}-og.jpg`);
     await expect(page.locator('h1')).toHaveText(strip.title);
+    const byline = page.locator('h1 + p');
+    await expect(byline).toContainText('By morsechimwai');
+    await expect(byline.locator('time')).toHaveAttribute('datetime', strip.date);
     const graphs = await page.locator('script[type="application/ld+json"]').allTextContents();
     const types = graphs.flatMap((g) => (JSON.parse(g)['@graph'] ?? []).map((n: { '@type': string }) => n['@type']));
     expect(types).toEqual(expect.arrayContaining(['Article', 'BreadcrumbList']));
@@ -62,15 +65,24 @@ for (const strip of STRIPS) {
   });
 }
 
-test('the funnies page lists every strip, links each story, and is in the sitemap', async ({ page, request }) => {
+test('the funnies page lists every strip, newest first under its day, links each story, and is in the sitemap', async ({ page, request }) => {
   const url = 'https://agentvalley.app/comics/';
   await page.goto('/comics/');
   await expect(page).toHaveTitle('The Valley Funnies: comics about Claude Code');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', url);
   await expect(page.locator('h1')).toHaveText('The Valley Funnies');
-  await expect(page.locator('h2')).toHaveText(STRIPS.map((s) => s.title));
+  await expect(page.locator('main h3')).toHaveText(STRIPS.map((s) => s.title).reverse());
+  await expect(page.locator('.f-dateline time')).toHaveText([...new Set(STRIPS.map((s) => s.date))].reverse().map((d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })));
   for (const s of STRIPS) await expect(page.locator(`main a[href="/comics/${s.slug}/"]`)).toHaveCount(1);
+  await expect(page.locator('.f-byline')).toHaveText(STRIPS.map(() => 'By morsechimwai'));
   expect(await (await request.get('/sitemap.xml')).text()).toContain(`<loc>${url}</loc>`);
+});
+
+test('the newest day’s strips wear the NEW stamp, and no other strip does', async ({ page }) => {
+  await page.goto('/comics/');
+  const newest = STRIPS.map((s) => s.date).sort().at(-1);
+  const fresh = STRIPS.filter((s) => s.date === newest).map((s) => s.title).reverse();
+  await expect(page.locator('.f-card:has(.f-new) h3')).toHaveText(fresh);
 });
 
 test('clicking a strip picture opens its story, even while it lifts', async ({ page }) => {
