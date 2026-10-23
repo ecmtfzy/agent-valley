@@ -3,7 +3,7 @@ import SwiftUI
 /// Who an agent is drawn as. Each kind of agent Claude Code ships is a person of its own; any
 /// other type is the general-purpose person, in a shirt picked by the type's name.
 enum MascotKind: Equatable {
-    /// Each session's own agent has a look of its own: `AgentStore.leadLooks`.
+    /// Each session's own agent has a look of its own: whoever `Roster` seated in it.
     case lead(LeadLook)
     case general, explore, plan
     /// An index into `Person.otherShirts`.
@@ -41,7 +41,7 @@ enum MascotKind: Equatable {
 
 /// How a session's own agent looks: which of `Person.leads`, in which of `Person.leadHair` and
 /// `Person.leadShirts`. As it stands, the session's own agent as it first was.
-struct LeadLook: Equatable {
+struct LeadLook: Equatable, Codable {
     var face = 0, hair = 0, shirt = 0
 }
 

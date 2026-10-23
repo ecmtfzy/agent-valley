@@ -928,7 +928,7 @@ struct PanelView: View {
         let bar = AgentStore.barState(sessions)
         let crowd = AgentStore.crowd(sessions)
         let lead = crowd.first
-        let looks = AgentStore.leadLooks(sessions)
+        let looks = AgentStore.looks(sessions)
         // Open, as many of the rest as stand between the tabs and the mascot, which keeps its place.
         let room = (width - state.notchWidth) / 2 - NotchGeometry.wing + 5 - (grouped ? 8 + tabsWidth + 4 : 8)
         let behind = Array(crowd.dropFirst().prefix(max(0, Int(room / Self.crowdStep))))
@@ -1330,7 +1330,7 @@ struct PanelView: View {
 
     private func sessions(_ motion: Motion, viewport: CGFloat) -> some View {
         let list = AgentStore.arrange(sessions, idle: settings.idleSessions, keeping: answers.settledSessions)
-        let looks = AgentStore.leadLooks(sessions)
+        let looks = AgentStore.looks(sessions)
         let away = AgentStore.putAway(answers.overlay(store.sessions), hidden: state.hidden)
         // The line over each group's first card, when the list is grouped and there is more
         // than one session to group.
@@ -2096,7 +2096,7 @@ struct BranchLabel: View {
 struct SessionCardView: View {
     let card: SessionCard
     let motion: Motion
-    /// How the session's own agent looks: `AgentStore.leadLooks`.
+    /// How the session's own agent looks: whoever `Roster` seated in it.
     var look = LeadLook()
     /// The list holds more than one app, so the card names its own.
     var showsApp = true

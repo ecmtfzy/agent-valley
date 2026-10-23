@@ -347,7 +347,8 @@ final class AnswerStore: ObservableObject {
                 return AgentRow(id: row.id, info: row.info, status: .needsYou, elapsed: row.elapsed, quietFor: time.timeIntervalSince(first))
             }
             return SessionCard(id: card.id, project: card.project, branch: card.branch, main: card.main.map(shown),
-                               agents: card.agents.map(shown), startedAt: card.startedAt, title: card.title, owner: card.owner, worktree: card.worktree)
+                               agents: card.agents.map(shown), startedAt: card.startedAt, title: card.title, owner: card.owner, worktree: card.worktree,
+                               look: card.look)
         }
     }
 

@@ -333,16 +333,10 @@ final class CrewSetupTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: installedFont), try Data(contentsOf: font))
     }
 
-    func card(_ id: String, startedAt: TimeInterval) -> SessionCard {
-        SessionCard(id: id, project: "proj", branch: "", main: AgentRow(id: id + "/main", info: AgentInfo(), status: .working, elapsed: 0),
-                    agents: [], startedAt: Date(timeIntervalSince1970: startedAt))
-    }
-
     func testLeadLooksRoundTrip() {
-        let cards = [card("/r/proj/other", startedAt: 1), card("/r/proj/abc", startedAt: 2)]
-        let data = CrewSetup.leadLooksData(cards, hidden: [:])
-        XCTAssertEqual(CrewSetup.look(for: "abc", in: data), AgentStore.leadLooks(cards)["/r/proj/abc/main"])
-        XCTAssertEqual(CrewSetup.look(for: "other", in: data), AgentStore.leadLooks(cards)["/r/proj/other/main"])
+        let data = CrewSetup.leadLooksData(["abc": LeadLook(face: 3, hair: 5, shirt: 6), "other": LeadLook(face: 1, hair: 0, shirt: 2)])
+        XCTAssertEqual(CrewSetup.look(for: "abc", in: data), LeadLook(face: 3, hair: 5, shirt: 6))
+        XCTAssertEqual(CrewSetup.look(for: "other", in: data), LeadLook(face: 1, hair: 0, shirt: 2))
         // No look given: before the first prompt, put away, or the app closed.
         XCTAssertNil(CrewSetup.look(for: "zzz", in: data))
         XCTAssertNil(CrewSetup.look(for: "abc", in: nil))
@@ -350,20 +344,6 @@ final class CrewSetupTests: XCTestCase {
         // A negative number would index before the font's first face.
         XCTAssertNil(CrewSetup.look(for: "abc", in: Data(#"{"abc": [-1, 0, 0]}"#.utf8)))
         XCTAssertEqual(CrewSetup.look(for: "abc", in: Data(#"{"abc": [1, 2, 3]}"#.utf8)), LeadLook(face: 1, hair: 2, shirt: 3))
-    }
-
-    /// The terminal shows the face the notch shows, so the looks are picked among the sessions the
-    /// panel lists. Counted with a session the person put away, every later face would move.
-    func testLeadLooksFollowTheSessionsThePanelShows() {
-        let cards = [card("/r/proj/oldest", startedAt: 1), card("/r/proj/b", startedAt: 2), card("/r/proj/c", startedAt: 3)]
-        let hidden = ["/r/proj/oldest": Date(timeIntervalSince1970: 10)]
-        let data = CrewSetup.leadLooksData(cards, hidden: hidden)
-        let panel = AgentStore.leadLooks(AgentStore.showing(cards, hidden: hidden))
-        XCTAssertEqual(CrewSetup.look(for: "b", in: data), panel["/r/proj/b/main"])
-        XCTAssertEqual(CrewSetup.look(for: "c", in: data), panel["/r/proj/c/main"])
-        XCTAssertNil(SafeJSON.object(data)?["oldest"])
-        let all = CrewSetup.leadLooksData(cards, hidden: [:])
-        XCTAssertNotEqual(["b", "c"].map { CrewSetup.look(for: $0, in: data) }, ["b", "c"].map { CrewSetup.look(for: $0, in: all) })
     }
 
     func mode(_ url: URL) throws -> Int {
@@ -377,7 +357,7 @@ final class CrewSetupTests: XCTestCase {
     }
 
     func testTheLeadLooksFolderIsPrivate() throws {
-        let data = CrewSetup.leadLooksData([card("/r/proj/abc", startedAt: 1)], hidden: [:])
+        let data = CrewSetup.leadLooksData(["abc": LeadLook()])
         try CrewSetup.writeLeadLooks(data, home: home)
         XCTAssertEqual(try mode(CrewSetup.folder(home)) & 0o077, 0)
         XCTAssertEqual(try Data(contentsOf: CrewSetup.folder(home).appendingPathComponent(CrewSetup.leadLooksName)), data)

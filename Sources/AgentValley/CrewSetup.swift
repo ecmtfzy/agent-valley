@@ -12,7 +12,7 @@ enum CrewSetup {
         case missingFont
     }
 
-    static let leadLooksName = "crew-leads.json", backupName = "crew-backup.json"
+    static let leadLooksName = "crew-leads.json", backupName = "crew-backup.json", rosterName = "crew-roster.json"
     static let ghosttyLines = ["# AgentValley: the crew's faces in Claude Code come from this font",
                                "font-codepoint-map = U+3F000-U+3F7FF=AgentValley Crew"]
     /// The narrower map of the versions before the faces with things in hand. Install and the
@@ -284,18 +284,9 @@ enum CrewSetup {
     }
 
     /// Each session's lead as `{"<session uuid>": [face, hair, shirt]}`, for `crew status` to read
-    /// by the `session_id` Claude Code gives it. Only the app knows the looks. They are picked
-    /// among the sessions the panel lists, as the notch picks them: a session the person put away
-    /// would move every later face. The panel also lays pending answers over the cards, but that
-    /// changes no card's id, start, row ids or last move, which is all the looks are picked by.
-    static func leadLooksData(_ sessions: [SessionCard], hidden: [String: Date]) -> Data {
-        let shown = AgentStore.showing(sessions, hidden: hidden)
-        let looks = AgentStore.leadLooks(shown)
-        var byID: [String: [Int]] = [:]
-        for card in shown {
-            guard let main = card.main, let look = looks[main.id] else { continue }
-            byID[(card.id as NSString).lastPathComponent] = [look.face, look.hair, look.shirt]
-        }
+    /// by the `session_id` Claude Code gives it. Only the app knows who sits where: `Roster`.
+    static func leadLooksData(_ looks: [String: LeadLook]) -> Data {
+        let byID = looks.mapValues { [$0.face, $0.hair, $0.shirt] }
         return (try? JSONSerialization.data(withJSONObject: byID, options: .sortedKeys)) ?? Data("{}".utf8)
     }
 

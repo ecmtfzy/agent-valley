@@ -123,6 +123,8 @@ struct SessionCard: Identifiable, Equatable {
     var owner: OwnerApp?
     /// The session is in a worktree of its own, not in the repository's checkout.
     var worktree = false
+    /// Who sits in the session, as `Roster` seated it: nil until the store has.
+    var look: LeadLook?
 }
 
 extension SessionCard {
@@ -170,7 +172,7 @@ extension SessionCard {
         func quiet(_ row: AgentRow) -> AgentRow {
             row.status == .working ? AgentRow(id: row.id, info: row.info, status: .quiet, elapsed: row.elapsed, quietFor: row.quietFor, calledBusy: true) : row
         }
-        return SessionCard(id: id, project: project, branch: branch, main: main.map(quiet), agents: agents.map(quiet), startedAt: startedAt, title: title, owner: owner, worktree: worktree)
+        return SessionCard(id: id, project: project, branch: branch, main: main.map(quiet), agents: agents.map(quiet), startedAt: startedAt, title: title, owner: owner, worktree: worktree, look: look)
     }
 }
 
@@ -257,6 +259,8 @@ final class AgentStore: ObservableObject {
     static let staleReadLimit = 3
 
     @Published private(set) var sessions: [SessionCard] = []
+    /// Who sits in each session, by session id, sessions no longer listed included.
+    @Published private(set) var looks: [String: LeadLook] = [:]
     @Published private(set) var rootMissing = false
     /// False until the first scan has been published: an empty list before that means "not read yet".
     @Published private(set) var loaded = false
@@ -271,6 +275,12 @@ final class AgentStore: ObservableObject {
     /// by file name. Only touched on `queue`.
     private var records: [String: (record: SessionRecord, misses: Int)] = [:]
     private let processStart: (Int32) -> Date?
+    /// The sessions a running Claude Code holds a record of, by session id. Only touched on `queue`.
+    private var running: Set<String> = []
+    /// Who sits in which session. Only touched on `queue`.
+    private var roster: Roster
+    /// Where the roster is kept, or nil to keep it in memory only.
+    private let rosterFile: URL?
     private let owner: (Int32) -> OwnerApp?
     /// Finds the tab of a session's process in its app.
     private let tab: (Int32, OwnerApp) -> TabPlace?
@@ -295,7 +305,10 @@ final class AgentStore: ObservableObject {
          sessions: URL? = nil,
          processStart: @escaping (Int32) -> Date? = AgentStore.startTime(ofProcess:),
          owner: @escaping (Int32) -> OwnerApp? = AgentStore.ownerApp(ofProcess:),
-         tab: @escaping (Int32, OwnerApp) -> TabPlace? = AgentStore.tabPlace(ofProcess:in:)) {
+         tab: @escaping (Int32, OwnerApp) -> TabPlace? = AgentStore.tabPlace(ofProcess:in:),
+         roster: URL? = nil) {
+        self.rosterFile = roster
+        self.roster = roster.map(Roster.load) ?? Roster()
         self.owner = owner
         self.tab = tab
         self.root = root.resolvingSymlinksInPath().path
@@ -377,34 +390,9 @@ final class AgentStore: ObservableObject {
         crowd(sessions).first
     }
 
-    /// How each session's own agent looks, by the id of its row: no two alike while there are
-    /// faces, hair and shirts enough. The oldest session picks first, so a session keeps its look
-    /// as others come and go, unless one it gave way to leaves. A shirt too close to the hair is
-    /// never picked while another is left: the beard would run into it. That comes before the
-    /// shirt being one nobody else wears.
-    static func leadLooks(_ sessions: [SessionCard]) -> [String: LeadLook] {
-        var looks: [String: LeadLook] = [:]
-        for card in sessions.sorted(by: { ($0.startedAt, $0.id) < ($1.startedAt, $1.id) }) {
-            guard let main = card.main else { continue }
-            let taken = Array(looks.values)
-            let face = pick(Person.leads.count, by: card.id + "/face", taken: taken.map(\.face))
-            let hair = pick(Person.leadHair.count, by: card.id + "/hair", taken: taken.map(\.hair))
-            // By the id alone, as when the shirt was all there was: the shirts already seen stay on.
-            let shirt = pick(Person.leadShirts.count, by: card.id, taken: taken.map(\.shirt)) {
-                !Person.close(Person.leadHair[hair], Person.leadShirts[$0])
-            }
-            looks[main.id] = LeadLook(face: face, hair: hair, shirt: shirt)
-        }
-        return looks
-    }
-
-    /// Of `count` choices, the first that the fewest have taken, counting on from where the hash
-    /// of `seed` points. Only those `allowed` lets through, while there are any.
-    private static func pick(_ count: Int, by seed: String, taken: [Int], allowed: (Int) -> Bool = { _ in true }) -> Int {
-        let start = Int(MascotKind.hash(seed) % UInt32(count))
-        let order = (0..<count).map { (start + $0) % count }
-        let choices = order.contains(where: allowed) ? order.filter(allowed) : order
-        return choices.min { one, other in taken.filter { $0 == one }.count < taken.filter { $0 == other }.count } ?? start
+    /// Who sits in each session, by the id of its main row.
+    static func looks(_ sessions: [SessionCard]) -> [String: LeadLook] {
+        Dictionary(sessions.compactMap { card in card.main.flatMap { main in card.look.map { (main.id, $0) } } }) { first, _ in first }
     }
 
     /// Every agent not yet done, in the order the lead is picked by: the crowd that stands
@@ -611,6 +599,7 @@ final class AgentStore: ObservableObject {
         let unread = Set(names.filter { read[$0] == nil }.compactMap { last[$0]?.record.sessionId })
         let gone = Set(states.keys).subtracting(live.keys).subtracting(unread).map { ($0, SessionState(activity: .idle)) }
         states = live.mapValues(\.state).merging(gone) { held, _ in held }
+        running = Set(live.keys)
         // A process keeps its ancestors: an app once found is kept, and forgotten with its record.
         // One not found is looked for again, as the app may only be closed for now.
         var found: [Int32: (startedAt: Date, app: OwnerApp)] = [:]
@@ -855,13 +844,24 @@ final class AgentStore: ObservableObject {
         Self.cards(from: files, now: now, visibleFor: visibleFor, states: states, owners: owners, worktree: Self.isWorktree)
     }
 
-    private func publish() {
-        let cards = cards(now: Date())
+    /// Hands the cards to the main thread. Only called on `queue`, and by tests.
+    func publish() {
+        let now = Date()
+        // Someone is at a session Claude Code runs. A Claude Code that keeps no records leaves
+        // only the transcripts to go by: someone is at a session still at work.
+        let byRecords = !records.isEmpty
+        let listed = cards(now: now)
+        let atWork = Set(listed.filter { !$0.isIdle }.map(AnswerStore.sessionID(of:)))
+        let before = roster
+        let cards = roster.seat(listed, busy: { [running] in byRecords ? running.contains($0) : atWork.contains($0) }, now: now)
+        if roster != before, let rosterFile { try? roster.save(rosterFile) }
+        let looks = roster.looks
         let missing = !FileManager.default.fileExists(atPath: root)
         let scanned = scanned
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if self.sessions != cards { self.sessions = cards }
+            if self.looks != looks { self.looks = looks }
             if self.rootMissing != missing { self.rootMissing = missing }
             if self.loaded != scanned { self.loaded = scanned }
         }

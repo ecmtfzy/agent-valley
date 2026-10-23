@@ -662,28 +662,27 @@ final class AgentStoreTests: XCTestCase {
         XCTAssertTrue(SessionList(cards: [card("a", superset)], folded: [card("b", ghostty)]).showsApps)
     }
 
-    // Two sessions' own agents that look alike could not be told apart on the bar.
-    func testEachSessionsOwnAgentLooksLikeNoOther() {
-        func lead(_ id: String, startedAt: TimeInterval) -> SessionCard {
-            SessionCard(id: id, project: id, branch: "", main: AgentRow(id: id + "/main", info: AgentInfo(), status: .working, elapsed: 0),
-                        agents: [], startedAt: Date(timeIntervalSince1970: startedAt))
+    // Two sessions at once in one project: the regular and someone else, and the roster on disk.
+    func testTheStoreSeatsEachSessionAndKeepsTheRoster() throws {
+        let folder = URL(fileURLWithPath: store.root).appendingPathComponent("records-roster")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = URL(fileURLWithPath: store.root).appendingPathComponent("roster.json")
+        let reading = AgentStore(root: URL(fileURLWithPath: store.root), sessions: folder,
+                                 processStart: { _ in Date(timeIntervalSince1970: 0) }, roster: file)
+        for (pid, session) in [(111, "s1"), (222, "s2")] {
+            reading.ingest(path: try write(toolUse + "\n", to: "proj/\(session).jsonl"))
+            try Data(recordJSON(pid: pid, session: session, status: "busy").utf8).write(to: folder.appendingPathComponent("\(pid).json"))
         }
-        let cards = (0..<Person.leadHair.count).map { lead("s\($0)", startedAt: Double($0)) }
-        let looks = Array(AgentStore.leadLooks(cards).values)
-        XCTAssertEqual(looks.count, cards.count)
-        // Every hair and shirt its own; every face taken before any is taken twice.
-        XCTAssertEqual(Set(looks.map(\.hair)).count, cards.count)
-        XCTAssertEqual(Set(looks.map(\.shirt)).count, cards.count)
-        XCTAssertEqual(Set(looks.map(\.face)).count, Person.leads.count)
-        // A session that comes later takes what is free; those there before keep theirs.
-        let some = Array(cards.prefix(3))
-        let before = AgentStore.leadLooks(some)
-        XCTAssertEqual(AgentStore.leadLooks(some + [lead("new", startedAt: 99)]).filter { before[$0.key] != nil }, before)
-        // However many there are, no beard runs into the shirt under it.
-        let many = (0..<40).map { lead("m\($0)", startedAt: Double($0)) }
-        for look in AgentStore.leadLooks(many).values {
-            XCTAssertFalse(Person.close(Person.leadHair[look.hair], Person.leadShirts[look.shirt]), "\(look)")
-        }
+        reading.readSessions()
+        reading.publish()
+        let published = expectation(description: "published")
+        DispatchQueue.main.async { published.fulfill() }
+        wait(for: [published], timeout: 2)
+        let looks = reading.sessions.compactMap(\.look)
+        XCTAssertEqual(looks.count, 2)
+        XCTAssertNotEqual(looks.first, looks.last)
+        XCTAssertEqual(Set(reading.looks.values.map { "\($0)" }), Set(looks.map { "\($0)" }))
+        XCTAssertEqual(Roster.load(file).seats.mapValues(\.look), reading.looks)
     }
 
     // An agent starting to wait on the person is the one event the bar must not let slip by.

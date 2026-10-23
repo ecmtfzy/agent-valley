@@ -487,11 +487,11 @@ final class NotchWindowController: NSObject {
         // Have a look and Check now: the panel closes, unless pinned, and hands the keyboard back.
         updates.willShowWindow = { [weak self] in self?.closeFromKeyboard() }
         tokenWatch = settings.$tokenUse.sink { [weak self] on in self?.state.tokenUse(on) }
-        // `crew status` runs without the app's data, so the leads' looks go to it in a small file,
-        // picked among the sessions the panel lists so the terminal shows the notch's faces.
-        leadLooksWatch = store.$sessions.combineLatest(state.$hidden).sink { [weak self] sessions, hidden in
+        // `crew status` runs without the app's data, so who sits where goes to it in a small file:
+        // the terminal shows the notch's faces.
+        leadLooksWatch = store.$looks.sink { [weak self] looks in
             guard let self else { return }
-            let data = CrewSetup.leadLooksData(sessions, hidden: hidden)
+            let data = CrewSetup.leadLooksData(looks)
             // Remembered only once it is on disk, so a failed write is tried again.
             if data != self.lastLeadLooks, (try? CrewSetup.writeLeadLooks(data, home: FileManager.default.homeDirectoryForCurrentUser)) != nil {
                 self.lastLeadLooks = data

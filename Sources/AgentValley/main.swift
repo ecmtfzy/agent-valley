@@ -9,7 +9,8 @@ if CommandLine.arguments.count > 1, CommandLine.arguments[1] == "crew" {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = Settings()
-    private let store = AgentStore()
+    private let store = AgentStore(roster: CrewSetup.folder(FileManager.default.homeDirectoryForCurrentUser)
+        .appendingPathComponent(CrewSetup.rosterName))
     private let limits = PlanLimitsClient()
     private let answers = AnswerStore()
     private let usage = UsageLedger()

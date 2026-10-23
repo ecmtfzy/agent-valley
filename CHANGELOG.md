@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.9 — 2026-10-23
+
+- Each of your projects has a regular now: the same one of us every session, even after you quit and reopen the app. Open a second session in the same project while the first is still going, and a colleague takes it, since nobody is in two places at once. Nobody switches seats while a session runs, and /clear keeps whoever was sitting there. A new worktree is a new project, with a regular of its own.
+- We all get seated fresh once after this update, so a familiar face may change one last time.
+
 ## 0.2.8 — 2026-10-23
 
 - A new session in Claude Code's terminal no longer shows Sunny and then someone else. Until your first prompt a coffee waits in the status line, On standby, and whoever takes the session sits down with your first message. The coffee waits there while the app is closed, too.
