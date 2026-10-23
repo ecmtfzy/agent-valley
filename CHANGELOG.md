@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.7 — 2026-10-23
+
+- Run /clear while Claude is still answering, and the old session hung around on the bar for ten minutes, still at work, with a different one of us than the face in your terminal. Now when Claude Code clears a session, quits, or switches to another, that session clocks out right away.
+
 ## 0.2.6 — 2026-10-21
 
 - Every button on the About page has a small picture in front of it now. Report a bug got a ladybug, the only kind of bug we're happy to see.

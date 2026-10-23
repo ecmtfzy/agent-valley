@@ -1153,10 +1153,33 @@ final class AgentStoreTests: XCTestCase {
         reading.readSessions()
         XCTAssertEqual(reading.states["s1"]?.activity, .idle)
 
-        // Claude Code removes the record when it exits.
+        // Claude Code removes the record when it exits: the session is idle from then on.
         try FileManager.default.removeItem(at: folder.appendingPathComponent("111.json"))
         reading.readSessions()
-        XCTAssertEqual(reading.states, [:])
+        XCTAssertEqual(reading.states, ["s1": SessionState(activity: .idle)])
+        reading.readSessions()
+        XCTAssertEqual(reading.states, ["s1": SessionState(activity: .idle)])
+        // Resumed, a record holds it again.
+        try put(recordJSON(pid: 111, session: "s1", status: "busy"), "111.json")
+        reading.readSessions()
+        XCTAssertEqual(reading.states["s1"]?.activity, .busy)
+    }
+
+    // /clear mid-turn: the record moves to a new session id, and the old transcript ends on a
+    // prompt nobody answers. It is over, not at work: the bar's mascot stood for it while the
+    // terminal showed the new session's face.
+    func testAClearedSessionIsDoneNotAtWork() throws {
+        let (reading, folder) = try storeWithRecords(alive: [111])
+        let path = try write(toolUse + "\n", to: "proj/s1.jsonl")
+        reading.ingest(path: path)
+        let aMinuteOn = try XCTUnwrap(reading.files[path]?.info.lastActivity).addingTimeInterval(60)
+        let record = folder.appendingPathComponent("111.json")
+        try Data(recordJSON(pid: 111, session: "s1", status: "busy").utf8).write(to: record)
+        reading.readSessions()
+        XCTAssertEqual(AgentStore.cards(from: reading.files, now: aMinuteOn, states: reading.states).first?.main?.status, .working)
+        try Data(recordJSON(pid: 111, session: "s2", status: "idle").utf8).write(to: record)
+        reading.readSessions()
+        XCTAssertEqual(AgentStore.cards(from: reading.files, now: aMinuteOn, states: reading.states).first?.main?.status, .done)
     }
 
     // An older Claude Code writes no records: everything falls back to the transcript rules.
@@ -1183,8 +1206,9 @@ final class AgentStoreTests: XCTestCase {
         let record = folder.appendingPathComponent("111.json")
         try Data(recordJSON(pid: 111, session: "s1", status: "busy").utf8).write(to: record)
         XCTAssertEqual(mainStatus(), .working)
+        // Its Claude Code exited mid-turn: nothing runs it any more.
         try FileManager.default.removeItem(at: record)
-        XCTAssertEqual(mainStatus(), .quiet)
+        XCTAssertEqual(mainStatus(), .done)
     }
 
     // A transcript that never carried a conversation line cannot hold a session's record, even when
@@ -1241,6 +1265,12 @@ final class AgentStoreTests: XCTestCase {
         XCTAssertEqual(reading.states["s1"]?.activity, .busy)
         readFiveTimes()
         XCTAssertEqual(reading.states, [:])
+        // A record caught missing is a session that ended, not one this app can't read.
+        try put(recordJSON(pid: 111, session: "s1", status: "busy"))
+        reading.readSessions()
+        try FileManager.default.removeItem(at: folder.appendingPathComponent("111.json"))
+        reading.readSessions()
+        XCTAssertEqual(reading.states, ["s1": SessionState(activity: .idle)])
     }
 
     // A killed Claude Code leaves its record behind, and stays in the process table until its

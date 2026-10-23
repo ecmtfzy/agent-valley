@@ -599,9 +599,18 @@ final class AgentStore: ObservableObject {
                 read[name] = (last.record, last.misses + 1)
             }
         }
+        let last = records
         records = read
         let live = SessionRecords.live(from: read.values.map(\.record), processStart: processStart)
-        states = live.mapValues(\.state)
+        // A session whose record went away is run by no Claude Code: /clear moves the record to a
+        // new session id, and exit removes it or leaves it to a dead pid. Its transcript can stop
+        // mid-turn, and would read as at work for ten minutes, the bar's mascot standing for it.
+        // Idle until a record holds it again. A record still there that can't be read says
+        // nothing, as before: it may be a state this app does not know yet.
+        // ponytail: grows by one id per session closed while the app runs; a restart clears it.
+        let unread = Set(names.filter { read[$0] == nil }.compactMap { last[$0]?.record.sessionId })
+        let gone = Set(states.keys).subtracting(live.keys).subtracting(unread).map { ($0, SessionState(activity: .idle)) }
+        states = live.mapValues(\.state).merging(gone) { held, _ in held }
         // A process keeps its ancestors: an app once found is kept, and forgotten with its record.
         // One not found is looked for again, as the app may only be closed for now.
         var found: [Int32: (startedAt: Date, app: OwnerApp)] = [:]
