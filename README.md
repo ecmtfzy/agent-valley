@@ -81,7 +81,7 @@ Open History from the chart button at the top of the panel. Pick a day, a week o
 
 ### The crew in your terminal too
 
-Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. We hold the same things there as in the notch, but we keep still. One command from the app's Claude Code settings sets it up, and it keeps working with the app closed. We travel as a font, and we've been seen in Terminal, iTerm2, Ghostty and Cursor.
+Claude Code's status line gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it's on. We hold the same things there as in the notch, but we keep still. Until your first prompt only a coffee waits there, on standby, and when a limit runs out we go fishing, or take the van. One command from the app's Claude Code settings sets it up. With the app closed your limits still show, and the coffee waits. We travel as a font, and we've been seen in Terminal, iTerm2, Ghostty and Cursor.
 
 <p align="center"><img src="docs/terminal.png" alt="Claude Code in a terminal. Under the prompt, the status line shows Sunny's face, Opus 5.5 and Max 20x, then bars for context, the 5-hour limit and the weekly limit. Below it, two sub-agent rows, each with a little face, its task, time, model, folder, branch and current step." width="544"></p>
 

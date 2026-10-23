@@ -17,10 +17,12 @@ enum Crew {
             let leads = try? Data(contentsOf: CrewSetup.folder(home).appendingPathComponent(CrewSetup.leadLooksName))
             let look = CrewSetup.look(for: input["session_id"] as? String ?? "", in: leads)
             let now = Date()
-            let holding = transcript(input).flatMap { url in
-                drawsThingsInHand(home, environment) ? CrewLine.activity(transcript: url, now: now) : nil
-            }
-            print(CrewLine.status(input, columns: columns, plan: CrewLine.plan(fromClaudeJSON: claude), look: look, holding: holding, now: now))
+            // Things in hand and the bar's pictures need the font they came in.
+            let newFont = drawsThingsInHand(home, environment)
+            let turn = newFont ? transcript(input).flatMap { CrewLine.openTurn(transcript: $0, now: now) } : nil
+            print(CrewLine.status(input, columns: columns, plan: CrewLine.plan(fromClaudeJSON: claude), look: look,
+                                  holding: turn.flatMap { Activity(tool: $0.openTools.last?.tool) }, atWork: turn != nil,
+                                  newFont: newFont, now: now))
             return 0
         case "agents":
             let input = SafeJSON.object(FileHandle.standardInput.readDataToEndOfFile()) ?? [:]

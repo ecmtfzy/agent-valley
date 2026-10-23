@@ -248,7 +248,7 @@ enum CrewSetup {
         }.joined(separator: "\n")
     }
 
-    /// Whether the terminal can draw the faces with things in hand, which fonts before them lack.
+    /// Whether the terminal can draw the faces with things in hand and the mug, which older fonts lack.
     /// The installed font must be this app's, and the terminal must have opened after it was put
     /// in place: a terminal keeps the fonts it has seen until it quits, and would draw a face the
     /// old font lacks as an empty box. Ghostty draws our faces only through its font line, and
@@ -305,11 +305,11 @@ enum CrewSetup {
         try data.write(to: folder(home).appendingPathComponent(leadLooksName), options: .atomic)
     }
 
-    /// The look the app gave a session's lead, or the first lead (Sunny) when the app has not
-    /// written one, as while it is closed.
-    static func look(for sessionID: String, in data: Data?) -> LeadLook {
+    /// The look the app gave a session's lead, or nil when it has given none: before the first
+    /// prompt, while the session is put away, or while the app is closed.
+    static func look(for sessionID: String, in data: Data?) -> LeadLook? {
         guard let data, let parts = SafeJSON.object(data)?[sessionID] as? [Int], parts.count == 3,
-              parts.allSatisfy({ $0 >= 0 }) else { return LeadLook() }
+              parts.allSatisfy({ $0 >= 0 }) else { return nil }
         return LeadLook(face: parts[0], hair: parts[1], shirt: parts[2])
     }
 }

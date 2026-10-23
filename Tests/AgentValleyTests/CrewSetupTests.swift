@@ -343,11 +343,12 @@ final class CrewSetupTests: XCTestCase {
         let data = CrewSetup.leadLooksData(cards, hidden: [:])
         XCTAssertEqual(CrewSetup.look(for: "abc", in: data), AgentStore.leadLooks(cards)["/r/proj/abc/main"])
         XCTAssertEqual(CrewSetup.look(for: "other", in: data), AgentStore.leadLooks(cards)["/r/proj/other/main"])
-        XCTAssertEqual(CrewSetup.look(for: "zzz", in: data), LeadLook())
-        XCTAssertEqual(CrewSetup.look(for: "abc", in: nil), LeadLook())
-        XCTAssertEqual(CrewSetup.look(for: "abc", in: Data("x".utf8)), LeadLook())
+        // No look given: before the first prompt, put away, or the app closed.
+        XCTAssertNil(CrewSetup.look(for: "zzz", in: data))
+        XCTAssertNil(CrewSetup.look(for: "abc", in: nil))
+        XCTAssertNil(CrewSetup.look(for: "abc", in: Data("x".utf8)))
         // A negative number would index before the font's first face.
-        XCTAssertEqual(CrewSetup.look(for: "abc", in: Data(#"{"abc": [-1, 0, 0]}"#.utf8)), LeadLook())
+        XCTAssertNil(CrewSetup.look(for: "abc", in: Data(#"{"abc": [-1, 0, 0]}"#.utf8)))
         XCTAssertEqual(CrewSetup.look(for: "abc", in: Data(#"{"abc": [1, 2, 3]}"#.utf8)), LeadLook(face: 1, hair: 2, shirt: 3))
     }
 

@@ -117,15 +117,30 @@ enum CrewLine {
 
     /// The top line and, when there is anything to measure, the meters below it.
     /// `holding`: what the lead has in hand while it works, as the notch draws it.
-    static func status(_ input: [String: Any], columns: Int, plan: String?, look: LeadLook, holding: Activity? = nil, now: Date) -> String {
+    /// `look`: nil while the app has given the session no lead. `atWork`: its turn is open.
+    /// `newFont`: the terminal has the font with things in hand and the bar's pictures; without
+    /// it a face stands in for each picture, Sunny where there is no look.
+    static func status(_ input: [String: Any], columns: Int, plan: String?, look: LeadLook?, holding: Activity? = nil,
+                       atWork: Bool = false, newFont: Bool = true, now: Date) -> String {
         let model = (input["model"] as? [String: Any])?["display_name"] as? String ?? ""
-        var top = CrewFont.character(.lead(look), .working, holding: holding)
-        let plan = plan.flatMap { $0.isEmpty ? nil : $0 }
+        // As on the bar: a limit run out sends the crew off, unless someone works on past it.
+        // With no lead yet, nobody has sat down, and the coffee waits.
+        var picture: (CrewFont.Picture, String)?
+        if newFont {
+            if let out = PlanLimits(fiveHour: limit(input, "five_hour"), week: limit(input, "seven_day")).runOut(now: now), !atWork {
+                picture = (out.weekly ? .van : .fish, Format.fishingSign(weekly: out.weekly))
+            } else if look == nil {
+                picture = (.mug, "On standby")
+            }
+        }
+        var top = picture?.0.character ?? CrewFont.character(.lead(look ?? LeadLook()), .working, holding: holding)
+        // The picture's word goes after the plan, as quiet as it.
+        let after = [plan.flatMap { $0.isEmpty ? nil : $0 }, picture?.1].compactMap { $0 }.joined(separator: " · ")
         if !model.isEmpty {
             top += "  " + Style.bold + model + Style.reset
-            if let plan { top += Style.faint + " · " + plan + Style.reset }
-        } else if let plan {
-            top += "  " + Style.faint + plan + Style.reset
+            if !after.isEmpty { top += Style.faint + " · " + after + Style.reset }
+        } else if !after.isEmpty {
+            top += "  " + Style.faint + after + Style.reset
         }
 
         let room = columns - 9
@@ -153,15 +168,19 @@ enum CrewLine {
             let tail = tokens && size > 0 ? "\(short(used / 100 * size))/\(short(size))" : ""
             parts.append(meter("context", PlanLimit(usedPercent: used, resetsAt: nil), cells: cells, tail: tail, now: now))
         }
-        let limits = input["rate_limits"] as? [String: Any]
         for (key, name) in [("five_hour", "5h"), ("seven_day", "7d")] {
-            guard let window = limits?[key] as? [String: Any], let used = number(window["used_percentage"]) else { continue }
-            let resets = number(window["resets_at"]).map { Date(timeIntervalSince1970: $0) }
-            let limit = PlanLimit(usedPercent: used, resetsAt: resets)
+            guard let limit = limit(input, key) else { continue }
             let tail = limit.resetLabel(now: now).map { "↻ " + $0 } ?? ""
             parts.append(meter(name, limit, cells: cells, tail: tail, now: now))
         }
         return parts.joined(separator: Style.faint + gap + Style.reset)
+    }
+
+    /// One plan window of what Claude Code hands the status line: `five_hour` or `seven_day`.
+    private static func limit(_ input: [String: Any], _ key: String) -> PlanLimit? {
+        guard let window = (input["rate_limits"] as? [String: Any])?[key] as? [String: Any],
+              let used = number(window["used_percentage"]) else { return nil }
+        return PlanLimit(usedPercent: used, resetsAt: number(window["resets_at"]).map { Date(timeIntervalSince1970: $0) })
     }
 
     private static func meter(_ name: String, _ limit: PlanLimit, cells: Int, tail: String, now: Date) -> String {
@@ -254,6 +273,11 @@ enum CrewLine {
     /// turn is under way. nil once it has finished or gone quiet, as the notch's mascot then
     /// holds nothing either, and for a file that cannot be read.
     static func activity(transcript url: URL, now: Date) -> Activity? {
+        openTurn(transcript: url, now: now).flatMap { Activity(tool: $0.openTools.last?.tool) }
+    }
+
+    /// What the transcript's last lines say of a turn still going and not gone quiet, or nil.
+    static func openTurn(transcript url: URL, now: Date) -> AgentInfo? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         let end = (try? handle.seekToEnd()) ?? 0
@@ -264,7 +288,7 @@ enum CrewLine {
         var info = AgentInfo()
         for line in TranscriptReader.completeLines(in: data).lines { TranscriptReader.apply(line: line, to: &info) }
         guard !info.finished, let last = info.lastActivity, now.timeIntervalSince(last) < TranscriptReader.quietAfter else { return nil }
-        return Activity(tool: info.openTools.last?.tool)
+        return info
     }
 
     /// Each sub-agent's transcript by its id, which is the id Claude Code gives its row: the

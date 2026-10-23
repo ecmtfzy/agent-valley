@@ -6,6 +6,9 @@ final class CrewFontTests: XCTestCase {
     func testEveryFaceHasItsOwnCodepointInOrder() {
         XCTAssertEqual(CrewFont.faces.map(\.scalar), Array(UInt32(0x3F000)...0x3F4D6))
         XCTAssertLessThanOrEqual(CrewFont.faces.last!.scalar, CrewFont.lastScalar, "past the end of Ghostty's font line")
+        // The bar's pictures come after every face.
+        XCTAssertEqual(CrewFont.Picture.allCases.map(\.character), ["\u{3F4D7}", "\u{3F4D8}", "\u{3F4D9}"])
+        XCTAssertLessThanOrEqual(CrewFont.Picture.van.scalar, CrewFont.lastScalar, "past the end of Ghostty's font line")
     }
 
     func testCodepointsFollowTheFixedOrder() {
@@ -75,6 +78,16 @@ final class CrewFontTests: XCTestCase {
         let working = MascotView.pose(.afro, status: .working, callsOut: false, blink: false, wave: 0)
         let held = MascotView.hold(.searching, working, under: Person.afro.underEyes, tick: MascotView.stillTick)
         XCTAssertEqual(grid, held.map { $0.map(Person.afro.hex) })
+
+        // The mug, the fish and the van are the bar's, standing still.
+        for (picture, frame, hex) in [(CrewFont.Picture.mug, Mug.frames[0], Mug.hex), (.fish, Fish.frames[0], Fish.hex), (.van, Van.frames[0], Van.hex)] {
+            grid = [[UInt32?]](repeating: [UInt32?](repeating: nil, count: 12), count: 12)
+            for rect in try XCTUnwrap(face(Int(picture.scalar))["rects"] as? [[Any]]) {
+                let x0 = rect[0] as! Int, x1 = rect[1] as! Int, y = rect[2] as! Int
+                for x in x0..<x1 { grid[y][x] = try XCTUnwrap(UInt32(rect[3] as! String, radix: 16)) }
+            }
+            XCTAssertEqual(grid, frame.map { $0.map(hex) }, "\(picture)")
+        }
     }
 
     func testTheCommittedFontWasBuiltFromTheseFaces() throws {
@@ -84,14 +97,14 @@ final class CrewFontTests: XCTestCase {
         let font = CTFontCreateWithGraphicsFont(graphics, 1200, nil, nil)
         XCTAssertEqual(CTFontCopyName(font, kCTFontUniqueNameKey) as String?, CrewFont.uniqueName, "Run testing/crew-font.sh")
         XCTAssertEqual(CTFontCopyFamilyName(font) as String, CrewFont.family)
-        for face in CrewFont.faces {
-            let units = Array(String(UnicodeScalar(face.scalar)!).utf16)
+        for scalar in CrewFont.faces.map(\.scalar) + CrewFont.Picture.allCases.map(\.scalar) {
+            let units = Array(String(UnicodeScalar(scalar)!).utf16)
             var glyphs = [CGGlyph](repeating: 0, count: units.count)
-            XCTAssertTrue(CTFontGetGlyphsForCharacters(font, units, &glyphs, units.count), "U+\(String(face.scalar, radix: 16)) has no glyph")
+            XCTAssertTrue(CTFontGetGlyphsForCharacters(font, units, &glyphs, units.count), "U+\(String(scalar, radix: 16)) has no glyph")
             XCTAssertNotEqual(glyphs[0], 0)
             var advance = CGSize.zero
             CTFontGetAdvancesForGlyphs(font, .horizontal, glyphs, &advance, 1)
-            XCTAssertEqual(advance.width, 1440, "U+\(String(face.scalar, radix: 16))")
+            XCTAssertEqual(advance.width, 1440, "U+\(String(scalar, radix: 16))")
         }
     }
 

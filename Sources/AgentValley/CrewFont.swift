@@ -48,6 +48,32 @@ enum CrewFont {
         return all.enumerated().map { Face(scalar: firstScalar + UInt32($0.offset), person: $0.element.person, pose: $0.element.pose, holding: $0.element.holding) }
     }()
 
+    /// The bar's pictures, standing still, after every face so no code a font already shipped
+    /// moves: the mug while the app has given a session no lead, the fish and the van while a
+    /// plan limit has run out.
+    enum Picture: UInt32, CaseIterable {
+        case mug, fish, van
+
+        var scalar: UInt32 { CrewFont.faces.last!.scalar + 1 + rawValue }
+        var character: String { String(UnicodeScalar(scalar)!) }
+
+        var cells: [[Character]] {
+            switch self {
+            case .mug: Mug.frames[0].map(Array.init)
+            case .fish: Fish.frames[0].map(Array.init)
+            case .van: Van.frames[0].map(Array.init)
+            }
+        }
+
+        func hex(_ cell: Character) -> UInt32? {
+            switch self {
+            case .mug: Mug.hex(cell)
+            case .fish: Fish.hex(cell)
+            case .van: Van.hex(cell)
+            }
+        }
+    }
+
     /// The one character that draws `kind` in `pose`, holding what `holding` names while it works.
     /// A session's own agent has working faces only.
     static func character(_ kind: MascotKind, _ pose: CrewPose, holding: Activity? = nil) -> String {
@@ -85,20 +111,25 @@ enum CrewFont {
             if let holding = face.holding {
                 cells = MascotView.hold(holding, cells, under: face.person.underEyes, tick: MascotView.stillTick)
             }
-            var rects: [String] = []
-            for (y, row) in cells.enumerated() {
-                var x = 0
-                while x < row.count {
-                    guard let hex = face.person.hex(row[x]) else { x += 1; continue }
-                    var end = x + 1
-                    while end < row.count, face.person.hex(row[end]) == hex { end += 1 }
-                    rects.append("[\(x),\(end),\(y),\"\(String(format: "%06X", hex))\"]")
-                    x = end
-                }
-            }
-            return "{\"codepoint\":\(face.scalar),\"opacity\":\(String(format: "%.2f", opacity)),\"rects\":[\(rects.joined(separator: ","))]}"
+            return entry(face.scalar, opacity: opacity, cells: cells, hex: face.person.hex)
         }
-        return Data("{\"family\":\"\(family)\",\"faces\":[\(faces.joined(separator: ","))]}".utf8)
+        let pictures = Picture.allCases.map { entry($0.scalar, opacity: 1, cells: $0.cells, hex: $0.hex) }
+        return Data("{\"family\":\"\(family)\",\"faces\":[\((faces + pictures).joined(separator: ","))]}".utf8)
+    }
+
+    private static func entry(_ scalar: UInt32, opacity: Double, cells: [[Character]], hex colour: (Character) -> UInt32?) -> String {
+        var rects: [String] = []
+        for (y, row) in cells.enumerated() {
+            var x = 0
+            while x < row.count {
+                guard let hex = colour(row[x]) else { x += 1; continue }
+                var end = x + 1
+                while end < row.count, colour(row[end]) == hex { end += 1 }
+                rects.append("[\(x),\(end),\(y),\"\(String(format: "%06X", hex))\"]")
+                x = end
+            }
+        }
+        return "{\"codepoint\":\(scalar),\"opacity\":\(String(format: "%.2f", opacity)),\"rects\":[\(rects.joined(separator: ","))]}"
     }
 
     /// Says which faces a font was built from, so a font that is behind the code can be told.

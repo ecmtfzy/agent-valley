@@ -220,6 +220,43 @@ final class CrewLineTests: XCTestCase {
         XCTAssertTrue(lines.allSatisfy { CrewLine.width($0) <= 6 })
     }
 
+    func top(look: LeadLook? = LeadLook(), atWork: Bool = false, newFont: Bool = true, plan: String? = "Max 20x") -> String {
+        plain(CrewLine.status(input, columns: 102, plan: plan, look: look, atWork: atWork, newFont: newFont, now: now))
+            .components(separatedBy: "\n")[0]
+    }
+
+    // A session the app has given no lead yet: nobody has sat down, and the bar's mug waits.
+    func testNoLookShowsTheMugOnStandby() {
+        XCTAssertEqual(top(look: nil), CrewFont.Picture.mug.character + "  Opus 5.5 · Max 20x · On standby")
+        XCTAssertEqual(top(look: nil, plan: nil), CrewFont.Picture.mug.character + "  Opus 5.5 · On standby")
+        input["model"] = nil
+        XCTAssertEqual(top(look: nil, plan: nil), CrewFont.Picture.mug.character + "  On standby")
+    }
+
+    // A limit run out sends the crew off, as on the bar: fishing for the 5 hours, the van for the week.
+    func testARunOutLimitSendsTheCrewOff() {
+        input["rate_limits"] = ["five_hour": ["used_percentage": 100.0, "resets_at": now.timeIntervalSince1970 + 600],
+                                "seven_day": ["used_percentage": 70.0, "resets_at": now.timeIntervalSince1970 + 226_830]]
+        XCTAssertEqual(top(), CrewFont.Picture.fish.character + "  Opus 5.5 · Max 20x · Gone fishin\u{2019}")
+        XCTAssertEqual(top(look: nil), CrewFont.Picture.fish.character + "  Opus 5.5 · Max 20x · Gone fishin\u{2019}")
+        // Both out: the one back last.
+        input["rate_limits"] = ["five_hour": ["used_percentage": 100.0, "resets_at": now.timeIntervalSince1970 + 600],
+                                "seven_day": ["used_percentage": 100.0, "resets_at": now.timeIntervalSince1970 + 226_830]]
+        XCTAssertEqual(top(), CrewFont.Picture.van.character + "  Opus 5.5 · Max 20x · On vacation")
+        // Someone works on past the limit: the face stays.
+        XCTAssertEqual(top(atWork: true), "\u{3F015}  Opus 5.5 · Max 20x")
+        // Past its reset it is back, whatever the last numbers said.
+        input["rate_limits"] = ["five_hour": ["used_percentage": 100.0, "resets_at": now.timeIntervalSince1970 - 1]]
+        XCTAssertEqual(top(), "\u{3F015}  Opus 5.5 · Max 20x")
+    }
+
+    // A terminal that has not seen the new font gets faces only, Sunny where there is no look.
+    func testAnOldFontGetsFacesAndNoWords() {
+        XCTAssertEqual(top(look: nil, newFont: false), "\u{3F015}  Opus 5.5 · Max 20x")
+        input["rate_limits"] = ["seven_day": ["used_percentage": 100.0, "resets_at": now.timeIntervalSince1970 + 600]]
+        XCTAssertEqual(top(look: LeadLook(face: 3, hair: 5, shirt: 6), newFont: false), "\u{3F0BC}  Opus 5.5 · Max 20x")
+    }
+
     // The lead and each working sub-agent hold what the notch has them hold.
     func testTheFaceHoldsWhatTheAgentIsDoing() {
         let top = plain(CrewLine.status(input, columns: 98, plan: nil, look: LeadLook(), holding: .typing, now: now))

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.8 — 2026-10-23
+
+- A new session in Claude Code's terminal no longer shows Sunny and then someone else. Until your first prompt a coffee waits in the status line, On standby, and whoever takes the session sits down with your first message. The coffee waits there while the app is closed, too.
+- When a limit runs out, the status line goes fishing as well, or takes the van for the weekly one.
+- The coffee, the fish and the van come in a new version of our font. Reopen your terminal once after the update to see them.
+
 ## 0.2.7 — 2026-10-23
 
 - Run /clear while Claude is still answering, and the old session hung around on the bar for ten minutes, still at work, with a different one of us than the face in your terminal. Now when Claude Code clears a session, quits, or switches to another, that session clocks out right away.

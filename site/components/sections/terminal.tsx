@@ -30,8 +30,8 @@ export function Terminal() {
         <p className="lead">
           Claude Code&apos;s <Word id="status-line">status line</Word> gets the face of whoever runs the session, with the model, your plan and your limits. Each sub-agent row under the prompt gets its own face, its model and the step it&apos;s on.
         </p>
-        <p>In the terminal we hold the same things, but we keep still.</p>
-        <p>One command from the app&apos;s settings sets it up. It keeps working with the app closed.</p>
+        <p>In the terminal we hold the same things, but we keep still. Until your first prompt only a coffee waits there, on standby, and when a limit runs out we go fishing, or take the van.</p>
+        <p>One command from the app&apos;s settings sets it up. With the app closed your limits still show, and the coffee waits.</p>
         <p className="text-muted-foreground">We travel as a font, and we&apos;ve been seen in Terminal, iTerm2, Ghostty and Cursor.</p>
         <HuntPumpkin n={2} />
       </div>
