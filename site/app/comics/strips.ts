@@ -155,4 +155,42 @@ export const STRIPS: Strip[] = [
       ['12:00 AM', 'Walt, lit from below by his flashlight: “That’s Sunny’s, from lunch on Tuesday.” Pearl: “Poor thing. It’s still waiting.”'],
     ],
   },
+  {
+    slug: 'just-watching',
+    title: 'Just watching',
+    date: '2026-10-23',
+    starring: 'Sunny',
+    deck: 'You put your own sketch off to watch Claude Code type. Sunny types no faster, and at six the sketch pad is still blank.',
+    inside: 'Inside: the two moments it needs you, and how to hear about them.',
+    alt: 'Four-panel comic. 2:00, Sunny types at his terminal, a blank sketch pad and a pencil beside him. From off the panel: “I’ll sketch the new screen later. Let me watch you first.” 3:30, his eyes slide toward the reader: “I don’t type faster when you watch.” 6:00, evening, he stretches, the sketch pad still blank: “Done. Same time tomorrow? You can watch again.” Next day, a Mac screen: Sunny’s pixel face at work in the notch, over a window with a wireframe sketch and a pencil: “Go sketch. I’ll wave when I need you.”',
+    headline: 'Just watching: when you babysit Claude Code instead of working',
+    description:
+      'A four-panel comic about watching Claude Code work all afternoon while your own sketch waits, and how to hear when it needs you or finishes instead.',
+    lead: 'You hand Claude Code a task and sit down to watch it, just for a minute. The minute lasts all afternoon, and your own work waits.',
+    panels: [
+      ['2:00', 'Sunny types at his terminal, a blank sketch pad and a pencil beside him. You, from off the panel: “I’ll sketch the new screen later. Let me watch you first.”'],
+      ['3:30', 'Sunny keeps typing, his eyes sliding your way: “I don’t type faster when you watch.”'],
+      ['6:00', 'Evening. Sunny stretches, the sketch pad still blank: “Done. Same time tomorrow? You can watch again.”'],
+      ['Next day', 'Sunny works in the notch at the top of your screen while you sketch the new screen: “Go sketch. I’ll wave when I need you.”'],
+    ],
+  },
+  {
+    slug: 'both-on-main',
+    title: 'Both on main',
+    date: '2026-10-23',
+    starring: 'Norm and Pearl',
+    deck: 'Two tasks, two sessions, one folder. Norm and Pearl both need LoginView.swift, and both of them are on main.',
+    inside: 'Inside: how to give each session a worktree of its own.',
+    alt: 'Four-panel comic. 10:00, Norm and Pearl at their terminals, side by side. From off the panel: “Norm, fix the login. Pearl, add dark mode.” 10:40, the two pull one long printout between them. Norm: “I need LoginView.swift.” Pearl: “So do I.” Then the printout lies torn in half on a floor of crumpled paper and loose tape, tagged “CONFLICT”: “Which branch were you on?” Both: “main.” 11:30, the AgentValley panel shows two sessions, Fix the login and Add dark mode, both in shop-web on main, both on “Edit LoginView.swift”. Pearl: “It said so at ten.”',
+    headline: 'Both on main: two Claude Code sessions in the same folder',
+    description:
+      'A four-panel comic about two Claude Code sessions editing the same file on the same branch, and how to give each session its own git worktree.',
+    lead: 'Two tasks, two Claude Code sessions, one folder. They meet in the same file, on the same branch, before anyone looks.',
+    panels: [
+      ['10:00', 'Norm and Pearl at their terminals. You, from off the panel: “Norm, fix the login. Pearl, add dark mode.”'],
+      ['10:40', 'The two pull one long printout between them. Norm: “I need LoginView.swift.” Pearl: “So do I.”'],
+      ['Later', 'The printout lies torn in half on a floor of crumpled paper and loose tape. The tag reads “CONFLICT”. You: “Which branch were you on?” Norm and Pearl: “main.”'],
+      ['11:30', 'The AgentValley panel: both sessions in shop-web, both on main, both on “Edit LoginView.swift”. Pearl: “It said so at ten.”'],
+    ],
+  },
 ];
