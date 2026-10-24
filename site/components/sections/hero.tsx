@@ -25,12 +25,10 @@ export function Hero() {
           Each agent, sub-agents too, gets its own row and its own little programmer. See who is working, on which model, and who needs you, without leaving your app.
         </p>
         <div className="mt-8">
-          <GetIt />
+          <GetIt quiet>
+            <Terms />
+          </GetIt>
           <OnPhone />
-          <p className="mt-4 font-mono text-[.9375rem]">
-            <strong className="font-semibold text-accent-text">Free</strong> · Open source · macOS 15 or later · <span className="nw">For MacBooks with a notch</span>
-          </p>
-          <p className="small">Signed, and Apple checked our papers.</p>
           <p className="small">
             <a className="inline-flex min-h-11 items-center" href="https://github.com/morsechimwai/agent-valley">View the code on GitHub</a>
           </p>
@@ -54,19 +52,36 @@ export function Hero() {
   );
 }
 
-// The two ways in, in the hero and at the end: the dmg of the latest release, or the cask.
-export function GetIt() {
+// The two ways in, in the hero, at the end and under a strip: the dmg of the latest release, or the
+// cask. What it costs sits right under Download (children). Quiet: the Copy beside the cask stays
+// plain, so Download is the one thing that stands out; only the page's last install lights it amber.
+// Off this page there is no Words list for Homebrew to point at (words={false}).
+export function GetIt({ quiet = false, words = true, children }: { quiet?: boolean; words?: boolean; children?: React.ReactNode }) {
   return (
     <>
       <Button asChild className="h-12 rounded-lg border-0 px-5 font-mono text-[1.0625rem] font-semibold text-primary-foreground no-underline hover:bg-primary/85 hover:text-primary-foreground">
         <a href="https://github.com/morsechimwai/agent-valley/releases/latest/download/AgentValley.dmg">Download for Mac</a>
       </Button>
+      {children}
       <p className="mt-6 mb-2.5 font-mono text-[.9375rem]">
-        Or with <Word id="homebrew">Homebrew</Word>:
+        Or with {words ? <Word id="homebrew">Homebrew</Word> : 'Homebrew'}:
       </p>
-      <CopyCommand>
+      <CopyCommand quiet={quiet}>
         brew install --cask morsechimwai/<wbr />tap/<wbr /><span className="nw">agent-valley</span>
       </CopyCommand>
+    </>
+  );
+}
+
+// What it costs and who checked it, under Download. The end of the page says what it needs on its own line.
+export function Terms({ needs = true }: { needs?: boolean }) {
+  return (
+    <>
+      <p className="mt-4 font-mono text-[.9375rem]">
+        <strong className="font-semibold text-accent-text">Free</strong> · Open source
+        {needs && <> · macOS 15 or later · <span className="nw">For MacBooks with a notch</span></>}
+      </p>
+      <p className="small">Signed, and Apple checked our papers.</p>
     </>
   );
 }

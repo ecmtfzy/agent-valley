@@ -1,6 +1,6 @@
 import { Face } from '@/components/face';
 import { Mascot } from '@/components/mascot';
-import { GetIt, OnPhone } from '@/components/sections/hero';
+import { GetIt, OnPhone, Terms } from '@/components/sections/hero';
 import { Word } from '@/components/word';
 
 // The end: the whole crew waiting, and the install.
@@ -18,7 +18,9 @@ export function Install() {
       </div>
       <h2>Put the valley in your notch.</h2>
       <div className="mt-[30px] flex flex-col items-center text-left [&>.command]:w-full">
-        <GetIt />
+        <GetIt>
+          <Terms needs={false} />
+        </GetIt>
       </div>
       <p className="small mx-auto">Needs macOS 15 or later and Claude Code. Made for MacBooks with a notch.</p>
       <div className="next mx-auto mt-14 max-w-[540px] text-left">

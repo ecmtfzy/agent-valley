@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Newsreader } from 'next/font/google';
 import { masthead } from '@/app/fonts';
 import { Reveal } from '@/components/reveal';
+import { GetTheApp } from './comic-page';
 import { Footer } from '@/components/sections/footer';
 import { Nav } from '@/components/sections/nav';
 import { AUTHOR, FEED, STRIPS } from './strips';
@@ -142,6 +143,7 @@ export default function Funnies() {
             </section>
           ))}
         </div>
+        <GetTheApp className="mx-auto mt-14 max-w-[44rem]" />
       </main>
       <Footer />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(LD).replace(/</g, '\\u003c') }} />

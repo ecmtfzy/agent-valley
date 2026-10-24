@@ -2,24 +2,24 @@ import { expect, test } from '@playwright/test';
 
 test.describe('reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
-  test('nothing moves and the panel waits shut', async ({ page }) => {
+  test('nothing moves and the panel stands open', async ({ page }) => {
     await page.goto('/');
     await page.waitForTimeout(800);
-    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
+    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
     expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running').length)).toBe(0);
   });
-  test('before the scripts arrive the panel is drawn shut already', async ({ page }) => {
+  test('before the scripts arrive the panel is drawn open already', async ({ page }) => {
     await page.route((url) => url.pathname.endsWith('.js'), (route) => route.abort());
     await page.goto('/');
-    expect(await page.locator('.screen .panel').evaluate((el) => getComputedStyle(el).clipPath)).toContain('22.34%');
+    expect(await page.locator('.screen .panel').evaluate((el) => getComputedStyle(el).clipPath)).not.toContain('22.34%');
   });
 });
 
-test('the panel waits shut from the start, and nothing opens it on its own', async ({ page }) => {
+test('the panel stands open from the start, and nothing shuts it on its own', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.screen')).toHaveAttribute('data-ready', '');
   await page.waitForTimeout(1500);
-  await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
+  await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
 });
 
 test('the floating bits are hidden from screen readers', async ({ page }) => {

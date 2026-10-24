@@ -11,7 +11,6 @@ test.use({ reducedMotion: 'reduce' });
 test('no AAA violations with the panel open', async ({ page }) => {
   await page.goto('/');
   await page.locator('.hist .h-title').waitFor();
-  await page.getByRole('button', { name: 'The notch: the AgentValley panel' }).press('Enter');
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
   const { violations } = await check(page);
   expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
@@ -20,6 +19,8 @@ test('no AAA violations with the panel open', async ({ page }) => {
 test('no AAA violations with the panel shut', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.screen')).toHaveAttribute('data-ready', '');
+  await page.getByRole('button', { name: 'The notch: the AgentValley panel' }).press('Enter');
+  await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
   const { violations } = await check(page);
   expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
 });

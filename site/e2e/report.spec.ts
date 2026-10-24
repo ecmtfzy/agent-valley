@@ -2,12 +2,12 @@ import { expect, test } from '@playwright/test';
 
 // The PDF section shows the report's first page as one picture: nothing plays and nothing grows.
 
-test('the report section sits between costs and the terminal, with the sheet', async ({ page }) => {
+test('the report section sits between costs and the funnies, with the sheet', async ({ page }) => {
   await page.goto('/');
   const order = await page.locator('main > section').evaluateAll((all) => all.map((s) => s.className));
   const at = order.findIndex((c) => c.includes('report'));
   expect(order[at - 1]).toContain('costs');
-  expect(order[at + 1]).toContain('terminal');
+  expect(await page.locator('main > section').nth(at + 1).getAttribute('id')).toBe('funnies');
   await expect(page.getByRole('heading', { name: 'Hand the month over as a PDF.' })).toBeVisible();
   await expect(page.getByRole('img', { name: /^The first page of a statement of work for September 2026, all projects: / })).toBeVisible();
   const sheet = page.locator('.r-sheet');

@@ -28,11 +28,11 @@ export default function Home() {
         <NeedsYou />
         <Costs />
         <Report />
+        <Funnies />
         <Terminal />
         <Trust />
         <Also />
         <Install />
-        <Funnies />
         <Words />
         <Credits />
       </main>

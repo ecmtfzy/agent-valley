@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Footer } from '@/components/sections/footer';
+import { GetIt, OnPhone } from '@/components/sections/hero';
 import { Nav } from '@/components/sections/nav';
 import { AUTHOR, FEED, STRIPS, longDate } from './strips';
 
@@ -29,6 +30,22 @@ export function comicMetadata(slug: string): Metadata {
     },
     twitter: { card: 'summary_large_image' },
   };
+}
+
+// The way to the app from the funnies: the same Download and cask as the home page, here where a
+// reader from a strip first meets it.
+export function GetTheApp({ className = 'mt-14' }: { className?: string }) {
+  return (
+    <section aria-labelledby="get-the-app" className={`${className} rounded-xl border bg-card p-6`}>
+      <h2 id="get-the-app" className="text-[1.375rem] leading-[1.3]">AgentValley is free and open source.</h2>
+      <p className="mt-2 mb-5 text-muted-foreground">A small valley of programmers in your notch. Needs macOS 15 or later and Claude Code.</p>
+      <GetIt quiet words={false} />
+      <OnPhone />
+      <p className="mt-2 font-mono text-sm">
+        <a className="inline-flex min-h-11 items-center" href="https://github.com/morsechimwai/agent-valley">Read the code on GitHub</a>
+      </p>
+    </section>
+  );
 }
 
 export function ComicPage({ slug, children }: { slug: string; children: React.ReactNode }) {
@@ -99,14 +116,7 @@ export function ComicPage({ slug, children }: { slug: string; children: React.Re
 
           {children}
 
-          <div className="mt-14 rounded-xl border bg-card p-6">
-            <p className="font-semibold">AgentValley is free and open source.</p>
-            <p className="mt-2 text-muted-foreground">A small valley of programmers in your notch. Needs macOS 15 or later and Claude Code.</p>
-            <p className="mt-4 flex flex-wrap gap-x-6 gap-y-2 font-mono text-sm">
-              <a className="inline-flex min-h-11 items-center" href="/#install">Install it</a>
-              <a className="inline-flex min-h-11 items-center" href="https://github.com/morsechimwai/agent-valley">Read the code on GitHub</a>
-            </p>
-          </div>
+          <GetTheApp />
 
           <nav aria-label="More strips" className="mt-10 grid gap-4 border-t pt-6 font-mono text-sm min-[560px]:grid-cols-2">
             {prev ? (

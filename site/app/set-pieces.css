@@ -99,6 +99,8 @@ html{scroll-padding-top:80px}
 .bar-hit[hidden]{display:none}
 /* Above the picture, a line down to the notch: the bar is the thing to press. */
 /* Written in pen above it, as the row's notes are: the arrow's head, 42px into it, on the notch. */
+.notch-note{transition:opacity .3s}
+:has(> .screen[data-state=open]) > .notch-note{opacity:0}
 .notch-note{margin:0 0 10px;color:var(--accent-text);font:600 1.375rem/1.15 var(--hand);text-align:center;text-wrap:balance}
 .notch-note svg{display:block;width:54px;height:60px;margin:4px 0 0 calc(50% - 42px);overflow:visible}
 .notch-note path{fill:none;stroke:var(--pen);stroke-width:2.2px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
@@ -362,14 +364,8 @@ a.w:hover{text-decoration-style:solid}
   .floating>*{position:absolute;animation:drift 7s ease-in-out infinite alternate}
 }
 @keyframes drift{from{transform:translateY(-6px) rotate(var(--r,0deg))}to{transform:translateY(6px) rotate(var(--r,0deg))}}
-.float-term{width:200px;overflow:hidden;border:1px solid var(--term-edge);border-radius:8px;background:var(--term-bg);box-shadow:0 18px 30px -16px rgba(0,0,0,.35);color:var(--term-fg);font:400 .75rem/1.55 var(--app)}
-.float-term header{display:flex;gap:5px;padding:6px 8px;background:var(--term-head)}
-.float-term header i{width:.6em;height:.6em;border-radius:50%;background:var(--term-dot)}
-.float-term pre{margin:0;padding:8px 10px;font:inherit}
 .float-need{padding:.35em .8em;box-shadow:0 10px 20px -12px rgba(0,0,0,.4)}
 .float-chip{padding:.35em .8em;box-shadow:0 4px 10px -6px rgba(0,0,0,.25)}
-.float-mug{display:grid;place-items:center;width:56px;height:56px;border-radius:12px;background:var(--ink);box-shadow:0 14px 24px -14px rgba(0,0,0,.4)}
-.float-mug .m{--s:38px}
 .idle .floating>*,.still .floating>*{animation-play-state:paused}
 
 /* Pictures come up once as they scroll into view: up 12px and into focus. Not when motion is
@@ -382,8 +378,6 @@ a.w:hover{text-decoration-style:solid}
 
 /* With scripts the hero's panel is shut from the first paint, before React is here to say so;
    without them it stands open. */
-.js .screen:not([data-ready]) .panel{clip-path:inset(0 22.34% calc(100% - var(--bar)) 22.34% round 0 0 2.2cqw 2.2cqw);transition:none}
-.js .screen:not([data-ready]) .bar .wing{opacity:1}
 
 /* A face standing still waves when a pointer comes by, as the crew does when one needs you. */
 .face{position:relative;display:inline-block;flex:none}

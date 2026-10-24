@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 // Copy: says Copied only once the clipboard took it. Otherwise the command is selected, to copy by
 // hand. Without scripts the button stays hidden and the command can still be selected.
-export function CopyCommand({ children }: { children: React.ReactNode }) {
+export function CopyCommand({ quiet = false, children }: { quiet?: boolean; children: React.ReactNode }) {
   // Three buttons say Copy; each is described by the command it copies.
   const id = useId();
   const code = useRef<HTMLElement>(null);
@@ -50,7 +50,11 @@ export function CopyCommand({ children }: { children: React.ReactNode }) {
         onClick={copy}
         className={cn(
           'copy h-11 min-w-[88px] rounded-lg px-4 font-mono font-semibold active:translate-y-px',
-          label === 'Copied' ? 'bg-foreground text-background hover:bg-foreground' : 'bg-amber text-on-amber hover:bg-[var(--amber-hi)]',
+          label === 'Copied'
+            ? 'bg-foreground text-background hover:bg-foreground'
+            : quiet
+              ? 'border border-foreground/60 bg-background text-foreground hover:bg-amber hover:text-on-amber'
+              : 'bg-amber text-on-amber hover:bg-[var(--amber-hi)]',
         )}
       >
         {label}

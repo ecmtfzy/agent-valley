@@ -73,23 +73,6 @@ const running = (page: Page, within: string) =>
 test.describe('the hero at night', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test('the mug becomes a lit pumpkin', async ({ page }) => {
-    await on(page);
-    await page.goto('/');
-    await expect(page.locator('.float-mug img[src*="mug-0"]')).toBeHidden();
-    await expect(page.locator('.float-mug img[src*="pumpkin-0"]')).toBeVisible();
-  });
-
-  test('the floating terminal says it came back', async ({ page }) => {
-    await on(page);
-    await page.goto('/');
-    const shown = page.locator('.float-term pre').filter({ visible: true });
-    await expect(shown).toHaveCount(1);
-    await expect(shown).toContainText('> Bash kill -9 4031');
-    await expect(shown).toContainText('It came back.');
-    await expect(shown).not.toContainText('112 passed');
-  });
-
   test('a spider hangs under the notch with its note', async ({ page }) => {
     await on(page);
     await page.goto('/');
@@ -117,7 +100,7 @@ test.describe('the hero at night', () => {
   test('every night piece is hidden from screen readers', async ({ page }) => {
     await on(page);
     await page.goto('/');
-    for (const el of await page.locator('.moon, .bat, .spider, .spider-note, .float-mug').all()) {
+    for (const el of await page.locator('.moon, .bat, .spider, .spider-note').all()) {
       expect(await el.evaluate((e) => !!e.closest('[aria-hidden="true"]'))).toBe(true);
     }
   });
@@ -127,8 +110,6 @@ test.describe('the hero at night', () => {
     await page.goto('/');
     await expect(page.locator('.screen .moon')).toBeHidden();
     await expect(page.locator('.screen .spider')).toBeHidden();
-    await expect(page.locator('.float-mug img[src*="mug-0"]')).toBeVisible();
-    await expect(page.locator('.float-term pre').filter({ visible: true })).toContainText('112 passed');
   });
 
   test('with reduced motion nothing moves at night', async ({ page }) => {
@@ -167,10 +148,11 @@ const ANSWERED_SHUT = 'The top of a MacBook screen. Beside the notch, a working 
 const lightsOut = (page: Page) =>
   page.evaluate(() => document.getAnimations().filter((a) => (a as CSSAnimation).animationName === 'lights-out' && a.playState === 'running').length);
 
+// It stands open from the start; the notch takes the keyboard first.
 async function openPanel(page: Page) {
   await expect(page.locator('.screen')).toHaveAttribute('data-ready', '');
-  await page.getByRole('button', { name: NOTCH }).press('Enter');
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
+  await page.getByRole('button', { name: NOTCH }).focus();
 }
 
 test.describe('Trick or treat', () => {
@@ -192,8 +174,9 @@ test.describe('Trick or treat', () => {
     await on(page);
     await page.goto('/');
     await expect(page.locator('.screen')).toHaveAttribute('data-ready', '');
+    await page.getByRole('button', { name: NOTCH }).press('Enter');
+    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
     await expect(page.getByRole('button', { name: 'Allow once' })).toHaveCount(0);
-    await page.getByRole('button', { name: NOTCH }).focus();
     await page.keyboard.press('Tab');
     expect(await page.evaluate(() => document.activeElement?.textContent)).not.toMatch(/Allow once|Deny/);
   });

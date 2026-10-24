@@ -2,17 +2,17 @@ import { expect, test } from '@playwright/test';
 
 const NOTCH = 'The notch: the AgentValley panel';
 
-test('the notch opens and shuts the panel from the keyboard, and the picture says so', async ({ page }) => {
+test('the panel stands open at first, the notch shuts and opens it from the keyboard, and the picture says so', async ({ page }) => {
   await page.goto('/');
   const notch = page.getByRole('button', { name: NOTCH });
   await expect(page.locator('.screen')).toHaveAttribute('data-ready', '');
-  await expect(notch).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.locator('.screen > [role=img]')).toHaveAttribute('aria-label', 'The top of a MacBook screen. Beside the notch, a waving programmer and a red 1: an agent needs you. Below, the crew stands in the valley.');
-  await notch.press('Enter');
-  await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
+  await expect(notch).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('.screen > [role=img]')).toHaveAttribute('aria-label', /The AgentValley panel is open under the notch/);
   await notch.press('Enter');
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
+  await expect(page.locator('.screen > [role=img]')).toHaveAttribute('aria-label', 'The top of a MacBook screen. Beside the notch, a waving programmer and a red 1: an agent needs you. Below, the crew stands in the valley.');
+  await notch.press('Enter');
+  await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
 });
 
 // The note above the picture is written in pen, as the row's notes are, its arrow ending on the notch.
@@ -37,8 +37,9 @@ for (const width of [1440, 1000, 390, 320]) {
   });
 }
 
-// With a mouse the hero's panel behaves as the app's: it waits shut, a pointer resting on the bar
-// opens it, one leaving the panel shuts it, one only crossing the bar does nothing.
+// With a mouse the hero's panel behaves as the app's once a pointer has been in it and left: a
+// pointer resting on the bar opens it, one leaving the panel shuts it, one only crossing the bar
+// does nothing.
 test.describe('pointing at the notch', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
   const screen = (page: import('@playwright/test').Page) => page.locator('.screen');
@@ -46,14 +47,20 @@ test.describe('pointing at the notch', () => {
     const box = (await page.locator(selector).boundingBox())!;
     return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   };
-  const ready = async (page: import('@playwright/test').Page) => {
-    await page.goto('/');
-    await expect(screen(page)).toHaveAttribute('data-ready', '');
-  };
   // A place beside the picture, off it.
   const away = async (page: import('@playwright/test').Page) => {
     const box = (await screen(page).boundingBox())!;
     await page.mouse.move(box.x - 20, box.y + box.height / 2);
+  };
+  // It stands open at first; a pointer that comes into it and leaves shuts it.
+  const ready = async (page: import('@playwright/test').Page) => {
+    await page.goto('/');
+    await expect(screen(page)).toHaveAttribute('data-ready', '');
+    await expect(screen(page)).toHaveAttribute('data-state', 'open');
+    const panel = await centre(page, '.screen .panel');
+    await page.mouse.move(panel.x, panel.y);
+    await away(page);
+    await expect(screen(page)).toHaveAttribute('data-state', 'shut');
   };
   const rest = async (page: import('@playwright/test').Page) => {
     const bar = await centre(page, '.bar-hit');
@@ -135,16 +142,17 @@ test.describe('pointing at the notch', () => {
 
 test.describe('on a touch screen', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
-  test('a tap on the notch opens the panel, and another shuts it', async ({ page }) => {
+  test('the panel stands open, a tap on the notch shuts it, and another opens it', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('.screen')).toHaveAttribute('data-ready', '');
+    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
     const notch = page.getByRole('button', { name: NOTCH });
     await notch.tap();
     await page.waitForTimeout(500);
-    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
+    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
     await notch.tap();
     await page.waitForTimeout(500);
-    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
+    await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
   });
 });
 

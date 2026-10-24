@@ -69,7 +69,7 @@
 @layer components {
 /* Newsreader stays on the paper's own pages; here the serif every computer has. */
 .cutting{--font-news:Georgia,"Times New Roman",serif}
-.cutting .f-name{font-size:clamp(2.25rem,6vw,4rem)}
+.cutting .f-name{font-size:clamp(1.75rem,4.5vw,2.625rem)}
 .fc-lead{margin-top:16px;font-size:1.125rem;font-style:italic;text-align:center}
 .fc-picks{margin-top:8px}
 .fc-picks>li{padding-block:20px}

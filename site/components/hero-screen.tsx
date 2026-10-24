@@ -25,9 +25,10 @@ export const ScreenContext = createContext<{ state: 'open' | 'shut'; answered: A
 // one crossing the bar on its way elsewhere is gone by then.
 const DWELL = 100;
 
-// The hero's panel, under the bar beside the notch. Without scripts it stands open, as nothing
-// could open it, and the button stays hidden. With them it waits shut from the first paint
-// (set-pieces.css), as the app's notch rests. A mouse works it as on a Mac: resting on the bar opens
+// The hero's panel, under the bar beside the notch. It stands open from the first paint, so the
+// first thing the reader sees is the list itself (owner's pick, 2026-10-24), and stays open until a
+// pointer that came into it leaves, or the notch is pressed. Without scripts the button stays
+// hidden. A mouse works it as on a Mac: resting on the bar opens
 // it, and once in, leaving the panel shuts it; Esc shuts it too. A press with the mouse only opens
 // it, so one pressing the bar the pointer has just opened does not shut it again. Keys and a
 // finger, which cannot rest on it, open and shut it by pressing.
@@ -54,10 +55,7 @@ export function HeroScreen({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // React is here: the layout's first script keeps js, so the pictures wait for their moment.
-    // Come after that script gave up on it (3 s), the reader has seen the panel open: it stays so.
-    const late = !document.documentElement.classList.contains('js');
     document.documentElement.dataset.live = '';
-    if (!late) setState('shut');
     setReady(true);
     return () => clearTimeout(dwell.current);
   }, []);
