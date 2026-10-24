@@ -28,10 +28,13 @@ from http.server import BaseHTTPRequestHandler
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 SITE = "https://agentvalley.app"
 DAYS = 7
-# ponytail: per-instance memory, so a second instance may mail the same address again; the Firewall
-# rule on this path is the real limit, a shared store if that ever falls short.
+# ponytail: per-instance memory, so a second instance may mail the same inbox again; the Firewall
+# rule on this path is the real limit, a shared store if that ever falls short. An address is mailed
+# at most once per SPACING, an inbox (all its spellings) at most PER_BOX times.
 SENT: dict[str, float] = {}
+BOXES: dict[str, list[float]] = {}
 SPACING = 600
+PER_BOX = 3
 
 SAID = {
     "sent": "Check your inbox. One click there and you're on the list.",
@@ -88,16 +91,21 @@ def proven(fields: dict) -> str | None:
 
 
 def mailbox(email: str) -> str:
-    """One key per inbox for the spacing: Reader+1@Example.com and reader@example.com are one."""
+    """One key per inbox: Reader+1@Example.com and reader@example.com are one."""
     name, _, domain = email.lower().rpartition("@")
     return f"{name.split('+')[0]}@{domain}"
 
 
 def ask(email: str) -> str:
     """Mails the link. Returns sent, full (the plan's mail for the day is gone) or failed."""
-    box = mailbox(email)
-    if time.time() - SENT.get(box, 0) < SPACING:
+    now, exact, box = time.time(), email.lower(), mailbox(email)
+    if now - SENT.get(exact, 0) < SPACING:
+        # This very address has a fresh link.
         return "sent"
+    recent = [t for t in BOXES.get(box, []) if now - t < SPACING]
+    if len(recent) >= PER_BOX:
+        # Spellings of one inbox (case, +tags) cannot fill it with mail.
+        return "failed"
     expiry = str(int(time.time()) + DAYS * 86400)
     link = f"{SITE}/api/subscribe?" + urllib.parse.urlencode({"e": email, "x": expiry, "t": sign(email, expiry)})
     status, body = resend("/emails", {
@@ -107,7 +115,8 @@ def ask(email: str) -> str:
         "text": MAIL.format(link=link, days=DAYS),
     })
     if 200 <= status < 300:
-        SENT[box] = time.time()
+        SENT[exact] = now
+        BOXES[box] = recent + [now]
         return "sent"
     return "full" if "quota" in body else "failed"
 
