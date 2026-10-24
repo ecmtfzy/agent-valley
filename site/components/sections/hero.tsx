@@ -32,6 +32,10 @@ export function Hero() {
           <p className="small">
             <a className="inline-flex min-h-11 items-center" href="https://github.com/morsechimwai/agent-valley">View the code on GitHub</a>
           </p>
+          {/* Product Hunt's badge, kept here so the page loads nothing from them; no vote count for that reason. */}
+          <a className="mt-4 inline-block" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-agentvalley">
+            <img src="/product-hunt.svg" alt="Featured on Product Hunt" width="204" height="54" />
+          </a>
         </div>
       </div>
       {/* Stacked, the heading and the copy below it are one block; the picture keeps its distance. */}
