@@ -56,9 +56,11 @@ enum NotchGeometry {
                width: island.width + overshoot * 2, height: island.height + overshoot)
     }
 
-    /// The notched display if there is one, else the primary display, which is always first.
-    static func screenIndex(notchHeights: [CGFloat]) -> Int? {
-        notchHeights.firstIndex { $0 > 0 } ?? (notchHeights.isEmpty ? nil : 0)
+    /// The display picked in the settings while it is connected. Else the notched display if
+    /// there is one, else the primary display, which is always first.
+    static func screenIndex(notchHeights: [CGFloat], ids: [String?] = [], chosen: String = DisplayChoice.automatic.id) -> Int? {
+        if chosen != DisplayChoice.automatic.id, let index = ids.firstIndex(of: chosen) { return index }
+        return notchHeights.firstIndex { $0 > 0 } ?? (notchHeights.isEmpty ? nil : 0)
     }
 
     /// Whether the cursor is over the panel. Grown by a point because a cursor pushed against the
@@ -234,6 +236,8 @@ final class NotchState: ObservableObject {
     @Published var barHeight: CGFloat = 32
     @Published var notchWidth: CGFloat = 180
     @Published var screenFrame = CGRect.zero
+    /// The displays connected now, for the Display setting.
+    @Published var displays: [DisplayChoice] = []
     /// Counts openings. Each one makes the mascot hop.
     @Published var opens = 0
     /// Counts the openings that lasted long enough to have been read. The bar stops beating for
@@ -456,6 +460,7 @@ final class NotchWindowController: NSObject {
     private let settings: Settings
     private let updates: Updates
     private var tokenWatch: AnyCancellable?
+    private var displayWatch: AnyCancellable?
     private var leadLooksWatch: AnyCancellable?
     /// The bytes last written for `crew status`, so a refresh that changes nothing writes nothing.
     private var lastLeadLooks: Data?
@@ -526,6 +531,8 @@ final class NotchWindowController: NSObject {
             self?.layout()
         }
         NotificationCenter.default.addObserver(self, selector: #selector(layout), name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        // On the next turn of the loop: a @Published value is sent before it is stored.
+        displayWatch = settings.$display.dropFirst().receive(on: DispatchQueue.main).sink { [weak self] _ in self?.layout() }
         isExpanded = pinnedAtLaunch
         state.pinned = pinnedAtLaunch
         state.expanded = pinnedAtLaunch
@@ -722,7 +729,10 @@ final class NotchWindowController: NSObject {
 
     @objc private func layout() {
         let screens = NSScreen.screens
-        guard let index = NotchGeometry.screenIndex(notchHeights: screens.map(\.safeAreaInsets.top)) else { return }
+        let ids = screens.map(\.displayID)
+        let displays = zip(screens, ids).compactMap { screen, id in id.map { DisplayChoice(id: $0, name: screen.localizedName) } }
+        if state.displays != displays { state.displays = displays }
+        guard let index = NotchGeometry.screenIndex(notchHeights: screens.map(\.safeAreaInsets.top), ids: ids, chosen: settings.display) else { return }
         let screen = screens[index]
         let hasNotch = screen.safeAreaInsets.top > 0
         let barHeight = hasNotch ? screen.safeAreaInsets.top : max(24, screen.frame.maxY - screen.visibleFrame.maxY)
@@ -743,11 +753,24 @@ final class NotchWindowController: NSObject {
 
         // Grow at once so the island never draws outside its window; shrink only after it has settled.
         settle?.cancel()
-        let grown = panel.frame.isEmpty ? target : panel.frame.union(target)
+        // Moved to another display, it goes there at once: grown over both, the window would
+        // span the gap between them until it settled.
+        let moved = !screen.frame.contains(CGPoint(x: panel.frame.midX, y: panel.frame.midY))
+        let grown = panel.frame.isEmpty || moved ? target : panel.frame.union(target)
         panel.setFrame(grown, display: true)
         guard grown != target else { return }
         let work = DispatchWorkItem { [weak self] in self?.panel.setFrame(target, display: true) }
         settle = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.settleDelay, execute: work)
+    }
+}
+
+extension NSScreen {
+    /// The id macOS keeps for this display across restarts and plugging in. Its place in
+    /// `screens` changes as displays come and go.
+    var displayID: String? {
+        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
+              let uuid = CGDisplayCreateUUIDFromDisplayID(number)?.takeRetainedValue() else { return nil }
+        return CFUUIDCreateString(nil, uuid) as String
     }
 }

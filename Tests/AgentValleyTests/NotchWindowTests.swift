@@ -55,12 +55,21 @@ final class NotchWindowTests: XCTestCase {
         XCTAssertNil(NotchGeometry.screenIndex(notchHeights: []))
     }
 
+    // Issue #1: the bar goes to the display picked in the settings, notch or not. While that
+    // display is not connected, the bar is where it would be with Automatic.
+    func testTheChosenDisplayWinsWhileItIsConnected() {
+        let ids: [String?] = ["notch", "dell"]
+        XCTAssertEqual(NotchGeometry.screenIndex(notchHeights: [38, 0], ids: ids, chosen: "dell"), 1)
+        XCTAssertEqual(NotchGeometry.screenIndex(notchHeights: [38, 0], ids: ids, chosen: "unplugged"), 0)
+        XCTAssertEqual(NotchGeometry.screenIndex(notchHeights: [38, 0], ids: ids, chosen: DisplayChoice.automatic.id), 0)
+    }
+
     // Nothing in the app said which display the bar is on. A tester who works on a second
     // display went through every page for it and left without an answer. The legend's page
     // about the bar says what the rule above does, and where on that display the bar is.
     func testTheLegendSaysWhichDisplayTheBarIsOn() {
-        // One sentence since 2026-10-15, with the same answer.
-        XCTAssertEqual(Format.displayCaption, "The bar is on the display with a notch, or on your main display when there is none.")
+        // One sentence since 2026-10-15, with the same answer, and since issue #1 the way to change it.
+        XCTAssertEqual(Format.displayCaption, "The bar is on the display with a notch, or on your main display when there is none, unless you pick one under Display in the settings.")
         // A notched display beside a second one: the bar is on the notched one, whichever is the main display.
         XCTAssertEqual(NotchGeometry.screenIndex(notchHeights: [0, 38]), 1)
         XCTAssertEqual(NotchGeometry.screenIndex(notchHeights: [38, 0]), 0)

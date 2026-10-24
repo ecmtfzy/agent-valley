@@ -29,6 +29,8 @@ struct SettingsView: View {
     @ObservedObject var updates: Updates
     /// Why the shortcut does nothing although it is switched on, when that is so.
     var shortcutNote: String? = nil
+    /// The displays connected now.
+    var displays: [DisplayChoice] = []
     /// The page shown. Kept by the panel, which also sends the person to a row on one.
     @Binding var tab: SettingsTab
     /// Back to the agents.
@@ -95,11 +97,24 @@ struct SettingsView: View {
                 Switch(title: "Token use", isOn: $settings.tokenUse)
             }
         }
+        // Where the app sits on this Mac: both set once and left. The displays in a list down
+        // the page, not a bar across it: their names run long.
         SettingGroup {
+            VStack(alignment: .leading, spacing: 10) {
+                SettingRow(title: "Display", caption: Format.displayChoiceCaption) { EmptyView() }
+                ChoiceBar(title: "Display", choices: [.automatic] + displays, label: \.name, selection: shownDisplay, vertical: true)
+            }
             SettingRow(title: "Open at login", note: loginError) {
                 Switch(title: "Open at login", isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin))
             }
         }
+    }
+
+    /// A picked display that is not connected shows as Automatic, which is where the bar is.
+    /// It stays stored, so the bar goes back to it when it is plugged in again.
+    private var shownDisplay: Binding<DisplayChoice> {
+        Binding(get: { displays.first { $0.id == settings.display } ?? .automatic },
+                set: { settings.display = $0.id })
     }
 
     @ViewBuilder private var sounds: some View {
@@ -661,14 +676,18 @@ struct ChoiceBar<Value: Hashable>: View {
     let choices: [Value]
     let label: (Value) -> String
     @Binding var selection: Value
+    /// One choice under the other, each as wide as the bar: for names too long to sit side by side.
+    var vertical = false
 
     var body: some View {
-        HStack(spacing: 2) {
+        (vertical ? AnyLayout(VStackLayout(spacing: 2)) : AnyLayout(HStackLayout(spacing: 2))) {
             ForEach(choices, id: \.self) { choice in
                 Button { selection = choice } label: {
                     Text(verbatim: label(choice))
+                        .lineLimit(1)
                         .foregroundStyle(choice == selection ? Color.black : Color.white.opacity(0.8))
                         .padding(.horizontal, 10)
+                        .frame(maxWidth: vertical ? .infinity : nil, alignment: .leading)
                         .frame(height: 22)
                         .background(choice == selection ? Color.white : Color.clear, in: RoundedRectangle(cornerRadius: 6))
                         .contentShape(Rectangle())

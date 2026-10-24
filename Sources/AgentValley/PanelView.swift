@@ -612,7 +612,8 @@ enum Format {
     /// Which display the bar is on. Nothing in the app said: someone who works on a second
     /// display all day could not tell whether the bar would be there. It is not: it stays with
     /// the notch while a display with one is on.
-    static let displayCaption = "The bar is on the display with a notch, or on your main display when there is none."
+    static let displayCaption = "The bar is on the display with a notch, or on your main display when there is none, unless you pick one under Display in the settings."
+    static let displayChoiceCaption = "Automatic is the display with a notch, or your main one."
     static let beatCaption = "While an agent waits for you, the bar glows red every few seconds, until you open the panel."
     static let keepCaption = "How long a session or an agent stays listed after it stops."
     static let legendCaption = "The person shows the kind of agent."
@@ -1373,7 +1374,7 @@ struct PanelView: View {
             Group {
                 if state.showingSettings {
                     SettingsView(settings: settings, answers: answers, limits: limits, updates: updates,
-                                 shortcutNote: state.shortcutTaken ? Format.shortcutTaken : nil,
+                                 shortcutNote: state.shortcutTaken ? Format.shortcutTaken : nil, displays: state.displays,
                                  tab: $state.settingsTab) { state.showingSettings = false }
                 } else if state.showingHistory {
                     HistoryPage(ledger: usage, pick: $state.historyPick) { state.showingHistory = false }

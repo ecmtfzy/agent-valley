@@ -62,6 +62,16 @@ enum SoundStyle: String, CaseIterable {
     }
 }
 
+/// A display the bar can be put on, by the id macOS keeps for it across restarts and plugging
+/// in, and the name System Settings shows for it.
+struct DisplayChoice: Hashable {
+    let id: String
+    let name: String
+
+    /// The display with a notch, or the main one when none has it.
+    static let automatic = DisplayChoice(id: "", name: "Automatic")
+}
+
 /// The app's own preferences. The only place that reads and writes UserDefaults.
 final class Settings: ObservableObject {
     static let keepFinishedChoices = [1, 5, 10, 30]
@@ -162,6 +172,12 @@ final class Settings: ObservableObject {
         didSet { defaults.set(tokenUse, forKey: Key.tokenUse) }
     }
 
+    /// The id of the display the bar is on, or Automatic's empty one. Asked for in issue #1, by
+    /// someone whose MacBook is the second screen beside a bigger one.
+    @Published var display: String {
+        didSet { defaults.set(display, forKey: Key.display) }
+    }
+
     private let defaults: UserDefaults
 
     /// True until `markLaunched`: the app has never run on this Mac.
@@ -203,6 +219,7 @@ final class Settings: ObservableObject {
         goToTab = defaults.object(forKey: Key.goToTab) as? Bool ?? false
         grouping = Grouping(rawValue: defaults.string(forKey: Key.grouping) ?? "") ?? .projects
         tokenUse = defaults.object(forKey: Key.tokenUse) as? Bool ?? true
+        display = defaults.string(forKey: Key.display) ?? DisplayChoice.automatic.id
     }
 
     /// A stored hour of the day, or the default when it is missing or is not one. Read as an
@@ -232,6 +249,7 @@ final class Settings: ObservableObject {
         static let goToTab = "goToTab"
         static let grouping = "grouping"
         static let tokenUse = "tokenUse"
+        static let display = "display"
         static let loginItemPath = "loginItemPath"
     }
 }

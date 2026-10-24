@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3 — 2026-10-24
+
+- If your MacBook sits beside a bigger screen, we can sit on that one instead. Settings › General › Display lists the displays you have connected. Automatic keeps us at the notch, or on your main display when there is no notch. Unplug the one you picked and we come back to Automatic, then move over again when you plug it back in. Thanks to DJ Sipe for asking.
+
 ## 0.3.2 — 2026-10-24
 
 - Sounds are on from the start now, so the first time a session needs you, you hear which of us it is. If you never touched the Sounds switch, that goes for you too after this update. Settings › Sounds turns us quiet again, and we still keep quiet while the screen is locked.

@@ -250,11 +250,19 @@ final class PanelPicturesTests: XCTestCase {
             }
         case "settings":
             open()
+            // Two displays, the bigger one picked, as in issue #1.
+            state.displays = [DisplayChoice(id: "built-in", name: "Built-in Retina Display"), DisplayChoice(id: "dell", name: "DELL U2720Q")]
+            settings.display = "dell"
             state.showingSettings = true
             for tab in SettingsTab.allCases {
                 state.settingsTab = tab
                 picture(tab.rawValue)
             }
+            // General at its foot: the Display list.
+            state.settingsTab = .general
+            pump()
+            scrollToEnd()
+            picture("general-scrolled")
             // The page the plugin's command is on, with its switch on.
             settings.answers = true
             state.settingsTab = .claudeCode

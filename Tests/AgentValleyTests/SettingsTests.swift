@@ -204,6 +204,15 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(Settings(defaults: defaults).shortcutKey, .k)
     }
 
+    // Issue #1: a MacBook used as the second screen beside a bigger one. Automatic until a
+    // display is picked, and the pick is kept by the display's own id.
+    func testTheChosenDisplayIsAutomaticUntilPickedAndKept() {
+        let settings = Settings(defaults: defaults)
+        XCTAssertEqual(settings.display, DisplayChoice.automatic.id)
+        settings.display = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
+        XCTAssertEqual(Settings(defaults: defaults).display, "37D8832A-2D66-02CA-B9F7-8F30A301B230")
+    }
+
     func testIdleSessionLabels() {
         // "Hide" and "Show" are what the x on a card and the hidden row do. The setting has words of its own.
         // Read after the setting's name, each says what it does: "Idle sessions: In one line".
