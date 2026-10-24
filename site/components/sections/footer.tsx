@@ -21,6 +21,8 @@ export function Footer({ hunt = false, still = false }: { hunt?: boolean; still?
         <ul className="flex flex-wrap items-center gap-x-6 gap-y-2" role="list">
           <li><a className="inline-flex min-h-11 items-center" href="/comics/">Comics</a></li>
           <li><a className="inline-flex min-h-11 items-center" href="https://github.com/morsechimwai/agent-valley" aria-label="AgentValley on GitHub">GitHub</a></li>
+          <li><a className="inline-flex min-h-11 items-center" href="https://x.com/morsechimwai" aria-label="morsechimwai on X">X</a></li>
+          <li><a className="inline-flex min-h-11 items-center" href="https://bsky.app/profile/morsechimwai.bsky.social" aria-label="morsechimwai on Bluesky">Bluesky</a></li>
           <li>
             <SponsorButton />
           </li>

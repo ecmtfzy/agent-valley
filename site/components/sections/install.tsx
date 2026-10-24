@@ -1,6 +1,7 @@
 import { Face } from '@/components/face';
 import { Mascot } from '@/components/mascot';
 import { GetIt, OnPhone, Terms } from '@/components/sections/hero';
+import { Updates } from '@/components/updates';
 import { Word } from '@/components/word';
 
 // The end: the whole crew waiting, and the install.
@@ -44,6 +45,7 @@ export function Install() {
         </p>
         <OnPhone />
       </div>
+      <Updates />
     </section>
   );
 }

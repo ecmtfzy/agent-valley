@@ -90,7 +90,7 @@ export function Terms({ needs = true }: { needs?: boolean }) {
 export function OnPhone() {
   return (
     <p className="mt-4 hidden font-mono text-[.9375rem] font-semibold text-accent-text [@media(hover:none)_and_(pointer:coarse)]:block">
-      Reading this on a phone? We only fit in a MacBook&apos;s notch. Open this page on your Mac.
+      Reading this on a phone? We only fit in a MacBook&apos;s notch. Open this page on your Mac, or <a href="#updates">get updates</a> for later.
     </p>
   );
 }
