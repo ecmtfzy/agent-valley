@@ -6,20 +6,26 @@ import { Button } from '@/components/ui/button';
 import { TrickOrTreat } from '@/components/trick-or-treat';
 import { Word } from '@/components/word';
 
+// Product Hunt's badge with the live vote count, through our own address (api/ph.py), held in the
+// bottom-right corner of the window. Pixel sparkles take turns around it and a gleam crosses it now
+// and then. Outside the hero, so it keeps moving after the hero scrolls away.
+export function PhBadge() {
+  return (
+    <a className="ph" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-agentvalley">
+      <img src="/api/ph" alt="Featured on Product Hunt, with its vote count" width="250" height="54" />
+      {['s1', 's2', 's3', 's4'].map((s) => (
+        <svg key={s} className={`spark ${s}`} viewBox="0 0 7 7" aria-hidden="true">
+          <path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z" />
+        </svg>
+      ))}
+    </a>
+  );
+}
+
 export function Hero() {
   return (
     <section className="wrap hero grid gap-y-[18px] pt-8 pb-[clamp(64px,12vw,112px)] min-[900px]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] min-[900px]:grid-rows-[auto_1fr] min-[900px]:gap-x-14 min-[900px]:gap-y-8 min-[900px]:[grid-template-areas:'head_screen'_'copy_screen']">
       <div className="min-[900px]:[grid-area:head]">
-        {/* Product Hunt's badge with the live vote count, through our own address (api/ph.py), at the
-            top of the page. Pixel sparkles take turns around it and a gleam crosses it now and then. */}
-        <a className="ph mb-6" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-agentvalley">
-          <img src="/api/ph" alt="Featured on Product Hunt, with its vote count" width="250" height="54" />
-          {['s1', 's2', 's3', 's4'].map((s) => (
-            <svg key={s} className={`spark ${s}`} viewBox="0 0 7 7" aria-hidden="true">
-              <path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z" />
-            </svg>
-          ))}
-        </a>
         <h1>Every agent, at a glance, right in your notch.</h1>
         {/* A badge in the page's own type, not Claude's logo: Anthropic's marks need its written leave. */}
         <p className="mt-5 w-fit rounded-full border border-accent-text/40 bg-card px-3.5 py-1 font-mono text-[.9375rem] font-semibold text-accent-text min-[400px]:text-[1.0625rem]">
@@ -40,14 +46,6 @@ export function Hero() {
       {/* Stacked, the heading and the copy below it are one block; the picture keeps its distance.
           Side by side, it stands beside the words from the top, so the first screen holds all of it. */}
       <div className="mt-8 min-[900px]:mt-0 min-[900px]:[grid-area:screen]">
-        <p className="notch-note" aria-hidden="true">
-          The notch. Point at it or press it to open the panel.
-          {/* The pen of the row's note on the task (sections/rows.tsx). */}
-          <svg viewBox="0 0 72 80">
-            <path className="line" d="M3 6 C14 5 27 3 38 7 C50 12 57 30 56.5 47 C56.2 58 56 68 56 77" />
-            <path d="M48 66 C51 70 54 74 56 77.5 C58.5 73 61 69 65 65" />
-          </svg>
-        </p>
         <HeroScreen>
           <ScreenDrawing />
         </HeroScreen>
@@ -131,6 +129,14 @@ function ScreenDrawing() {
         <span className="status"><i className="battery" /><span className="clock">Thu 9:41</span></span>
       </div>
       <Night />
+      <p className="notch-note" aria-hidden="true">
+        {/* The pen of the row's note on the task (sections/rows.tsx), turned to point up. */}
+        <svg viewBox="0 0 72 80">
+          <path className="line" d="M3 6 C14 5 27 3 38 7 C50 12 57 30 56.5 47 C56.2 58 56 68 56 77" />
+          <path d="M48 66 C51 70 54 74 56 77.5 C58.5 73 61 69 65 65" />
+        </svg>
+        The notch. Point at it or press it to open the panel.
+      </p>
       <div className="panel">
         <div className="draw" aria-hidden="true">
         <div className="p-top">

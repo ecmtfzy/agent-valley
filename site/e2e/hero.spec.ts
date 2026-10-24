@@ -15,25 +15,35 @@ test('the panel stands open at first, the notch shuts and opens it from the keyb
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
 });
 
-// The note above the picture is written in pen, as the row's notes are, its arrow ending on the notch.
+// The note on the wallpaper under the notch is in the row's hand, its arrow up to the bar's left wing.
 for (const width of [1440, 1000, 390, 320]) {
-  test(`at ${width}px the note above the picture is in pen, its arrow ending on the notch`, async ({ page }) => {
+  test(`at ${width}px the note under the notch is in the row's hand, its arrow ending on the bar`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/');
-    const note = page.locator('.notch-note');
+    const note = page.locator('.screen .notch-note');
     expect(await note.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Caveat/);
     const tip = await note.locator('path.line').evaluate((line: SVGPathElement) => {
       const end = line.getPointAtLength(line.getTotalLength());
       const at = new DOMPoint(end.x, end.y).matrixTransform(line.getScreenCTM()!);
       return { x: at.x, y: at.y };
     });
-    const lens = (await page.locator('.screen .bar .lens').boundingBox())!;
+    const wing = (await page.locator('.screen .bar .wing').first().boundingBox())!;
+    expect(tip.x).toBeGreaterThan(wing.x);
+    expect(tip.x).toBeLessThan(wing.x + wing.width);
+    // Just under the bar.
+    expect(tip.y).toBeGreaterThan(wing.y + wing.height);
+    expect(tip.y).toBeLessThan(wing.y + wing.height + 12);
+  });
+}
+
+// Side by side, the picture stands level with the heading: nothing above it pushes it down.
+for (const width of [1440, 1000]) {
+  test(`at ${width}px the picture's top is level with the heading's`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    const heading = (await page.locator('.hero h1').boundingBox())!;
     const screen = (await page.locator('.screen').boundingBox())!;
-    expect(tip.x).toBeGreaterThan(lens.x);
-    expect(tip.x).toBeLessThan(lens.x + lens.width);
-    // Just above the bezel, which rings the screen 7px out.
-    expect(tip.y).toBeLessThan(screen.y - 7);
-    expect(tip.y).toBeGreaterThan(screen.y - 16);
+    expect(Math.abs(screen.y - heading.y)).toBeLessThan(2);
   });
 }
 
@@ -294,3 +304,31 @@ test('no line says Homebrew builds the app, or opens it from its folder', async 
   await expect(body).not.toContainText('opt/agent-valley');
   await expect(body).not.toContainText('brew upgrade');
 });
+
+// Product Hunt's badge holds the bottom-right corner; at the very end of the page nothing in the
+// footer sits under it.
+for (const width of [1280, 375]) {
+  test(`at ${width}px the corner badge covers nothing in the footer`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    // These plain files have no api/ph.py; it answers with this badge when Product Hunt doesn't.
+    await page.route('**/api/ph', (route) => route.fulfill({ path: 'public/product-hunt.svg', contentType: 'image/svg+xml' }));
+    await page.goto('/');
+    await expect(page.locator('a.ph')).toHaveCSS('position', 'fixed');
+    // The page scrolls smoothly and grows a little as its last pictures come in: jump to the end
+    // and look again until it holds still there.
+    await expect(async () => {
+      const under = await page.evaluate(() => {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
+        if (Math.ceil(scrollY + innerHeight) < document.documentElement.scrollHeight) return ['not at the end yet'];
+        const b = document.querySelector('a.ph')!.getBoundingClientRect();
+        return [...document.querySelectorAll('footer a, footer button, footer p')]
+          .filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top;
+          })
+          .map((el) => el.textContent);
+      });
+      expect(under).toEqual([]);
+    }).toPass();
+  });
+}

@@ -5,7 +5,7 @@ import { Credits } from '@/components/sections/credits';
 import { Crew } from '@/components/sections/crew';
 import { Footer } from '@/components/sections/footer';
 import { Funnies } from '@/components/sections/funnies';
-import { Hero } from '@/components/sections/hero';
+import { Hero, PhBadge } from '@/components/sections/hero';
 import { Install } from '@/components/sections/install';
 import { Nav } from '@/components/sections/nav';
 import { NeedsYou } from '@/components/sections/needs-you';
@@ -37,6 +37,7 @@ export default function Home() {
         <Credits />
       </main>
       <Footer hunt still />
+      <PhBadge />
       <IdleSections />
     </>
   );

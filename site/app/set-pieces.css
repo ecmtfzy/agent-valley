@@ -97,13 +97,14 @@ html{scroll-padding-top:80px}
 .bar-hit{position:absolute;z-index:4;top:0;left:24cqw;width:52cqw;height:max(44px,var(--bar));padding:0;border:0;border-radius:0 0 2.2cqw 2.2cqw;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .bar-hit:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
 .bar-hit[hidden]{display:none}
-/* Above the picture, a line down to the notch: the bar is the thing to press. */
-/* Written in pen above it, as the row's notes are: the arrow's head, 42px into it, on the notch. */
-.notch-note{transition:opacity .3s}
-:has(> .screen[data-state=open]) > .notch-note{opacity:0}
-.notch-note{margin:0 0 10px;color:var(--accent-text);font:600 1.375rem/1.15 var(--hand);text-align:center;text-wrap:balance}
-.notch-note svg{display:block;width:54px;height:60px;margin:4px 0 0 calc(50% - 42px);overflow:visible}
-.notch-note path{fill:none;stroke:var(--pen);stroke-width:2.2px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+/* Shut, a note on the wallpaper under the notch, its arrow up to the bar's left wing (24-37cqw):
+   the bar is the thing to press. In the row's hand, in amber like the spider's note: the pen's
+   orange is too faint on this black. The arrow's head sits 78% into its box, so 5 + 18.8 + 6.2
+   lands it at 30cqw. Open, the panel covers the wallpaper and the note goes. */
+.notch-note{position:absolute;z-index:1;top:calc(var(--bar) + 1cqw);left:5cqw;width:40cqw;margin:0;color:var(--amber);font:600 clamp(13px,3.6cqw,20px)/1.15 var(--hand);text-wrap:balance;pointer-events:none;transition:opacity .3s}
+.screen[data-state=open] .notch-note{opacity:0}
+.notch-note svg{display:block;width:8cqw;height:9cqw;margin:0 0 1cqw 18.8cqw;overflow:visible;transform:scaleY(-1)}
+.notch-note path{fill:none;stroke:var(--amber);stroke-width:2.2px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .screen>[role=img]{position:absolute;inset:0;pointer-events:none}
 /* A phone keeps the sub-agent rows, the point of the app: the screen grows taller to hold both cards. */
 /* Halloween's trick-or-treat card brings a second project line: a little more screen keeps the panel off the crew. */
@@ -358,10 +359,12 @@ a.w:hover{text-decoration-style:solid}
 }
 
 @layer components {
-/* Product Hunt's badge at the top of the hero: four pixel sparkles twinkle in turn around it, a
-   frame at a time like the crew, and an amber gleam crosses it every few seconds. */
-.ph{position:relative;display:block;width:fit-content;border-radius:10px}
+/* Product Hunt's badge, held in the window's bottom-right corner: four pixel sparkles twinkle in turn
+   around it, a frame at a time like the crew, and an amber gleam crosses it every few seconds.
+   Smaller on a phone so it covers less of the page. */
+.ph{position:fixed;z-index:20;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));display:block;width:fit-content;border-radius:10px}
 .ph img{display:block;max-width:100%;height:auto}
+@media (max-width:479px){.ph img{width:180px}}
 .ph::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;mix-blend-mode:multiply;background:linear-gradient(110deg,transparent 44%,rgba(255,176,0,.55) 50%,transparent 56%) 150% 0/250% 100% no-repeat;animation:gleam 4.2s ease-in-out infinite}
 .ph .spark{position:absolute;width:14px;height:14px;fill:var(--amber);shape-rendering:crispEdges;pointer-events:none;transform:scale(0);animation:twinkle 2.8s steps(1) infinite}
 .ph .s1{top:-8px;left:-8px}
@@ -370,7 +373,7 @@ a.w:hover{text-decoration-style:solid}
 .ph .s4{bottom:-8px;left:64px;fill:var(--red);animation-delay:2.1s}
 @keyframes gleam{0%{background-position:150% 0}35%,100%{background-position:-50% 0}}
 @keyframes twinkle{0%,24%,100%{transform:scale(0)}6%,18%{transform:scale(.5)}12%{transform:scale(1)}}
-.idle .ph::after,.idle .ph .spark,.still .ph::after,.still .ph .spark{animation-play-state:paused}
+.still .ph::after,.still .ph .spark{animation-play-state:paused}
 
 /* Pictures come up once as they scroll into view: up 12px and into focus, starting as their edge
    comes in (reveal.tsx), so a quick scroll never meets an empty space. Not when motion is reduced
@@ -395,6 +398,10 @@ a.w:hover{text-decoration-style:solid}
   html:not(.still) .face:hover img:nth-child(3){animation:second .8s steps(1) infinite}
 }
 }
+
+/* Where Product Hunt's badge holds the corner, the footer's small print ends above it at the very
+   bottom of the page. Out of the layers, so it outranks the footer's own pb-10. */
+.foot:has(~ .ph){padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 /* The PDF report's first page, on the page itself; its foot, which the picture cuts, fades out. */
 .r-sheet{display:block;width:100%;height:auto;mask-image:linear-gradient(to bottom,#000 78%,transparent)}

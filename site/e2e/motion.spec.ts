@@ -107,10 +107,11 @@ test('a picture still waiting shows at once when Stop is pressed', async ({ page
   expect(await page.locator('.reveal:has(.anatomy)').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
 });
 
+// The hero's, and Product Hunt's badge held in the corner from the first screen on.
 test("only the hero's pictures load ahead", async ({ page }) => {
   await page.goto('/');
   const ahead = await page.evaluate(() => {
-    const top = new Set([...document.querySelectorAll('header img, .hero img')].map((img) => (img as HTMLImageElement).src));
+    const top = new Set([...document.querySelectorAll('header img, .hero img, .ph img')].map((img) => (img as HTMLImageElement).src));
     return [...document.querySelectorAll('link[rel=preload][as=image]')].map((l) => (l as HTMLLinkElement).href).filter((href) => !top.has(href));
   });
   expect(ahead).toEqual([]);
