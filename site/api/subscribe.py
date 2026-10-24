@@ -87,9 +87,16 @@ def proven(fields: dict) -> str | None:
     return email if hmac.compare_digest(sign(email, expiry), token) else None
 
 
+def mailbox(email: str) -> str:
+    """One key per inbox for the spacing: Reader+1@Example.com and reader@example.com are one."""
+    name, _, domain = email.lower().rpartition("@")
+    return f"{name.split('+')[0]}@{domain}"
+
+
 def ask(email: str) -> str:
     """Mails the link. Returns sent, full (the plan's mail for the day is gone) or failed."""
-    if time.time() - SENT.get(email, 0) < SPACING:
+    box = mailbox(email)
+    if time.time() - SENT.get(box, 0) < SPACING:
         return "sent"
     expiry = str(int(time.time()) + DAYS * 86400)
     link = f"{SITE}/api/subscribe?" + urllib.parse.urlencode({"e": email, "x": expiry, "t": sign(email, expiry)})
@@ -100,7 +107,7 @@ def ask(email: str) -> str:
         "text": MAIL.format(link=link, days=DAYS),
     })
     if 200 <= status < 300:
-        SENT[email] = time.time()
+        SENT[box] = time.time()
         return "sent"
     return "full" if "quota" in body else "failed"
 
