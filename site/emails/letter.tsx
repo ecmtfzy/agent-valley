@@ -1,8 +1,9 @@
-import { Body, Container, Head, Html, Img, Link, Preview, Section, Text } from 'react-email';
+import { Body, Container, Head, Hr, Html, Img, Link, Preview, Section, Text } from 'react-email';
 
-// The paper every mail is written on: the wordmark top left, a crew picture drawn for that mail (full
-// body, cut out, see-through around them), a card that stays paper in dark mode (only the desk around
-// it goes dark), small print under it. Pictures are 2x the size they show at. Pictures and
+// The paper every mail is written on: the wordmark top left, a crew picture drawn for that mail (cut
+// out, see-through around them, half the body down to a dark line like a counter they stand behind), a
+// card that stays paper in dark mode (only the desk around it goes dark), small print under it.
+// Pictures are 2x the size they show at. Pictures and
 // fonts come from agentvalley.app/email (public/email, shown to the preview as templates/static).
 // No default export, so React Email does not list this file as a mail of its own.
 export const ASSETS = process.env.EMAIL_ASSETS ?? '/static';
@@ -58,6 +59,7 @@ export function Letter({ preview, subject, art, foot, children }: Props) {
               <Img src={`${ASSETS}/wordmark.png`} width="176" height="24" alt="AgentValley" style={{ display: 'block', imageRendering: 'pixelated' }} />
             </Link>
             <Img src={`${ASSETS}/${art.src}`} width={art.width} height={art.height} alt={art.alt} style={{ display: 'block', width: '100%', maxWidth: art.width, height: 'auto', margin: '20px auto 0' }} />
+            <Hr style={{ margin: 0, border: 'none', borderTop: `2px solid ${INK}` }} />
             {children}
           </Section>
           <Text className="foot" style={{ margin: '20px 4px 0', fontFamily: MONO, fontSize: 13, lineHeight: '20px', color: MUTED, textAlign: 'center' }}>

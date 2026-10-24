@@ -12,7 +12,7 @@ export default function Confirm({ link = '{{link}}', days = '{{days}}' }: Props)
     <Letter
       subject="Confirm your AgentValley updates"
       preview="Press yes and we write when a new version is out. Nothing else."
-      art={{ src: 'sunny-letter.png', width: 200, height: 349, alt: 'Sunny from the AgentValley crew waves and holds out a sealed envelope' }}
+      art={{ src: 'sunny-letter.png', width: 280, height: 290, alt: 'Sunny from the AgentValley crew waves and holds out a sealed envelope' }}
       foot={<>The crew in your notch · <Link href="https://agentvalley.app" style={footLink}>agentvalley.app</Link></>}
     >
       <Text style={eyebrow}>Get updates</Text>
