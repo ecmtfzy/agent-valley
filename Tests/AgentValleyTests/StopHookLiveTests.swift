@@ -20,7 +20,7 @@ final class StopHookLiveTests: XCTestCase {
         let root = URL(fileURLWithPath: NSTemporaryDirectory() + "av-stop-\(UUID().uuidString.prefix(8))").resolvingSymlinksInPath()
         let app = root.appendingPathComponent("app"), work = root.appendingPathComponent("work"), plugin = root.appendingPathComponent("plugin")
         try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
-        let real = realpath(work.path, nil).map { defer { free($0) }; return String(cString: $0) } ?? work.path
+        let real = realpath(work.path, nil).map { path in defer { free(path) }; return String(cString: path) } ?? work.path
         let projects = home + "/.claude/projects/" + String(real.map { $0.isLetter || $0.isNumber ? $0 : "-" })
         defer {
             try? FileManager.default.removeItem(at: root)

@@ -51,7 +51,7 @@ final class TabTypingLiveTests: XCTestCase {
     /// Claude Code names a project's folder after the real path: /var/folders is /private/var/folders
     /// to it, while URL.resolvingSymlinksInPath drops the /private.
     private func projectFolder(_ dir: String) -> String {
-        let real = realpath(dir, nil).map { defer { free($0) }; return String(cString: $0) } ?? dir
+        let real = realpath(dir, nil).map { path in defer { free(path) }; return String(cString: path) } ?? dir
         return home + "/.claude/projects/" + String(real.map { $0.isLetter || $0.isNumber ? $0 : "-" })
     }
 
