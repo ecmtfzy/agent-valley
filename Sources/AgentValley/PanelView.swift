@@ -1146,8 +1146,8 @@ struct PanelView: View {
 
             HStack(spacing: 2) {
                 Spacer()
-                // Off until the person turns it on: a sound interrupts. Asleep in the quiet
-                // hours, so that a silent night is not taken for a switch that does nothing.
+                // Asleep in the quiet hours, so that a silent night is not taken for a switch
+                // that does nothing.
                 let quiet = settings.sounds && sound.quiet(at: Date())
                 // Only where a phone could answer for a session: the buttons below it are always there.
                 if away.buttonShown {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2 — 2026-10-24
+
+- Sounds are on from the start now, so the first time a session needs you, you hear which of us it is. If you never touched the Sounds switch, that goes for you too after this update. Settings › Sounds turns us quiet again, and we still keep quiet while the screen is locked.
+
 ## 0.3.1 — 2026-10-24
 
 - On each card, what we're doing right now reads first and the clock ticking beside it steps back a shade. The session's name is the one bold line; its agents' names are set plain.

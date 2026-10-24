@@ -20,7 +20,7 @@ export function NeedsYou() {
             Answer Claude Code from the notch with Allow once or Deny, using a <Word id="plugin">plugin</Word> you install yourself.
           </li>
           <li className={TICK}>
-            With sounds on, we talk. Whoever runs the session plays a few notes on their own instrument and says what it needs: a command, an edit, a question, a plan. Rather have a plain chime? Settings has one. Sounds stay off until you turn them on.
+            With sounds on, we talk. Whoever runs the session plays a few notes on their own instrument and says what it needs: a command, an edit, a question, a plan. Rather have a plain chime? Settings has one. Sounds are on from the start, and one switch in Settings turns them off.
           </li>
         </ul>
       </div>

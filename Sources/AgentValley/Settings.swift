@@ -96,8 +96,9 @@ final class Settings: ObservableObject {
     }
 
 
-    /// Whether the app makes any sound at all. Off until the person turns it on: a sound
-    /// interrupts, and that is theirs to choose.
+    /// Whether the app makes any sound at all. On from the start: the crew talking is half of
+    /// what the app is, and one switch turns it off. Stored only once the person flips it, so
+    /// whoever never did hears the crew after an update too.
     @Published var sounds: Bool {
         didSet { defaults.set(sounds, forKey: Key.sounds) }
     }
@@ -189,7 +190,7 @@ final class Settings: ObservableObject {
         idleSessions = IdleSessions(rawValue: defaults.string(forKey: Key.idleSessions) ?? "") ?? .fold
         let minutes = defaults.integer(forKey: Key.keepFinishedMinutes)
         keepFinishedMinutes = Self.keepFinishedChoices.contains(minutes) ? minutes : 10
-        sounds = defaults.object(forKey: Key.sounds) as? Bool ?? false
+        sounds = defaults.object(forKey: Key.sounds) as? Bool ?? true
         soundNeedsYou = defaults.object(forKey: Key.soundNeedsYou) as? Bool ?? true
         soundFinished = defaults.object(forKey: Key.soundFinished) as? Bool ?? true
         soundScenes = defaults.object(forKey: Key.soundScenes) as? Bool ?? true

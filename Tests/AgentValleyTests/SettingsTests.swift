@@ -73,10 +73,10 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(Settings(defaults: defaults).answers)
     }
 
-    // A sound interrupts: nothing sounds until the person turns it on.
-    func testSoundsStartOffWithBothMomentsReady() {
+    // The crew talks from the start; one switch turns it off.
+    func testSoundsStartOnWithBothMomentsReady() {
         let settings = Settings(defaults: defaults)
-        XCTAssertFalse(settings.sounds)
+        XCTAssertTrue(settings.sounds)
         XCTAssertTrue(settings.soundNeedsYou)
         XCTAssertTrue(settings.soundFinished)
         XCTAssertEqual(settings.remindMinutes, 0)
@@ -115,7 +115,7 @@ final class SettingsTests: XCTestCase {
         defaults.set(-1, forKey: "quietUntil")
 
         let settings = Settings(defaults: defaults)
-        XCTAssertFalse(settings.sounds)
+        XCTAssertTrue(settings.sounds)
         XCTAssertEqual(settings.remindMinutes, 0)
         XCTAssertEqual(settings.quietFrom, 22)
         XCTAssertEqual(settings.quietUntil, 8)
