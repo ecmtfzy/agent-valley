@@ -5,6 +5,9 @@
   <img src="docs/logo.svg" alt="AgentValley" width="432">
 </picture>
 
+<!-- Through the site's address (site/api/ph.py): Product Hunt's own badge keeps one count for four hours, ours a minute. -->
+<a href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-agentvalley"><img src="https://agentvalley.app/api/ph" alt="Featured on Product Hunt, with its vote count" width="250" height="54"></a>
+
 ### Every agent, at a glance, right in your notch.
 
 A small valley of programmers in your Mac's notch. Each Claude Code agent, sub-agents too, gets its own row and its own little programmer.
