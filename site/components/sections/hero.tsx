@@ -9,9 +9,19 @@ import { Word } from '@/components/word';
 
 export function Hero() {
   return (
-    <section className="wrap hero grid gap-y-[18px] pt-8 pb-[clamp(64px,12vw,112px)] min-[900px]:grid-cols-2 min-[900px]:items-center min-[900px]:gap-x-14 min-[900px]:gap-y-10 min-[900px]:pt-16 min-[900px]:[grid-template-areas:'head_head'_'copy_screen']">
+    <section className="wrap hero grid gap-y-[18px] pt-8 pb-[clamp(64px,12vw,112px)] min-[900px]:grid-cols-2 min-[900px]:items-center min-[900px]:gap-x-14 min-[900px]:gap-y-10 min-[900px]:pt-8 min-[900px]:[grid-template-areas:'head_head'_'copy_screen']">
       <div className="relative min-[900px]:[grid-area:head]">
         <FloatingBits />
+        {/* Product Hunt's badge with the live vote count, through our own address (api/ph.py), at the
+            top of the page. Pixel sparkles take turns around it and a gleam crosses it now and then. */}
+        <a className="ph mb-6" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-agentvalley">
+          <img src="/api/ph" alt="Featured on Product Hunt, with its vote count" width="250" height="54" />
+          {['s1', 's2', 's3', 's4'].map((s) => (
+            <svg key={s} className={`spark ${s}`} viewBox="0 0 7 7" aria-hidden="true">
+              <path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z" />
+            </svg>
+          ))}
+        </a>
         <h1>
           Every agent, at a glance,<br className="hidden min-[900px]:inline" /> right in your notch.
         </h1>
@@ -32,10 +42,6 @@ export function Hero() {
           <p className="small">
             <a className="inline-flex min-h-11 items-center" href="https://github.com/morsechimwai/agent-valley">View the code on GitHub</a>
           </p>
-          {/* Product Hunt's badge, kept here so the page loads nothing from them; no vote count for that reason. */}
-          <a className="mt-4 inline-block" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-agentvalley">
-            <img src="/product-hunt.svg" alt="Featured on Product Hunt" width="204" height="54" />
-          </a>
         </div>
       </div>
       {/* Stacked, the heading and the copy below it are one block; the picture keeps its distance. */}
