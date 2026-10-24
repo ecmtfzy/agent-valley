@@ -178,21 +178,17 @@ html{scroll-padding-top:80px}
 .term header b{margin-left:auto;color:var(--red-text);font-weight:600}
 .term pre{margin:0;padding:10px 12px;font:inherit;white-space:pre-wrap}
 .term.wait{border-color:var(--term-wait)}
-/* The pile grows with the scroll (pile.tsx): each terminal springs up as it is called, the ones
-   not yet called wait out of sight. On a screen wide and tall enough the section is the length of
-   the scroll and its stage is held under the top bar meanwhile; Stop leaves it so, or the page
-   would jump a screen and a half under the reader. Without scripts, with motion reduced or
-   stopped, or on paper, the pile stands whole. */
+/* The pile grows with the scroll (pile.tsx): each terminal rises with the reader's scroll, a hair
+   past its place and back, and sinks again going up; until the script has measured, they wait out
+   of sight. The short transition only smooths a mouse wheel's steps. On a screen wide and tall
+   enough the stage is held under the top bar for most of a screen while the pile fills; Stop leaves
+   the section that long, or the page would jump under the reader. Without scripts, with motion
+   reduced or stopped, or on paper, the pile stands whole. */
 @media screen and (prefers-reduced-motion:no-preference){
-  .js:not(.still) .term{transition:opacity .2s ease,transform .55s cubic-bezier(.34,1.56,.64,1)}
-  .js:not(.still) :is(.terms:not([data-n]),.terms[data-n="0"]) .term,
-  .js:not(.still) .terms[data-n="1"] .term:nth-child(n+2),
-  .js:not(.still) .terms[data-n="2"] .term:nth-child(n+3),
-  .js:not(.still) .terms[data-n="3"] .term:nth-child(n+4),
-  .js:not(.still) .terms[data-n="4"] .term:nth-child(n+5){opacity:0;transform:translateY(36px) scale(.92)}
+  .js:not(.still) .term{opacity:min(1,calc(var(--t,0) * 3));transform:translateY(calc((1 - var(--e,0)) * 36px)) scale(calc(.92 + .08 * var(--e,0)));transition:opacity .15s cubic-bezier(.16,1,.3,1),transform .15s cubic-bezier(.16,1,.3,1)}
 }
 @media screen and (prefers-reduced-motion:no-preference) and (min-width:900px) and (min-height:640px){
-  .js .problem{height:240vh}
+  .js .problem{height:170vh}
   .js .problem-stage{position:sticky;top:64px;min-height:calc(100vh - 64px)}
 }
 
@@ -374,10 +370,11 @@ a.w:hover{text-decoration-style:solid}
 .float-chip{padding:.35em .8em;box-shadow:0 4px 10px -6px rgba(0,0,0,.25)}
 .idle .floating>*,.still .floating>*{animation-play-state:paused}
 
-/* Pictures come up once as they scroll into view: up 12px and into focus. Not when motion is
-   reduced or stopped, not without scripts, and not on paper. */
+/* Pictures come up once as they scroll into view: up 12px and into focus, starting as their edge
+   comes in (reveal.tsx), so a quick scroll never meets an empty space. Not when motion is reduced
+   or stopped, not without scripts, and not on paper. */
 @media screen and (prefers-reduced-motion:no-preference){
-  .reveal{transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.2,1)}
+  .reveal{transition:opacity .5s cubic-bezier(.16,1,.3,1),transform .5s cubic-bezier(.16,1,.3,1)}
   .js:not(.still) .reveal:not(.shown){opacity:0;transform:translateY(12px)}
   .still .reveal{transition:none}
 }

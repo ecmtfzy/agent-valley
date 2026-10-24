@@ -1,7 +1,7 @@
 'use client';
 
 import type { PlayerRef } from '@remotion/player';
-import { type ComponentType, useEffect, useRef, useState } from 'react';
+import { type ComponentType, startTransition, useEffect, useRef, useState } from 'react';
 
 // What a section's motion brings once loaded: the composition, its size, what it is given, and the
 // pictures it draws from.
@@ -40,7 +40,8 @@ export function MotionLoop<P extends Record<string, unknown>>({ section, classNa
       Promise.all([import('@remotion/player'), load()])
         .then(async ([{ Player }, motion]) => {
           await Promise.all(motion.pictures.map((src) => Object.assign(new Image(), { src }).decode()));
-          setLoaded({ Player, motion });
+          // In small pieces between frames, so the page keeps scrolling while the player mounts.
+          startTransition(() => setLoaded({ Player, motion }));
         })
         .catch(() => {});
     };

@@ -1,8 +1,8 @@
 import { expect, type Page, test } from '@playwright/test';
 
-// "Five agents running.": as the page scrolls, the five terminals pop up one by one onto a pile,
-// the one waiting for an answer first, buried by the rest. On a wide screen the section holds
-// still meanwhile, as Apple's pages do.
+// "Five agents running.": as the page scrolls, the five terminals rise one by one onto a pile,
+// each following the scroll, the one waiting for an answer first, buried by the rest. On a wide
+// screen the section holds still meanwhile, as Apple's pages do.
 
 // Scrolls so that the top of `selector` sits at `share` of the screen's height.
 const place = async (page: Page, selector: string, share: number) => {
@@ -17,24 +17,29 @@ const place = async (page: Page, selector: string, share: number) => {
 };
 const count = async (page: Page) => Number(await page.locator('.terms').getAttribute('data-n'));
 const opacities = (page: Page) => page.locator('.term').evaluateAll((all) => all.map((t) => getComputedStyle(t).opacity));
+// How far up each terminal is (--t, 0 to 1) and where its spring has it (--e).
+const ups = (page: Page) => page.locator('.term').evaluateAll((all) => all.map((t) => [Number((t as HTMLElement).style.getPropertyValue('--t')), Number((t as HTMLElement).style.getPropertyValue('--e'))]));
 
 test.describe('on a wide screen', () => {
   test.use({ viewport: { width: 1280, height: 800 }, reducedMotion: 'no-preference' });
 
-  test('the section holds still while the five terminals pop up one by one', async ({ page }) => {
+  test('the section holds still while the five terminals come up one by one', async ({ page }) => {
     await page.goto('/');
     const section = page.locator('section.problem');
-    expect((await section.boundingBox())!.height).toBeGreaterThan(800 * 2);
+    // Held for most of a screen, not more: the page keeps moving under the reader's hand.
+    const length = (await section.boundingBox())!.height;
+    expect(length).toBeGreaterThan(800 * 1.5);
+    expect(length).toBeLessThan(800 * 1.9);
     // Past the layout's 3 s failsafe: with React here, the pile still waits for the reader.
     await page.waitForTimeout(3500);
     expect(await opacities(page)).toEqual(['0', '0', '0', '0', '0']);
     await place(page, 'section.problem', 1);
     expect(await count(page)).toBe(0);
-    await place(page, 'section.problem', 0.25);
+    await place(page, 'section.problem', 0.4);
     expect(await count(page)).toBe(1);
     // Down through the section a tenth of a screen at a time.
     const seen: { n: number; top: number }[] = [];
-    for (let step = 0; step < 20; step++) {
+    for (let step = 0; step < 16; step++) {
       await page.mouse.wheel(0, 80);
       await page.waitForTimeout(80);
       seen.push({ n: await count(page), top: Math.round((await page.locator('.problem-stage').boundingBox())!.y) });
@@ -64,25 +69,39 @@ test.describe('on a wide screen', () => {
     expect(await top('.problem-stage')).toBe(64);
   });
 
-  test('each terminal springs in and the ones not yet called stay hidden', async ({ page }) => {
+  test('each terminal follows the scroll, a hair past its place and back, and the next ones wait', async ({ page }) => {
     await page.goto('/');
     await place(page, 'section.problem', 0.25);
-    await page.mouse.wheel(0, 0.75 * 800);
-    await page.waitForTimeout(900);
+    await page.mouse.wheel(0, 0.4 * 800);
+    await page.waitForTimeout(400);
     const n = await count(page);
     expect(n).toBeGreaterThan(1);
     expect(n).toBeLessThan(5);
     const seen = await opacities(page);
     expect(seen.slice(0, n)).toEqual(Array(n).fill('1'));
-    expect(seen.slice(n)).toEqual(Array(5 - n).fill('0'));
-    expect(await page.locator('.term').first().evaluate((t) => getComputedStyle(t).transitionTimingFunction)).toContain('cubic-bezier(0.34, 1.56');
+    expect(seen.slice(n + 1)).toEqual(Array(Math.max(0, 4 - n)).fill('0'));
+    // Small steps: the pile moves with each of them, and the one on its way passes its place.
+    const sum = (u: number[][]) => u.reduce((s, [t]) => s + t, 0);
+    let before = sum(await ups(page));
+    let past = 0;
+    let moved = 0;
+    for (let step = 0; step < 6; step++) {
+      await page.mouse.wheel(0, 30);
+      await page.waitForTimeout(60);
+      const now = await ups(page);
+      past = Math.max(past, ...now.map(([, e]) => e));
+      if (sum(now) > before) moved++;
+      before = sum(now);
+    }
+    expect(moved).toBe(6);
+    expect(past).toBeGreaterThan(1.02);
   });
 
   test('scrolling back up takes them off again', async ({ page }) => {
     await page.goto('/');
     await place(page, 'section.problem', -1.2);
     expect(await count(page)).toBe(5);
-    await place(page, 'section.problem', 0.25);
+    await place(page, 'section.problem', 0.4);
     expect(await count(page)).toBe(1);
   });
 
