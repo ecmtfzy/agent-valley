@@ -169,6 +169,14 @@ struct Ask: Equatable {
         /// Shown, but only answerable in the terminal: other questions, a plan.
         case terminalOnly(text: String)
 
+        /// Whether the panel shows Allow and Deny, or option rows, for it.
+        var isAnswerable: Bool {
+            switch self {
+            case .permission, .question: return true
+            case .permissionHidden, .terminalOnly: return false
+            }
+        }
+
         /// The answer a key stands for on a request of this kind, or nil when it offers none
         /// such. What `reply` would refuse is not offered here either: a request that cannot be
         /// shown in full cannot be allowed by a key any more than by a click.

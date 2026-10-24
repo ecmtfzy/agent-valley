@@ -18,6 +18,37 @@ enum LimitResets: Hashable {
     }
 }
 
+/// "3 need you" in bold red, its number swelling once each time `pulse` ticks. Only the number
+/// swells, from its middle: the whole phrase used to swell from its left end and ran over the
+/// words beside it.
+struct NeedsYouCount: View {
+    let count: Int
+    var pulse = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let words = Format.needsYou(count)
+        let number = String(count)
+        HStack(spacing: 0) {
+            Text(verbatim: number)
+                .keyframeAnimator(initialValue: CGFloat(1), trigger: pulse) { digits, scale in
+                    digits.scaleEffect(scale)
+                } keyframes: { _ in
+                    KeyframeTrack {
+                        CubicKeyframe(Motion(reduced: reduceMotion).pulse, duration: 0.12)
+                        SpringKeyframe(1, duration: 0.36, spring: .bouncy(duration: 0.3, extraBounce: 0.2))
+                    }
+                }
+            Text(verbatim: String(words.dropFirst(number.count)))
+        }
+        .bold()
+        .foregroundStyle(MascotFlag.red)
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: words))
+    }
+}
+
 /// The row under the notch: how many agents are working or quiet, and how much of the plan is used.
 struct StatusRow: View {
     let working: Int
@@ -32,7 +63,6 @@ struct StatusRow: View {
     /// Counts the times one more agent started to wait. Each one is marked on the red count
     /// here too: open, the panel hides the bar's.
     var arrivals = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 0) {
@@ -40,7 +70,7 @@ struct StatusRow: View {
             // on it goes there.
             if needsYou > 0 {
                 Button { jump?() } label: {
-                    Text(verbatim: Format.needsYou(needsYou)).bold().foregroundStyle(MascotFlag.red)
+                    NeedsYouCount(count: needsYou, pulse: arrivals)
                         .padding(.horizontal, 6)
                         .frame(height: 22)
                         .contentShape(Rectangle())
@@ -49,14 +79,6 @@ struct StatusRow: View {
                 }
                 .buttonStyle(.plain)
                 .fixedSize()
-                .keyframeAnimator(initialValue: CGFloat(1), trigger: arrivals) { count, scale in
-                    count.scaleEffect(scale, anchor: .leading)
-                } keyframes: { _ in
-                    KeyframeTrack {
-                        CubicKeyframe(Motion(reduced: reduceMotion).pulse, duration: 0.12)
-                        SpringKeyframe(1, duration: 0.36, spring: .bouncy(duration: 0.3, extraBounce: 0.2))
-                    }
-                }
                 .help(Format.jumpHelp)
                 .accessibilityHint(Text(verbatim: Format.jumpHelp))
             }

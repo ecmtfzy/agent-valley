@@ -50,6 +50,11 @@ enum Format {
         return parts.isEmpty ? Format.working(0) : parts.joined(separator: " · ")
     }
 
+    /// Requests past the edge that Allow, Deny or an option row can answer from the panel.
+    static func toAnswer(_ count: Int) -> String {
+        "\(count) to answer here"
+    }
+
     static func needsYou(_ count: Int) -> String {
         "\(count) \(count == 1 ? "needs" : "need") you"
     }
@@ -81,9 +86,10 @@ enum Format {
 
     /// What lies past the bottom edge of the list, or nil when nothing to name does: whole
     /// sessions, and rows that wait, which can be past the edge in a card that starts above it.
-    static func below(sessions: Int, quiet: Int, needsYou: Int) -> String? {
+    /// `answerable` names those of the waiting rows whose request the panel itself can answer.
+    static func below(sessions: Int, quiet: Int, needsYou: Int, answerable: Int = 0) -> String? {
         let parts = (sessions > 0 ? ["+\(sessions) \(sessions == 1 ? "session" : "sessions")"] : []) + (needsYou > 0 ? [Format.needsYou(needsYou)] : [])
-            + (quiet > 0 ? ["\(quiet) quiet"] : [])
+            + (answerable > 0 ? [Format.toAnswer(answerable)] : []) + (quiet > 0 ? ["\(quiet) quiet"] : [])
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -630,6 +636,12 @@ enum Format {
         status == .working && silentFor >= TranscriptReader.quietAfter ? "\(span(minutes: Int(silentFor) / 60)) ago" : nil
     }
 
+    /// Whether the word beside a session's name is the plain running clock of a turn at work.
+    static func runningClock(_ card: SessionCard) -> Bool {
+        guard let main = card.main, main.status == .working, card.workingAfterMain == 0 else { return false }
+        return lastMoved(main.status, silentFor: main.quietFor) == nil
+    }
+
     /// The word beside a session's name. A main agent that ended its turn is not idle while
     /// agents it started work on.
     static func cardStatus(_ card: SessionCard) -> String? {
@@ -696,6 +708,8 @@ struct PanelView: View {
     private var topFade: CGFloat { state.expanded && !atTop ? NotchGeometry.topBand : 0 }
     /// Counts the times one more agent started to wait on the person. Each one is marked on the bar.
     @State private var arrivals = 0
+    /// Ticks when an answerable request lands below the fold of the open panel.
+    @State private var bandBeats = 0
     /// Counts the beats the bar makes while someone goes on waiting.
     @State private var beats = 0
     /// When someone last started to wait. No beat lands on the mark of that moment.
@@ -734,8 +748,9 @@ struct PanelView: View {
                     // Every row that waits past the edge, also inside a card that starts above it.
                     let waiting = AgentStore.waitingBelow(drawn, cards: below, rows: belowRows)
                     let quiet = AgentStore.count(.quiet, in: hidden)
+                    let answerable = answerableBelow(drawn).count
                     let label = state.showingSettings ? Format.settingsBelow(state.settingsTab)
-                        : state.showingHistory ? Format.historyBelow : Format.below(sessions: hidden.count, quiet: quiet, needsYou: waiting.count)
+                        : state.showingHistory ? Format.historyBelow : Format.below(sessions: hidden.count, quiet: quiet, needsYou: waiting.count, answerable: answerable)
                     // One height whatever it says: it used to jump as its words came and went.
                     let height: CGFloat = overflowing ? NotchGeometry.band : 0
                     // First to a request the edge cuts: it takes no click where it is. Else to
@@ -765,7 +780,7 @@ struct PanelView: View {
                                             Text(verbatim: label)
                                         } else if label != nil {
                                             // Who waits is red here as everywhere else.
-                                            Self.band(sessions: hidden.count, waiting: waiting.count, quiet: quiet)
+                                            band(sessions: hidden.count, waiting: waiting.count, quiet: quiet, answerable: answerable, pulse: bandBeats)
                                         } else {
                                             Text(verbatim: Format.moreBelow)
                                         }
@@ -810,7 +825,7 @@ struct PanelView: View {
                                             // Scrolled, the line about the keys is out of sight: it is said here.
                                             Text(verbatim: Format.keysHint(app: nil))
                                         } else if label != nil {
-                                            Self.band(sessions: hidden.count, waiting: waiting, quiet: AgentStore.count(.quiet, in: hidden))
+                                            band(sessions: hidden.count, waiting: waiting, quiet: AgentStore.count(.quiet, in: hidden), answerable: 0, pulse: 0)
                                         }
                                     }
                                     .foregroundStyle(.white.opacity(0.8))
@@ -906,12 +921,22 @@ struct PanelView: View {
         }
     }
 
-    /// What the band at the bottom says is below, with those who wait in red.
-    private static func band(sessions: Int, waiting: Int, quiet: Int) -> Text {
-        let parts: [Text] = (sessions > 0 ? [Text(verbatim: Format.below(sessions: sessions, quiet: 0, needsYou: 0) ?? "")] : [])
-            + (waiting > 0 ? [Text(verbatim: Format.needsYou(waiting)).bold().foregroundColor(MascotFlag.red)] : [])
-            + (quiet > 0 ? [Text(verbatim: "\(quiet) quiet")] : [])
-        return parts.dropFirst().reduce(parts.first ?? Text(verbatim: "")) { $0 + Text(verbatim: " · ") + $1 }
+    /// What the band says is below, with those who wait in red. The red count swells once per `pulse`.
+    private func band(sessions: Int, waiting: Int, quiet: Int, answerable: Int, pulse: Int) -> some View {
+        let parts: [String] = (sessions > 0 ? [Format.below(sessions: sessions, quiet: 0, needsYou: 0) ?? ""] : [])
+        let tail: [String] = (answerable > 0 ? [Format.toAnswer(answerable)] : []) + (quiet > 0 ? ["\(quiet) quiet"] : [])
+        return HStack(spacing: 0) {
+            if !parts.isEmpty { Text(verbatim: parts[0] + (waiting > 0 || !tail.isEmpty ? " · " : "")) }
+            if waiting > 0 { NeedsYouCount(count: waiting, pulse: pulse) }
+            if !tail.isEmpty { Text(verbatim: (waiting > 0 ? " · " : "") + tail.joined(separator: " · ")) }
+        }
+    }
+
+    /// The requests past the bottom edge that the panel can answer: Allow and Deny, or option rows.
+    private func answerableBelow(_ drawn: [SessionCard]) -> [AnswerStore.Pending] {
+        AgentStore.waitingBelow(drawn, cards: below, rows: belowRows).flatMap { row in
+            drawn.first { $0.rows.contains { $0.id == row.id } }.map { answers.requests(forRow: row.id, in: $0) } ?? []
+        }.filter { !$0.hidden && $0.ask.kind.isAnswerable }
     }
 
     /// To whoever waits on the person: the header's red count is where the pointer finds it.
@@ -1196,6 +1221,15 @@ struct PanelView: View {
             }
         }
         .frame(width: width, height: state.barHeight)
+        .onChange(of: answers.pending.map(\.id)) { old, new in
+            let fresh = Set(new).subtracting(old)
+            guard state.expanded, !fresh.isEmpty else { return }
+            // A turn later: the card has to be laid out before it is known to lie below the edge.
+            DispatchQueue.main.async {
+                let drawn = AgentStore.arrange(sessions, idle: settings.idleSessions, keeping: answers.settledSessions).cards
+                if answerableBelow(drawn).contains(where: { fresh.contains($0.id) }) { bandBeats += 1 }
+            }
+        }
         .onChange(of: AgentStore.waiting(sessions)) { old, new in
             guard WaitWatch.arrived(from: old, to: new) else { return }
             // A turn later: the red count has to be on the bar before its mark can begin. Counted
@@ -2357,7 +2391,7 @@ struct SessionCardView: View {
                 if let label = Format.cardStatus(card) {
                     // Red where the person is waited on, as on the bar and the mascot.
                     Text(verbatim: label).fontWeight(card.main?.status == .needsYou ? .bold : .regular)
-                        .foregroundStyle(card.main?.status == .needsYou ? MascotFlag.red : .white)
+                        .foregroundStyle(card.main?.status == .needsYou ? MascotFlag.red : Format.runningClock(card) ? .white.opacity(0.6) : .white)
                         .help(Format.timeHelp)
                 }
                 if let main = card.main {
@@ -2571,18 +2605,18 @@ struct AgentRowView: View {
                             if oneLine {
                                 // The name first and whole while there is room: it is what tells
                                 // the rows apart. The step keeps a little, and takes what is left.
-                                Text(verbatim: title).bold().help(Text(verbatim: title)).layoutPriority(1)
+                                Text(verbatim: title).help(Text(verbatim: title)).layoutPriority(1)
                                 if !done, row.info.steps > 0 {
                                     step(extras: "", counted: false).foregroundStyle(.white.opacity(0.6)).frame(minWidth: 96, alignment: .leading)
                                 }
                             } else {
-                                Text(verbatim: title).bold().help(Text(verbatim: title))
+                                Text(verbatim: title).help(Text(verbatim: title))
                             }
                             Spacer(minLength: 12)
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Text(verbatim: Format.rowTime(row.status, elapsed: row.elapsed, quietFor: row.quietFor))
                                     .fontWeight(row.status == .needsYou ? .bold : .regular)
-                                    .foregroundStyle(row.status == .needsYou ? MascotFlag.red : .white)
+                                    .foregroundStyle(row.status == .needsYou ? MascotFlag.red : row.status == .working && Format.lastMoved(row.status, silentFor: row.quietFor) == nil ? .white.opacity(0.6) : .white)
                                     .help(Format.timeHelp)
                                 // Dim on every row, as on the session's own. Coloured only where it
                                 // differed from the session's, the rule could not be read off the screen.

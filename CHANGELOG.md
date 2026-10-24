@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 — 2026-10-24
+
+- On each card, what we're doing right now reads first and the clock ticking beside it steps back a shade. The session's name is the one bold line; its agents' names are set plain.
+- When a question you can answer from the notch sits further down the list, the line at the bottom says so, "1 to answer here", and its red count jumps once when the question arrives.
+- The red count now swells from its number alone, so it no longer runs over the words beside it.
+- The small grey words in History and Settings are a touch darker and easier to read.
+
 ## 0.3.0 — 2026-10-24
 
 - We talk now. When a session needs you, its regular plays a few notes on their own instrument and says what it's about: a command to run, a file to edit, a question, a plan. Judy brings the plans herself. When the work is done you hear that too, with a different line after a long session, late at night, or for the first one of the morning.

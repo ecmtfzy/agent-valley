@@ -65,7 +65,7 @@ struct HistoryPage: View {
                 }
                 Text(verbatim: Format.historyFoot(since: slice.since, calendar: calendar))
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(.white.opacity(0.6))
                     .padding(.top, 4)
             }
         }
@@ -224,7 +224,7 @@ struct HistoryPage: View {
                 Button { pick.project = line.id } label: {
                     HStack(spacing: 6) {
                         Text(verbatim: line.name).lineLimit(1)
-                        Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white.opacity(0.5))
+                        Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
                         Spacer(minLength: 8)
                         Text(verbatim: Format.dollars(line))
                     }
@@ -306,7 +306,7 @@ private struct CostBars: View {
                     Text(verbatim: Format.axisLabel(last, hourly: hourly, calendar: calendar))
                 }
                 .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(.white.opacity(0.6))
                 .accessibilityHidden(true)
             }
         }
@@ -346,7 +346,7 @@ private struct HistorySkeleton: View {
                         Text(verbatim: Format.axisLabel(last, hourly: hourly, calendar: calendar))
                     }
                     .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(.white.opacity(0.6))
                 }
             }
             if !project { splits }
@@ -430,7 +430,7 @@ private struct Heading: View {
     var body: some View {
         Text(verbatim: text.uppercased())
             .font(.system(size: 10, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white.opacity(0.5))
+            .foregroundStyle(.white.opacity(0.6))
             .padding(.top, 6)
             .accessibilityAddTraits(.isHeader)
     }

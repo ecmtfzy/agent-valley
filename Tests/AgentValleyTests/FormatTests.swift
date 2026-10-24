@@ -212,6 +212,23 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.below(sessions: 0, quiet: 0, needsYou: 1), "1 needs you")
     }
 
+    // A request the panel can answer is named apart from the rows that merely wait.
+    func testTheEdgeNamesRequestsAnswerableHere() {
+        XCTAssertEqual(Format.below(sessions: 2, quiet: 0, needsYou: 2, answerable: 1), "+2 sessions · 2 need you · 1 to answer here")
+        XCTAssertEqual(Format.below(sessions: 0, quiet: 0, needsYou: 1, answerable: 1), "1 needs you · 1 to answer here")
+        XCTAssertEqual(Format.below(sessions: 2, quiet: 1, needsYou: 2, answerable: 2), "+2 sessions · 2 need you · 2 to answer here · 1 quiet")
+        // None, and the phrase is absent, as it was.
+        XCTAssertEqual(Format.below(sessions: 2, quiet: 0, needsYou: 2, answerable: 0), "+2 sessions · 2 need you")
+        XCTAssertFalse(Format.below(sessions: 1, quiet: 1, needsYou: 1)!.contains("answer"))
+    }
+
+    func testOnlyShownRequestsCountAsAnswerable() {
+        XCTAssertTrue(Ask.Kind.question(text: "?", header: "", options: []).isAnswerable)
+        XCTAssertTrue(Ask.Kind.permission(Ask.Shown(command: "ls", fields: [])).isAnswerable)
+        XCTAssertFalse(Ask.Kind.permissionHidden(Ask.Partial(fields: [], missing: [])).isAnswerable)
+        XCTAssertFalse(Ask.Kind.terminalOnly(text: "plan").isAnswerable)
+    }
+
     func testSummaryNamesQuietAgentsOnlyWhenThereAreSome() {
         XCTAssertEqual(Format.summary(working: 2, quiet: 1), "2 working · 1 quiet")
         XCTAssertEqual(Format.summary(working: 2, quiet: 0), "2 working")

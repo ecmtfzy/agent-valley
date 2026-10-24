@@ -585,7 +585,7 @@ extension Text {
     /// What a setting does, under its name: a size smaller and grey, or white for a failure.
     func settingCaption(failure: Bool = false) -> some View {
         font(.system(size: 11, design: .monospaced))
-            .foregroundStyle(.white.opacity(failure ? 1 : 0.55))
+            .foregroundStyle(.white.opacity(failure ? 1 : 0.6))
             .lineLimit(nil)
             .fixedSize(horizontal: false, vertical: true)
     }
