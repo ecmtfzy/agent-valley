@@ -18,6 +18,7 @@ export default function News({ unsubscribe = '{{{RESEND_UNSUBSCRIBE_URL}}}' }: P
     <Letter
       subject={SUBJECT}
       preview="When a session needs you, one of us plays a few notes and says what it's about."
+      art={{ src: 'band-0-3.png', width: 472, height: 290, alt: 'Walt with a red bass, Pearl with a typewriter, Sunny with a singing bowl and Norm with a radio' }}
       foot={<>You get this because you said yes at agentvalley.app. <Link href={unsubscribe} style={footLink}>Unsubscribe</Link> in one click.</>}
     >
       <Text style={eyebrow}>AgentValley 0.3.2</Text>

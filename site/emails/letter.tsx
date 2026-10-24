@@ -1,7 +1,8 @@
 import { Body, Container, Head, Html, Img, Link, Preview, Section, Text } from 'react-email';
 
-// The paper every mail is written on: the wordmark top left, the crew on their desk, a card that
-// stays paper in dark mode (only the desk around it goes dark), small print under it. Pictures and
+// The paper every mail is written on: the wordmark top left, a crew picture drawn for that mail (full
+// body, cut out, see-through around them), a card that stays paper in dark mode (only the desk around
+// it goes dark), small print under it. Pictures are 2x the size they show at. Pictures and
 // fonts come from agentvalley.app/email (public/email, shown to the preview as templates/static).
 // No default export, so React Email does not list this file as a mail of its own.
 export const ASSETS = process.env.EMAIL_ASSETS ?? '/static';
@@ -37,9 +38,10 @@ export const button = { display: 'inline-block', marginTop: 24, padding: '15px 2
 export const footLink = { color: MUTED, fontFamily: MONO, textDecoration: 'underline' } as const;
 
 // subject is the mail's <title>; the send script reads it from there.
-type Props = { preview: string; subject: string; foot: React.ReactNode; children: React.ReactNode };
+type Art = { src: string; width: number; height: number; alt: string };
+type Props = { preview: string; subject: string; art: Art; foot: React.ReactNode; children: React.ReactNode };
 
-export function Letter({ preview, subject, foot, children }: Props) {
+export function Letter({ preview, subject, art, foot, children }: Props) {
   return (
     <Html lang="en">
       <Head>
@@ -55,7 +57,7 @@ export function Letter({ preview, subject, foot, children }: Props) {
             <Link href="https://agentvalley.app">
               <Img src={`${ASSETS}/wordmark.png`} width="176" height="24" alt="AgentValley" style={{ display: 'block', imageRendering: 'pixelated' }} />
             </Link>
-            <Img src={`${ASSETS}/crew.png`} width="472" height="69" alt="The AgentValley crew, seven pixel programmers in a row" style={{ display: 'block', width: '100%', maxWidth: 472, height: 'auto', marginTop: 28, imageRendering: 'pixelated' }} />
+            <Img src={`${ASSETS}/${art.src}`} width={art.width} height={art.height} alt={art.alt} style={{ display: 'block', width: '100%', maxWidth: art.width, height: 'auto', margin: '20px auto 0' }} />
             {children}
           </Section>
           <Text className="foot" style={{ margin: '20px 4px 0', fontFamily: MONO, fontSize: 13, lineHeight: '20px', color: MUTED, textAlign: 'center' }}>
