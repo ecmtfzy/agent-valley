@@ -1,5 +1,6 @@
 import type React from 'react';
 import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from 'remotion';
+import { Face, type Thing } from './crew-motion';
 
 // The top of a Mac screen, as the hero draws one: an agent at work in a terminal, the crew in the
 // valley below. It asks to push: the terminal waits on it, the bar beside the notch shows a red 1
@@ -15,12 +16,22 @@ const PICTURE = {
   open: 'open-asking.webp',
   allowed: 'open-allowed.webp',
 } as const;
-// The crew in the valley; the first is the one who asks.
-const CREW = ['guru', 'walrus', 'afro', 'beatnik'] as const;
-const MASCOT = { work: (who: string) => `${who}-working.svg`, wave: (who: string, n: number) => `${who}-wave${n}.svg` };
+// The crew in the valley, each with what it holds at work, as the hero has them. The first is the one
+// who asks: Pearl, the face the app gives the asking session (NeedsYouMotionAssetsTests).
+const CREW: readonly (readonly [who: string, holds: Thing])[] = [
+  ['pearls', 'running'],
+  ['walrus', 'reading'],
+  ['afro', 'searching'],
+  ['beatnik', 'typing'],
+];
+const MASCOT = { wave: (who: string, n: number) => `${who}-wave${n}.svg` };
 /** What the motion draws from, for the site to have ready before the player covers its still. */
 export const PICTURES = Object.values(PICTURE);
-export const MASCOTS = [...CREW.map(MASCOT.work), MASCOT.wave(CREW[0], 0), MASCOT.wave(CREW[0], 1)];
+export const MASCOTS = [
+  ...CREW.flatMap(([who, holds]) => [`${who}-${holds}-run.svg`, `${who}-thinking-run.svg`]),
+  MASCOT.wave(CREW[0][0], 0),
+  MASCOT.wave(CREW[0][0], 1),
+];
 
 const W = 1200;
 const H = 900;
@@ -68,15 +79,15 @@ export const BEATS = {
 
 export const NEEDS_YOU_MOTION = { width: W, height: H, fps: 30, durationInFrames: BEATS.end + 1 } as const;
 
-// The pictures are 1088 × 840, cut alike from the panel at two pixels to the point, the top of
+// The pictures are 1088 × 850, cut alike from the panel at two pixels to the point, the top of
 // the screen at their top edge. Places below are in their pixels; testing/site.sh needs-you
 // stops when the app draws the island or the panel's height elsewhere.
-const PANEL = { x: (W - 1088) / 2, w: 1088, h: 840 };
+const PANEL = { x: (W - 1088) / 2, w: 1088, h: 850 };
 const ISLAND = { x: 244, w: 600, h: 76 };
-const HEIGHT = { asking: 836, allowed: 742 };
+const HEIGHT = { asking: 850, allowed: 748 };
 const COUNT = { x: 323, y: 37 };
 const NOTCH = { x: 560, y: 52 };
-const ALLOW = { x: 222, y: 412, w: 188, h: 46 };
+const ALLOW = { x: 222, y: 436, w: 188, h: 46 };
 const inFrame = (p: { x: number; y: number }) => ({ x: PANEL.x + p.x, y: p.y });
 // Where the pointer rests between visits to the notch: on the terminal.
 const REST = { x: 760, y: 470 };
@@ -199,13 +210,14 @@ const Valley: React.FC<{ f: number; file: (name: string) => string }> = ({ f, fi
   const size = 92;
   return (
     <div style={{ position: 'absolute', left: 0, right: 0, bottom: 62, display: 'flex', justifyContent: 'center', gap: 22 }}>
-      {CREW.map((who, i) => (
-        <Img
-          key={who}
-          src={file(i === 0 && waving ? MASCOT.wave(who, Math.floor(f / 6) % 2) : MASCOT.work(who))}
-          style={{ width: size, height: size, imageRendering: 'pixelated' }}
-        />
-      ))}
+      {CREW.map(([who, holds], i) =>
+        i === 0 && waving ? (
+          <Img key={who} src={file(MASCOT.wave(who, Math.floor(f / 6) % 2))} style={{ width: size, height: size, imageRendering: 'pixelated' }} />
+        ) : (
+          // Face counts at the crew motion's 60 a second; a third of a round apart, as on the site.
+          <Face key={who} who={who} holds={holds} size={size} f={f * 2} lag={(i % 3) * 168} file={file} />
+        ),
+      )}
     </div>
   );
 };

@@ -141,6 +141,8 @@ function ScreenDrawing() {
         </div>
         <div className="p-head wait-only"><em>1 needs you</em><span className="extra"> · 3 working</span></div>
         <div className="p-head after-only">4 working</div>
+        {/* The ALL tab puts each project's line over its cards (0.2.10). */}
+        <p className="p-group not-hw">shop-web · 2 sessions</p>
         </div>
         <div className="p-card not-hw" aria-hidden="true">
           <Mascot who="guru" pose="wave" dot />
@@ -149,27 +151,28 @@ function ScreenDrawing() {
               <b className="t">Deploy preview build <Icon id="out" /></b>
               <span><em>needs you</em> <span className="model">Sonnet 5.5</span> <Icon id="eyeoff" className="model" /></span>
             </p>
-            <p className="p-dim"><Icon id="folder" /><span>shop-web</span><Icon id="branch" />preview</p>
+            <p className="p-dim"><Icon id="branch" />preview</p>
             <p>&gt; Bash git push origin preview</p>
             <span className="p-go">Go to Terminal</span>
           </div>
         </div>
         <TrickOrTreat />
+        <p className="p-group hw" aria-hidden="true">shop-web · 1 session</p>
         <div className="p-card" aria-hidden="true">
           <Mascot who="walrus" pose="work" holds="reading" />
           <div>
-            <p className="p-line"><b className="t">Refactor checkout flow <Icon id="out" /></b><span>3m 16s <span className="model">Opus 5.5</span></span></p>
-            <p className="p-dim"><Icon id="folder" /><span>shop-web</span><Icon id="branch" />checkout-refactor</p>
+            <p className="p-line"><b className="t">Refactor checkout flow <Icon id="out" /></b><span><span className="tick">3m 16s</span> <span className="model">Opus 5.5</span></span></p>
+            <p className="p-dim"><Icon id="branch" />checkout-refactor</p>
             <p>&gt; Read index.tsx</p>
           </div>
           <Mascot who="afro" pose="work" holds="searching" />
           <div>
-            <p className="p-line"><b>Map payment call sites</b><span>2m 56s <span className="model">Haiku 5.5</span></span></p>
+            <p className="p-line"><b>Map payment call sites</b><span><span className="tick">2m 56s</span> <span className="model">Haiku 5.5</span></span></p>
             <p className="p-line p-dim"><span>&gt; Grep PaymentIntent · 1 step</span><span>Explore</span></p>
           </div>
           <Mascot who="beatnik" pose="work" holds="typing" />
           <div>
-            <p className="p-line"><b>Write cart total tests</b><span>1m 08s <span className="model">Sonnet 5.5</span></span></p>
+            <p className="p-line"><b>Write cart total tests</b><span><span className="tick">1m 08s</span> <span className="model">Sonnet 5.5</span></span></p>
             <p className="p-dim">&gt; Edit cart.test.ts · 4 steps</p>
           </div>
         </div>

@@ -20,26 +20,30 @@ export function TrickOrTreat() {
     announce(REPLY[a]);
   };
   return (
-    <div className="p-card trick hw">
-      <span className="draw" aria-hidden="true">
-        {answered ? <Mascot who="guru" pose="work" /> : <Mascot who="guru" pose="wave" dot />}
-      </span>
-      <div>
-        <div aria-hidden="true">
-          <p className="p-line">
-            <b className="t">Trick or treat <Icon id="out" /></b>
-            {!answered && <span><em>needs you</em> <span className="model">Sonnet 5.5</span></span>}
-          </p>
-          <p className="p-dim"><Icon id="folder" /><span>haunted-house</span><Icon id="branch" /><span>porch</span></p>
-          <p>{answered ? REPLY[answered] : '> Bash eat ./candy/*'}</p>
-        </div>
-        {!answered && (
-          <div role="group" aria-label="Trick or treat. Sunny asks to run eat ./candy/*." className="p-answer">
-            <button type="button" onClick={() => pick('allow')}><span>Allow once</span></button>
-            <button type="button" className="deny" onClick={() => pick('deny')}><span>Deny</span></button>
+    <>
+      {/* Its own project's line over it, as the ALL tab draws one; the card then names only the branch. */}
+      <p className="p-group hw" aria-hidden="true"><span>haunted-house</span> · 1 session</p>
+      <div className="p-card trick hw">
+        <span className="draw" aria-hidden="true">
+          {answered ? <Mascot who="guru" pose="work" /> : <Mascot who="guru" pose="wave" dot />}
+        </span>
+        <div>
+          <div aria-hidden="true">
+            <p className="p-line">
+              <b className="t">Trick or treat <Icon id="out" /></b>
+              {!answered && <span><em>needs you</em> <span className="model">Sonnet 5.5</span></span>}
+            </p>
+            <p className="p-dim"><Icon id="branch" /><span>porch</span></p>
+            <p>{answered ? REPLY[answered] : '> Bash eat ./candy/*'}</p>
           </div>
-        )}
+          {!answered && (
+            <div role="group" aria-label="Trick or treat. Sunny asks to run eat ./candy/*." className="p-answer">
+              <button type="button" onClick={() => pick('allow')}><span>Allow once</span></button>
+              <button type="button" className="deny" onClick={() => pick('deny')}><span>Deny</span></button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

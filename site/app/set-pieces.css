@@ -106,6 +106,8 @@ html{scroll-padding-top:80px}
 .notch-note path{fill:none;stroke:var(--pen);stroke-width:2.2px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .screen>[role=img]{position:absolute;inset:0;pointer-events:none}
 /* A phone keeps the sub-agent rows, the point of the app: the screen grows taller to hold both cards. */
+/* Halloween's trick-or-treat card brings a second project line: a little more screen keeps the panel off the crew. */
+@media (min-width:600px){.halloween .screen{aspect-ratio:8/9}}
 @media (max-width:599px){.screen{aspect-ratio:4/5}.panel .extra{display:none}}
 /* Narrower still, a row's figures drop under its task rather than cut it short. */
 @media (max-width:399px){.screen{aspect-ratio:3/5}.screen .p-line{flex-wrap:wrap;column-gap:1em}.screen .p-line>span:last-child{margin-left:auto}}
@@ -129,8 +131,12 @@ html{scroll-padding-top:80px}
 .p-card{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:.9em .7em;margin-top:.7em;padding:.9em;border-radius:1em;background:var(--app-card)}
 .p-line{display:flex;justify-content:space-between;gap:1em}
 .p-line b{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* As in the app since 0.3.1: the session's name is a card's one bold line, and a running clock steps back. */
+.p-line b:not(.t){font-weight:400}
 .p-line span{flex:none;white-space:nowrap}
-.p-dim,.model{color:var(--app-dim)}
+.p-dim,.model,.tick,.p-group{color:var(--app-dim)}
+.p-group{margin:0 .4em -.1em}
+.p-card+.p-group{margin-top:.8em}
 .p-go{display:inline-block;margin-top:.6em;padding:.25em .7em;border-radius:.4em;background:var(--app-fg);color:var(--ink)}
 .panel .m,.anatomy .m{--s:2.2em}
 

@@ -1,4 +1,5 @@
 import { CrewLoop } from '@/components/crew-loop';
+import { Word } from '@/components/word';
 
 // One session at work, drawn as the crew's org chart (motion/crew-motion.tsx): a still, and over it
 // the motion once the page may move. The stills are frames of it, drawn by testing/site.sh crew.
@@ -7,7 +8,7 @@ export function Crew() {
     <section className="wrap section crew pt-[clamp(72px,14vw,128px)] pb-[clamp(64px,12vw,112px)]">
       <h2>Meet the crew.</h2>
       <p className="mt-[18px] max-w-[34em] text-[1.1875rem] leading-[1.55]">
-        Every agent is a programmer from the early days of computing. One of us runs your session and phones the others for help.
+        Every agent is a programmer from the early days of computing. One of us runs your session and phones the others for help. Each project gets a <Word id="regular">regular</Word>: the same one of us, every session.
       </p>
       <figure
         className="c-figure mt-10"

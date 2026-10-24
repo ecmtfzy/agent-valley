@@ -22,7 +22,7 @@ export function Also() {
       <h2 className="mb-7">Also in the panel.</h2>
       <Sheet
         items={[
-          { term: 'Plan limits', text: 'Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on.' },
+          { term: 'Plan limits', text: "Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on. When one runs out we go fishing, or take the van for the weekly one, and a sign says when we're back." },
           { term: 'Token use', text: <><Word id="tokens">Tokens</Word> for the last 5 hours and today, with a 12-hour chart.</> },
           { term: 'Keyboard', text: <>Press <abbr title="Control-Option-Command-A">⌃⌥⌘A</abbr> from any app. Arrows to pick, Return to jump.</> },
         ]}

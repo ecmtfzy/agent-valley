@@ -21,7 +21,7 @@ A small valley of programmers in your Mac's notch. Each Claude Code agent, sub-a
 
 Each agent reports in its own terminal, line by line. Run a few sessions at once and you end up switching windows just to check on them. AgentValley puts all of them in one panel under the notch. See who is working, on which model, and who needs you, without leaving your app.
 
-<p align="center"><img src="docs/panel.png" alt="The AgentValley panel open under the notch: three sessions need you, one is working with two sub-agents, each with its own pixel programmer, model and latest step." width="544"></p>
+<p align="center"><img src="docs/panel.png" alt="The AgentValley panel open under the notch, sessions grouped by project. In shop-web one session needs you and one works with two sub-agents, each with its own pixel programmer holding what it's on, its model and its latest step. Below, docs-site has gone quiet, and the line at the foot says two more sessions further down need you." width="544"></p>
 
 ## Try it
 
@@ -59,7 +59,7 @@ Then quit the app and move it from Applications to the Bin, or run `brew uninsta
 
 ### Every agent gets a row
 
-Sessions get a card, and the sub-agents they start get rows under it. Each row shows the task, the model and the latest step, and sub-agent rows count their steps too. Every session sits in one list, whichever terminal it runs in. No guessed progress bars: if an agent goes quiet, AgentValley says so.
+Sessions get a card, and the sub-agents they start get rows under it. Each row shows the task, the model and the latest step, and sub-agent rows count their steps too. Every session sits in one list, whichever terminal it runs in, grouped by project. Worktrees count as their project. No guessed progress bars: if an agent goes quiet, AgentValley says so.
 
 <p align="center"><img src="docs/row-notes.png" alt="One sub-agent row, enlarged, with arrows drawn in pen to each part: the task, the time and model, the latest step with the step count, and the agent's type." width="544"></p>
 
@@ -71,7 +71,7 @@ When an agent asks a question or waits for permission, a red count appears besid
 
 - **Jump to its app in one click.** Turn on Go to the session's tab in the Shortcuts settings, and Terminal and iTerm2 open the exact tab. Ghostty does too, unless two sessions run in the same folder.
 - **Answer from the notch.** Allow once or Deny, using a plugin you install yourself: turn on Answer from the notch in the Claude Code settings, run the command it shows, then start Claude Code again.
-- **Sounds stay off** until you turn them on.
+- **We talk.** With sounds on, whoever runs the session plays a few notes on their own instrument and says what it needs: a command, an edit, a question, a plan. Rather have a plain chime? Settings has one. Sounds stay off until you turn them on.
 
 ### See what each project cost
 
@@ -87,7 +87,7 @@ Claude Code's status line gets the face of whoever runs the session, with the mo
 
 ### Also in the panel
 
-- **Plan limits.** Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on.
+- **Plan limits.** Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on. When one runs out we go fishing, or take the van for the weekly one, and a sign says when we're back.
 - **Token use.** Tokens for the last 5 hours and today, with a 12-hour chart.
 
 ## Meet the crew
@@ -96,7 +96,7 @@ We're seven programmers from a computer room in 1969. We build things because we
 
 <p align="center"><img src="docs/crew-photo.webp" alt="The crew's team photo in pixel art, an old print stamped '69 7 20. At the back, Felix and Walt. In the middle, Norm with his eyes shut, Sunny waving and Faye. At the front, Judy and Pearl. The caption reads: The AgentValley crew. Go take a break. We'll call you when we need you." width="600"></p>
 
-Sunny, Walt, Norm and Pearl run sessions: start Claude Code and one of them takes it. Judy, Faye and Felix take the sub-agent jobs a session hands out.
+Sunny, Walt, Norm and Pearl run sessions: start Claude Code and one of them takes it. Each project gets a regular, the same one of us every session. Open a second session there at the same time and a colleague takes it, since nobody is in two places at once. Judy, Faye and Felix take the sub-agent jobs a session hands out.
 
 <table>
 <tr><td width="76"><img src="site/public/mascots/guru-wave0.svg" alt="" width="48"></td><td><b>Sunny</b>, the guru · runs a session<br>Yoga at sunrise, then code until the sun goes down again. He believes every bug came to teach him something. When he waves, an agent is waiting for you.</td></tr>
@@ -114,7 +114,7 @@ How we stand tells you how the agent is doing.
 
 <table>
 <tr>
-<td align="center" width="112"><img src="site/public/mascots/guru-working.svg" alt="" width="48"><br><b>Working</b><br>we bob and blink</td>
+<td align="center" width="112"><img src="site/public/mascots/guru-working.svg" alt="" width="48"><br><b>Working</b><br>we blink</td>
 <td align="center" width="112"><img src="site/public/mascots/guru-wave0.svg" alt="" width="48"><br><b>Needs you</b><br>we wave</td>
 <td align="center" width="112"><img src="site/public/mascots/guru-quiet.svg" alt="" width="48"><br><b>Quiet</b><br>we look away</td>
 <td align="center" width="112"><img src="site/public/mascots/guru-done.svg" alt="" width="48"><br><b>Done</b><br>our eyes close</td>

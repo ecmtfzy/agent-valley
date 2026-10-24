@@ -59,13 +59,21 @@ og)
     serve_out 8766 >/dev/null 2>&1 &
     server=$!
     disown "$server"
-    profile=$(mktemp -d)
-    trap 'kill $server; rm -rf "$profile"' EXIT
+    trap 'kill $server' EXIT
     sleep 1
-    # A profile of its own, so the person's open Chrome is not the one asked.
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --user-data-dir="$profile" \
-        --hide-scrollbars --force-prefers-reduced-motion --virtual-time-budget=3000 \
-        --window-size=1200,630 --screenshot="$PWD/site/public/og.png" "http://127.0.0.1:8766/" 2>/dev/null
+    # A browser of its own, so the person's open Chrome is not the one asked. Its clock is set past
+    # Halloween, which the page turns on by the visitor's date: the picture outlives the season.
+    (cd site && OUT="$PWD/public/og.png" node --input-type=module - <<'JS'
+import { chromium } from '@playwright/test';
+const browser = await chromium.launch({ channel: 'chrome' });
+const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, reducedMotion: 'reduce' });
+await page.clock.setFixedTime(new Date(2026, 11, 1, 12));
+await page.goto('http://127.0.0.1:8766/', { waitUntil: 'networkidle' });
+await page.evaluate(() => document.fonts.ready);
+await page.screenshot({ path: process.env.OUT });
+await browser.close();
+JS
+    )
     sips -g pixelWidth -g pixelHeight site/public/og.png | tail -2
     ;;
 social)
@@ -208,10 +216,10 @@ work, out = sys.argv[1], sys.argv[2]
 names = ('shut-working', 'shut-asking', 'open-asking', 'open-allowed')
 pictures = {n: Image.open(f'{work}/{n}.png').convert('RGBA') for n in names}
 left = pictures['open-asking'].getbbox()[0]
-box = (left, 0, left + 1088, 840)
+box = (left, 0, left + 1088, 850)
 # Where the motion (site/motion/needs-you-motion.tsx: PANEL, ISLAND, HEIGHT) expects the app's
 # shapes, in the cut pictures' pixels. When the app draws them elsewhere, change both.
-expected = {'open-asking': (0, 0, 1088, 836), 'open-allowed': (0, 0, 1088, 742), 'shut-working': (244, 0, 844, 76), 'shut-asking': (244, 0, 844, 76)}
+expected = {'open-asking': (0, 0, 1088, 850), 'open-allowed': (0, 0, 1088, 748), 'shut-working': (244, 0, 844, 76), 'shut-asking': (244, 0, 844, 76)}
 for n, want in expected.items():
     got = pictures[n].crop(box).getbbox()
     if got != want:

@@ -84,7 +84,7 @@ export function Rows() {
         <p className="lead">
           Sessions get a <Word id="panel">card</Word>. <Word id="sub-agent">Sub-agents</Word> get rows under it. Each row shows the task, the <Word id="model">model</Word> and the latest <Word id="step">step</Word>. Sub-agent rows count their steps too.
         </p>
-        <p>Every session in one list, whichever terminal it runs in.</p>
+        <p>Every session in one list, whichever terminal it runs in, grouped by project. <Word id="worktree">Worktrees</Word> count as their project.</p>
         <p className="text-muted-foreground">No guessed progress bars. If an agent goes <Word id="quiet">quiet</Word>, AgentValley says so.</p>
       </div>
       {/* One row, taken out of the panel and marked up part by part in pen. */}
@@ -96,7 +96,7 @@ export function Rows() {
               <div>
                 <p className="p-line">
                   <b data-part="task">Map payment call sites<Note part="task" order={0} /></b>
-                  <span data-part="time · model"><Clock from={176} /> <span className="model">Haiku 5.5</span><Note part="time · model" order={1} /></span>
+                  <span data-part="time · model"><span className="tick"><Clock from={176} /></span> <span className="model">Haiku 5.5</span><Note part="time · model" order={1} /></span>
                 </p>
                 <p className="p-line p-dim">
                   <span data-part="latest step · steps so far">&gt; Grep PaymentIntent · 1 step<Note part="latest step · steps so far" order={2} /></span>

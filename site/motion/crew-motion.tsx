@@ -15,7 +15,7 @@ export type CrewMotionProps = {
 };
 
 type Who = 'guru' | 'afro' | 'coder' | 'beatnik';
-type Thing = 'thinking' | 'reading' | 'typing' | 'running' | 'searching' | 'calling';
+export type Thing = 'thinking' | 'reading' | 'typing' | 'running' | 'searching' | 'calling';
 // From which frame, the line the row shows (null while it thinks), what the agent holds.
 type Step = readonly [at: number, line: string | null, thing: Thing];
 
@@ -200,10 +200,8 @@ const AGENTS = [SUNNY, FAYE, JUDY, FELIX];
 /** What the motion draws from, for the site to have ready before it plays. */
 export const MASCOTS = [
   ...AGENTS.flatMap(({ who, steps }) => [
-    `${who}-working.svg`,
-    `${who}-blink.svg`,
     `${who}-done.svg`,
-    ...new Set(steps.map(([, , thing]) => `${who}-${thing}-run.svg`)),
+    ...new Set([...steps.map(([, , thing]) => `${who}-${thing}-run.svg`), `${who}-thinking-run.svg`]),
   ]),
   'mug-0.svg',
   'mug-1.svg',
@@ -211,9 +209,10 @@ export const MASCOTS = [
 
 type File = (name: string) => string;
 
-// A face as the app draws it, from the frame: bobbing and blinking at work, a thing in hand six
-// seconds of every eight, or eyes shut when done. `lag` keeps two faces off each other's beat.
-const Face: React.FC<{
+// A face as the app draws it, from the frame: a thing in hand six seconds of every eight, chin in
+// hand with a thought coming the rest of the time or with nothing to hold, never bobbing, or eyes
+// shut when done. `lag` keeps two faces off each other's beat.
+export const Face: React.FC<{
   who: string;
   done?: boolean;
   holds?: Thing;
@@ -245,22 +244,14 @@ const Face: React.FC<{
     height: size,
   };
   if (done) return <div style={box}>{img('done')}</div>;
-  if (holds && (f + lag) % HOLD < HOLD * 0.75) {
-    const n = LOOP[holds];
-    const step = (size * 13) / 12;
-    return (
-      <div style={{ ...box, overflow: 'hidden' }}>
-        {img(`${holds}-run`, {
-          width: step * n,
-          translate: `${-(tick % n) * step}px 0`,
-        })}
-      </div>
-    );
-  }
+  const shown: Thing = holds && (f + lag) % HOLD < HOLD * 0.75 ? holds : 'thinking';
+  const n = LOOP[shown];
+  const step = (size * 13) / 12;
   return (
-    <div style={box}>
-      {img(tick % 8 === 0 ? 'blink' : 'working', {
-        translate: tick % 2 === 0 ? '0 -2px' : '0 0',
+    <div style={{ ...box, overflow: 'hidden' }}>
+      {img(`${shown}-run`, {
+        width: step * n,
+        translate: `${-(tick % n) * step}px 0`,
       })}
     </div>
   );
@@ -423,7 +414,7 @@ const Card: React.FC<{ l: Layout; f: number; file: File }> = ({ l, f, file }) =>
         <Line>
           <b style={{ fontWeight: 600, ...nowrap }}>{SUNNY.task}</b>
           <span style={{ ...nowrap, marginLeft: 'auto' }}>
-            {done ? 'done' : elapsed(Math.floor(f / FPS))} <span style={{ color: DIM }}>{SUNNY.model}</span>
+            {done ? 'done' : <span style={{ color: DIM }}>{elapsed(Math.floor(f / FPS))}</span>} <span style={{ color: DIM }}>{SUNNY.model}</span>
           </span>
         </Line>
         <div style={{ display: 'flex', alignItems: 'center', color: DIM }}>
@@ -457,7 +448,7 @@ const Row: React.FC<{
   const i = current(agent.steps, Math.min(f, agent.done));
   const time = (
     <span style={{ ...nowrap, marginLeft: 'auto' }}>
-      {done ? 'done' : elapsed(Math.floor((f - agent.start) / FPS))} <span style={{ color: DIM }}>{agent.model}</span>
+      {done ? 'done' : <span style={{ color: DIM }}>{elapsed(Math.floor((f - agent.start) / FPS))}</span>} <span style={{ color: DIM }}>{agent.model}</span>
       {l.side && agent.type && <span style={{ color: DIM }}> · {agent.type}</span>}
     </span>
   );
@@ -491,7 +482,7 @@ const Row: React.FC<{
       </div>
       <div style={{ opacity: done ? 0.6 : 1 }}>
         <Line>
-          <b style={{ fontWeight: 600, ...nowrap }}>{agent.task}</b>
+          <span style={nowrap}>{agent.task}</span>
           {time}
         </Line>
         <Line style={{ color: DIM, flexWrap: 'nowrap' }}>
