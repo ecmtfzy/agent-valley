@@ -124,6 +124,22 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(Settings(defaults: defaults).quietFrom, 22)
     }
 
+    func testSoundScenesDefaultsToOnAndPersists() {
+        XCTAssertTrue(Settings(defaults: defaults).soundScenes)
+        Settings(defaults: defaults).soundScenes = false
+        XCTAssertFalse(Settings(defaults: defaults).soundScenes)
+    }
+
+    // The crew talks unless the person picks otherwise; anything else stored reads as talking.
+    func testSoundStyleDefaultsToCrewAndPersists() {
+        XCTAssertEqual(Settings(defaults: defaults).soundStyle, .crew)
+        Settings(defaults: defaults).soundStyle = .chimes
+        XCTAssertEqual(Settings(defaults: defaults).soundStyle, .chimes)
+        defaults.set("bogus", forKey: "soundStyle")
+        XCTAssertEqual(Settings(defaults: defaults).soundStyle, .crew)
+        XCTAssertEqual(SoundStyle.allCases.map(\.title), ["Crew talks", "Crew, no talking", "Chimes"])
+    }
+
     // Telling another app what to do is asked for, like everything else that reaches outside.
     func testGoingToASessionsTabStartsOffAndRemembersTheChoice() {
         XCTAssertFalse(Settings(defaults: defaults).goToTab)

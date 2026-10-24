@@ -385,6 +385,7 @@ enum Format {
     static let soundsCaption = "A sound when an agent needs you and when a session finishes. Silent while the screen is locked."
     static let finishedCaption = "Only when the session had been working for \(Int(Sound.shortTurn)) seconds or more."
     static let remindCaption = "Repeats while an agent still waits and you have not opened the panel."
+    static let scenesCaption = "Needs Plan limits."
     static let tabCaption = "Asks Terminal, iTerm2 or Ghostty to show the session's own tab. macOS asks you to allow this once for each. To change your answer: System Settings > Privacy & Security > Automation."
 
     /// The line over a project's sessions: its name and how many sessions, with the word, as on
@@ -486,6 +487,11 @@ enum Format {
     static let moveMessage = "Out here we can't update ourselves, and the plugin loses track of us when you quit."
     static let moveButton = "Move to Applications"
     static let notNow = "Not now"
+    static let awayHelpOff = "Going away? Claude waits for your phone when it finishes."
+    static let awayHelpOn = "Away. Click when you're back."
+    static let awayBandTitle = "Away. Your phone has it."
+    static let awayBandNote = "Touch the Mac when you're back."
+    static let leftOverTitle = "From your phone, not sent:"
     static let pluginLostLine = "Allow and Deny can't find us anymore."
     static let pluginLostFix = "Fix it"
     static let pluginLostNote = "The plugin still points at a copy of us that's gone. Run this once more."
@@ -524,7 +530,7 @@ enum Format {
     /// asks them to run a command it does not run itself, so it owes them what the command
     /// does: nine of thirteen testers stopped at a bare command, and the one who came to check
     /// what the app touches found nothing said. Only what `plugin/` does.
-    static let pluginWhat = "The plugin is inside this app, and the command points Claude Code at it. It adds one hook to Claude Code: each permission prompt and question is handed to this app, on this Mac only. With the app closed or this switch off, Claude Code asks in the terminal as before."
+    static let pluginWhat = "The plugin is inside this app, and the command points Claude Code at it. It adds two hooks to Claude Code: each permission prompt and question is handed to this app, and while you're Away with your phone paired, a finished turn waits here for your next message. All on this Mac only. With the app closed or this switch off, Claude Code asks in the terminal and ends its turns as before."
     /// The two things to do, in the order they are done, the command between them.
     static let installSteps = (
         run: "1. Copy this and run it in a terminal: the Terminal app, or wherever you start Claude Code.",
@@ -662,6 +668,9 @@ struct PanelView: View {
     let sound: SoundPlayer
     @ObservedObject var usage: UsageLedger
     @ObservedObject var updates: Updates
+    /// Away mode and the phone's messages left over. The defaults are an Away that is never shown.
+    @ObservedObject var away = AwayWatch(desk: StopDesk(), lastInput: { .distantPast })
+    @ObservedObject var desk = StopDesk()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Whether the list has been scrolled to its end, where nothing more waits below.
     @State private var atEnd = false
@@ -1115,6 +1124,10 @@ struct PanelView: View {
                 // Off until the person turns it on: a sound interrupts. Asleep in the quiet
                 // hours, so that a silent night is not taken for a switch that does nothing.
                 let quiet = settings.sounds && sound.quiet(at: Date())
+                // Only where a phone could answer for a session: the buttons below it are always there.
+                if away.buttonShown {
+                    AwayPill(on: away.mode.on) { away.toggleFromPanel() }
+                }
                 Button { settings.sounds.toggle() } label: {
                     Image(systemName: Format.soundSymbol(on: settings.sounds, quiet: quiet)).font(.system(size: 11))
                         .frame(width: 26, height: 26).contentShape(Rectangle()).hoverFill()
@@ -1217,7 +1230,8 @@ struct PanelView: View {
         .onReceive(beat) { _ in
             if bar.waiting > 0, !watch.seen(looks: state.looks), motion.beats(sinceArrival: Date().timeIntervalSince(arrived)) { beats += 1 }
             // The same tick carries the reminder, and the sound a locked screen held back.
-            sound.beat(waiting: bar.waiting > 0, looks: state.looks)
+            sound.beat(sessions, looks: state.looks)
+            sound.limits(limits.display.runOut(now: Date()), known: limits.display.hasNumbers)
         }
         // What the list holds now, for the sounds. Its first reading too, even an empty one:
         // that is where they start from, and it makes none. And once as the bar appears: a
@@ -1226,7 +1240,11 @@ struct PanelView: View {
         .onChange(of: store.loaded, initial: true) { _, _ in listen(sessions) }
         // Turned on, by the speaker or in the settings: the person hears what that means.
         .onChange(of: settings.sounds) { _, on in
-            if on { sound.sample() }
+            if on { sound.sample(sessions) }
+        }
+        // A new way for the crew to sound: the person hears it at once.
+        .onChange(of: settings.soundStyle) { _, _ in
+            if settings.sounds { sound.sample(sessions) }
         }
     }
 
@@ -1346,7 +1364,7 @@ struct PanelView: View {
     private func sessions(_ motion: Motion, viewport: CGFloat) -> some View {
         let list = AgentStore.arrange(sessions, idle: settings.idleSessions, keeping: answers.settledSessions)
         let looks = AgentStore.looks(sessions)
-        let away = AgentStore.putAway(answers.overlay(store.sessions), hidden: state.hidden)
+        let putAway = AgentStore.putAway(answers.overlay(store.sessions), hidden: state.hidden)
         // The line over each group's first card, when the list is grouped and there is more
         // than one session to group.
         let byProject = grouped && settings.grouping == .projects
@@ -1354,6 +1372,14 @@ struct PanelView: View {
             ? AgentStore.projectHeaders(of: list.cards).mapValues(Format.projectHeader)
             : AgentStore.headers(of: list.cards, by: settings.grouping).mapValues(Format.groupHeader)
         return VStack(alignment: .leading, spacing: 10) {
+            if away.mode.on {
+                AwayBand().modifier(Reveal(shown: state.expanded, index: 0, motion: motion))
+            }
+            // Phone messages that did not go, whether or not the button shows.
+            ForEach(desk.leftOver) { item in
+                LeftOverRow(item: item) { desk.dismiss(item.id) }
+                    .modifier(Reveal(shown: state.expanded, index: 0, motion: motion))
+            }
             if state.introducing {
                 notice(Format.intro(shortcut: settings.shortcut && !state.shortcutTaken ? settings.shortcutKey : nil), motion, dim: false, lines: 6)
             }
@@ -1400,7 +1426,7 @@ struct PanelView: View {
                 GoneFishin(out: out, now: Date())
                     .modifier(Reveal(shown: state.expanded, index: 0, motion: motion))
             }
-            if let empty = Format.emptyState(loaded: store.loaded, rootMissing: store.rootMissing, isEmpty: list.cards.isEmpty && list.folded.isEmpty && away.isEmpty) {
+            if let empty = Format.emptyState(loaded: store.loaded, rootMissing: store.rootMissing, isEmpty: list.cards.isEmpty && list.folded.isEmpty && putAway.isEmpty) {
                 // A folder that is not there is something wrong, and as bright as every other such line.
                 notice(empty, motion, dim: !store.rootMissing)
             }
@@ -1481,10 +1507,10 @@ struct PanelView: View {
                     }
                 }
             }
-            if !away.isEmpty {
+            if !putAway.isEmpty {
                 // What the person put away is out of the list, the counts and the bar. It stays
                 // named here, the one way back for a session that will not move by itself.
-                HiddenRow(sessions: away) { for card in $0 { state.hidden[card.id] = nil } }
+                HiddenRow(sessions: putAway) { for card in $0 { state.hidden[card.id] = nil } }
                     .modifier(Reveal(shown: state.expanded, index: list.cards.count + 1, motion: motion))
             }
             if settings.tokenUse, let summary = usage.summary, !summary.isEmpty {
@@ -1522,7 +1548,7 @@ struct PanelView: View {
         .onChange(of: state.keyed) { _, keyed in
             guard let keyed, state.keyboard else { return }
             if keyed.command == .unhide {
-                for card in away { state.hidden[card.id] = nil }
+                for card in putAway { state.hidden[card.id] = nil }
                 return
             }
             guard keyed.acts(on: state.selected, keyboard: state.keyboard), let card = list.cards.first(where: { $0.id == keyed.card }) else { return }
@@ -1921,8 +1947,70 @@ struct UsageBars: View {
     }
 }
 
-/// How many tokens went in and came out, and a bar for each of the last twelve hours. The
-/// last line of the list, and dim: what the agents used, under who they are.
+/// Away in the top bar: a grey outline when off, Away's yellow when on.
+struct AwayPill: View {
+    let on: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            Text(verbatim: "Away").font(.system(size: 11, weight: .semibold))
+                .padding(.horizontal, 8)
+                .frame(height: 22)
+                .foregroundStyle(on ? Color.black : .white.opacity(0.6))
+                .background(Capsule().fill(on ? Color(red: 1, green: 0.839, blue: 0.039) : .clear))
+                .overlay(Capsule().strokeBorder(.white.opacity(on ? 0 : 0.35), lineWidth: 1))
+                .frame(height: 26).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(on ? Format.awayHelpOn : Format.awayHelpOff)
+        .accessibilityLabel(Text(verbatim: "Away"))
+        .accessibilityValue(Text(verbatim: on ? "On" : "Off"))
+    }
+}
+
+/// Said under the summary line while Away is on.
+struct AwayBand: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: Format.awayBandTitle).bold()
+            Text(verbatim: Format.awayBandNote)
+        }
+        .foregroundStyle(.black)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Color(red: 1, green: 0.839, blue: 0.039), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// A phone message that did not reach its session: kept to copy, then dismissed. Plain text, never Markdown.
+struct LeftOverRow: View {
+    let item: LeftOver
+    let dismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: Format.leftOverTitle).foregroundStyle(.white.opacity(0.6))
+            Text(verbatim: item.text).lineLimit(4).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(item.text, forType: .string)
+                }
+                Button("Dismiss", action: dismiss)
+                Spacer(minLength: 0)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+    }
+}
+
 /// One line at the foot of the list about the app itself, and the one thing to do about it. The
 /// whole line is the button: it is the only thing on it to press.
 struct NoticeLine: View {
@@ -1946,6 +2034,8 @@ struct NoticeLine: View {
     }
 }
 
+/// How many tokens went in and came out, and a bar for each of the last twelve hours. The
+/// last line of the list, and dim: what the agents used, under who they are.
 struct UsageLine: View {
     let summary: UsageSummary
     /// Opens the History page.

@@ -7,6 +7,13 @@
           { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/ask.sh", "timeout": 600 }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/stop.sh", "timeout": 86400 }
+        ]
+      }
     ]
   }
 }

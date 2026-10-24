@@ -309,6 +309,12 @@ final class PlanLimitsClient: ObservableObject {
             return LimitRing(limit: limit, stale: asOf != nil)
         }
 
+        /// Whether the panel has numbers to go by.
+        var hasNumbers: Bool {
+            if case .limits = self { return true }
+            return false
+        }
+
         func runOut(now: Date) -> RunOut? {
             guard case .limits(let limits, _) = self else { return nil }
             return limits.runOut(now: now)

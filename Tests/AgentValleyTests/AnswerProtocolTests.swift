@@ -26,7 +26,7 @@ final class AnswerProtocolTests: XCTestCase {
 
     func testACompleteRequestYieldsItsBody() {
         let data = request("POST /permission-request HTTP/1.1\r\nHost: notch\r\nContent-Length: 2", body: "{}")
-        XCTAssertEqual(AnswerProtocol.parse(data), .complete(body: Data("{}".utf8)))
+        XCTAssertEqual(AnswerProtocol.parse(data), .complete(path: .permissionRequest, body: Data("{}".utf8)))
     }
 
     func testAnUnfinishedRequestWaitsForMore() {
@@ -325,5 +325,27 @@ final class AnswerProtocolTests: XCTestCase {
         XCTAssertNil(asked.reply(.deny))
         XCTAssertNil(asked.reply(.option("Green")))
         for answer in [Answer.allow, .deny, .option("Red")] { XCTAssertNil(plan.reply(answer)) }
+    }
+
+    func testTheStopHookHasAPathOfItsOwn() {
+        let body = Data("{}".utf8)
+        let request = Data("POST /stop-wait HTTP/1.1\r\nContent-Length: 2\r\n\r\n".utf8) + body
+        XCTAssertEqual(AnswerProtocol.parse(request), .complete(path: .stopWait, body: body))
+        XCTAssertEqual(AnswerProtocol.parse(Data("POST /send HTTP/1.1\r\nContent-Length: 2\r\n\r\n{}".utf8)), .invalid)
+    }
+
+    func testAStopIsReadFromWhatClaudeCodeSends() {
+        let input = #"{"session_id":"abc","transcript_path":"/Users/a/.claude/projects/x/abc.jsonl","hook_event_name":"Stop","stop_hook_active":false,"last_assistant_message":"Done. Tests pass."}"#
+        XCTAssertEqual(StopWait(hookInput: Data(input.utf8)), StopWait(session: "abc", lastMessage: "Done. Tests pass."))
+        // With no last message the turn still ended: only the transcript is needed.
+        XCTAssertEqual(StopWait(hookInput: Data(#"{"transcript_path":"/Users/a/.claude/projects/x/abc.jsonl"}"#.utf8)),
+                       StopWait(session: "abc", lastMessage: ""))
+        XCTAssertNil(StopWait(hookInput: Data(#"{"session_id":"abc"}"#.utf8)))
+    }
+
+    func testABlockCarriesTheTextAsWritten() throws {
+        let text = "ตอบ \"ไทย\"\nline two"
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: AnswerProtocol.block(reason: text)) as? [String: String])
+        XCTAssertEqual(object, ["decision": "block", "reason": text])
     }
 }

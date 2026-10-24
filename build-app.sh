@@ -47,6 +47,8 @@ cp AppIcon.icns "$APP/Contents/Resources/"
 cp AgentValleyCrew.ttf "$APP/Contents/Resources/"
 # The boards the crew hangs up when a plan limit runs out; the app letters them.
 cp signs/*.png "$APP/Contents/Resources/"
+# The crew's voices: what each says when someone waits, when work is done, and on the way out and back.
+cp -R sounds/crew "$APP/Contents/Resources/crew"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -64,9 +66,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.12</string>
+	<string>0.3.0</string>
 	<key>CFBundleVersion</key>
-	<string>18</string>
+	<string>19</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>LSUIElement</key>

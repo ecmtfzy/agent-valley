@@ -155,7 +155,7 @@ Seven more at [agentvalley.app/comics](https://agentvalley.app/comics/).
 - Asks GitHub once a day whether there's a new version. That's the whole conversation. Turn it off in Settings.
 - Besides its own settings and its updates, it writes only in one folder: `~/Library/Application Support/AgentValley`. Nothing in `~/.claude` changes, unless you put the crew in your terminal.
 - You start that yourself, with a command from the app's settings. It sets the status line in `~/.claude/settings.json` and adds our font to `~/Library/Fonts`. With Ghostty, it also adds one line to Ghostty's config. From then on the app keeps the font and that line up to date. The command that takes the crew out undoes all of it.
-- The only hook is the plugin that brings Allow and Deny to the notch, and you install it yourself.
+- The only hooks are the plugin's two, and you install it yourself. One brings Allow and Deny to the notch; the other only waits, at the end of a turn, while you're Away with a phone paired.
 - While Answer from the notch is on, it reads `~/.claude/plugins/known_marketplaces.json` to check that the plugin still finds the app.
 - Never answers for you. Allow happens only when you choose it.
 

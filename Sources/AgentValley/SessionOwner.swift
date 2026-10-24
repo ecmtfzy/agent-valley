@@ -36,10 +36,15 @@ struct OwnerApp: Equatable {
     static let supersetBundle = "com.superset.desktop"
     static let supersetWorkspace = "SUPERSET_WORKSPACE_ID"
 
+    /// Whether `text` is an id and nothing else.
+    static func isID(_ text: String) -> Bool {
+        UUID(uuidString: text)?.uuidString.lowercased() == text.lowercased()
+    }
+
     /// The address of a Superset workspace, or nil unless `workspace` is an id and nothing
     /// else: it comes out of another process and goes into an address.
     static func supersetLink(workspace: String) -> URL? {
-        guard let id = UUID(uuidString: workspace), id.uuidString.lowercased() == workspace.lowercased() else { return nil }
+        guard isID(workspace) else { return nil }
         return URL(string: "superset://v2-workspace/\(workspace)")
     }
 }

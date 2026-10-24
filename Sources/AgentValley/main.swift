@@ -4,7 +4,7 @@ import Combine
 // Claude Code runs `AgentValley crew status` every few seconds: a command answers and exits
 // before any of the app is touched, so it stays quick and never puts a second notch on screen.
 if CommandLine.arguments.count > 1, CommandLine.arguments[1] == "crew" {
-    exit(Crew.run(Array(CommandLine.arguments.dropFirst(2))))
+    exit(CrewCommand.run(Array(CommandLine.arguments.dropFirst(2))))
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -15,6 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let answers = AnswerStore()
     private let usage = UsageLedger()
     private var updates: Updates!
+    // Held for the life of the app: the desk's callbacks and the timers reach them weakly.
+    private let desk = StopDesk()
+    private var awayWatch: AwayWatch!
+    private var sender: SessionSender!
     private var notch: NotchWindowController?
     private var watches = Set<AnyCancellable>()
 
@@ -55,12 +59,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Open at login follows the app to a new folder, never to one that goes with the dmg.
         if !misplaced { LoginItem.follow(settings) }
         updates = Updates()
+        wireSending()
         store.start()
-        notch = NotchWindowController(store: store, settings: settings, limits: limits, answers: answers, sound: SoundPlayer(settings: settings), usage: usage, updates: updates)
+        notch = NotchWindowController(store: store, settings: settings, limits: limits, answers: answers, sound: SoundPlayer(settings: settings), usage: usage, updates: updates,
+                                      away: awayWatch, desk: desk)
     }
 }
 
 extension AppDelegate {
+    /// Phone messages to sessions, Away mode and the button that shows it. Nothing sends yet:
+    /// a later change links the phone, and until then the button stays hidden.
+    private func wireSending() {
+        awayWatch = AwayWatch(desk: desk, lastInput: {
+            Date().addingTimeInterval(-CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!))
+        })
+        awayWatch.start()
+        let logFile = AnswerServer.defaultDirectory.appendingPathComponent("send.log")
+        desk.holds = { [store] in store.reach[$0]?.route == .stopHook }
+        sender = SessionSender(
+            reach: { [store] in store.reach[$0] },
+            // A hidden request still counts: the terminal asks all the same. The record is read
+            // fresh too: with the answers switch off, a prompt that opened this second shows only there.
+            asking: { [store, answers] session in
+                if answers.pending.contains(where: { $0.ask.session == session }) { return true }
+                guard let reach = store.reach[session] else { return false }
+                return reach.waitingOnPerson || AgentStore.recordWaitsOnPerson(pid: reach.process.pid, sessions: store.sessionsFolder)
+            },
+            holdsTab: { process, place in
+                let facts = AgentStore.facts(ofProcess: process.pid)
+                return place.map { TabGuard.claudeHoldsTab(facts, process: process, place: $0) } ?? TabGuard.claudeInFront(facts, process: process)
+            },
+            type: { text, place, check in
+                TabTyping.send(text, to: place, check: check, run: TabTyping.osascript, wait: Thread.sleep(forTimeInterval:))
+            },
+            superset: { workspace, terminal, text, check in
+                SupersetSend.send(workspace: workspace, terminal: terminal, text: text, check: check,
+                                  run: SupersetSend.run(SupersetSend.binary(home: FileManager.default.homeDirectoryForCurrentUser)),
+                                  wait: Thread.sleep(forTimeInterval:))
+            },
+            desk: desk,
+            away: { [awayWatch] in awayWatch?.turnOn($0) },
+            worker: DispatchQueue(label: "agent-valley.send"),
+            onStatus: { [store] id, session, status in
+                SendLog.write(id: id, route: store.reach[session]?.route.kind ?? "none", status: status, to: logFile)
+            })
+        answers.onStop = { [desk] stop, connection in
+            let hook = desk.arrived(stop) { connection.reply($0) }
+            connection.onClose = { [weak desk] in desk?.hookGone(hook) }
+        }
+        // Published values arrive before they are stored: look again once they have landed.
+        answers.$pending
+            .receive(on: DispatchQueue.main)
+            .sink { [sender] _ in sender?.askingChanged() }
+            .store(in: &watches)
+        store.$reach
+            .receive(on: DispatchQueue.main)
+            .sink { [sender] _ in sender?.askingChanged() }
+            .store(in: &watches)
+        store.$reach.combineLatest(awayWatch.$phoneLinked)
+            .sink { [awayWatch] reach, linked in
+                awayWatch?.buttonShown = linked && reach.values.contains { $0.route == .stopHook }
+            }
+            .store(in: &watches)
+    }
+
     /// Quitting ends every request without a decision and takes the socket file away.
     func applicationWillTerminate(_ notification: Notification) {
         answers.setEnabled(false)

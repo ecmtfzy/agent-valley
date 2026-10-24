@@ -32,11 +32,11 @@ final class AnswerServerTests: XCTestCase {
 
     /// Posts to the socket the way the hook script does and reports curl's output and exit status.
     @discardableResult
-    private func post(_ body: Data, arguments: [String] = [], to path: String? = nil, done: @escaping (String, Int32) -> Void) throws -> Process {
+    private func post(_ body: Data, arguments: [String] = [], to path: String? = nil, route: String = "permission-request", done: @escaping (String, Int32) -> Void) throws -> Process {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/curl")
         process.arguments = ["--silent", "--fail", "--max-time", "5", "--unix-socket", path ?? folder.appendingPathComponent("answers.sock").path,
-                             "--header", "Content-Type: application/json", "--data-binary", "@-"] + arguments + ["http://notch/permission-request"]
+                             "--header", "Content-Type: application/json", "--data-binary", "@-"] + arguments + ["http://notch/\(route)"]
         let stdin = Pipe()
         let stdout = Pipe()
         process.standardInput = stdin
@@ -154,6 +154,27 @@ final class AnswerServerTests: XCTestCase {
         XCTAssertEqual(received?.kind, .permission(Ask.Shown(command: "echo spike > out.txt", fields: [])))
     }
 
+    func testAStopWaitReachesOnStopAndItsReplyGoesBack() throws {
+        let answered = expectation(description: "curl got the reply")
+        var received: StopWait?
+        let server = AnswerServer(directory: folder, requestTimeout: 10, onAsk: { _, _ in }, onStop: { stop, connection in
+            received = stop
+            connection.reply(AnswerProtocol.block(reason: "go"))
+        })
+        servers.append(server)
+        try server.start()
+        let input = try JSONSerialization.data(withJSONObject: [
+            "hook_event_name": "Stop", "session_id": "s1", "transcript_path": "/r/p/s1.jsonl", "last_assistant_message": "Done.",
+        ])
+        try post(input, route: "stop-wait") { output, status in
+            XCTAssertEqual(output, #"{"decision":"block","reason":"go"}"#)
+            XCTAssertEqual(status, 0)
+            answered.fulfill()
+        }
+        wait(for: [answered], timeout: 5)
+        XCTAssertEqual(received, StopWait(session: "s1", lastMessage: "Done."))
+    }
+
     // No decision is an empty answer: the hook prints nothing and the terminal keeps asking.
     func testNoDecisionReachesTheHookAsNothing() throws {
         let answered = expectation(description: "curl finished")
@@ -250,6 +271,65 @@ final class AnswerServerTests: XCTestCase {
         // Nothing can be handed to a hook that has gone, and the caller is told so.
         XCTAssertEqual(held?.reply(Data("{}".utf8)), false)
         XCTAssertEqual(closes, 1)
+    }
+
+    // A held Stop hook counts as announced: if its process dies, the app is told.
+    func testAHeldStopWaitReportsItsHookGoing() throws {
+        let closed = expectation(description: "the held connection reported closing")
+        var hook: Process?
+        let server = AnswerServer(directory: folder, requestTimeout: 10, onAsk: { _, _ in }, onStop: { _, connection in
+            connection.onClose = { closed.fulfill() }
+            hook?.terminate()
+        })
+        servers.append(server)
+        try server.start()
+        let input = try JSONSerialization.data(withJSONObject: [
+            "hook_event_name": "Stop", "session_id": "s1", "transcript_path": "/r/p/s1.jsonl", "last_assistant_message": "Done.",
+        ])
+        hook = try post(input, route: "stop-wait") { _, _ in }
+        wait(for: [closed], timeout: 5)
+    }
+
+    // The Stop script asks the app only while Away is on, which the app marks with a file beside
+    // the socket. Without it the turn ends at once, whatever the app would say: a hung app never holds it.
+    func testTheStopScriptAsksOnlyWhileTheAwayFlagIsThere() throws {
+        var stops = 0
+        let server = AnswerServer(directory: folder, requestTimeout: 10, onAsk: { _, _ in }, onStop: { _, connection in
+            stops += 1
+            connection.reply(AnswerProtocol.block(reason: "go"))
+        })
+        servers.append(server)
+        try server.start()
+        let input = #"{"hook_event_name":"Stop","transcript_path":"/r/p/s1.jsonl","last_assistant_message":"Done."}"#
+        for (flagged, expected) in [(false, ""), (true, #"{"decision":"block","reason":"go"}"#)] {
+            if flagged { FileManager.default.createFile(atPath: folder.appendingPathComponent("away").path, contents: nil) }
+            let done = expectation(description: "the script finished")
+            DispatchQueue.global().async { [home] in
+                let result = try? runHookScript(PluginTests.stopScript, home: home!, input: input)
+                DispatchQueue.main.async {
+                    XCTAssertEqual(result?.output, expected, "flag: \(flagged)")
+                    XCTAssertEqual(result?.status, 0)
+                    done.fulfill()
+                }
+            }
+            wait(for: [done], timeout: 5)
+        }
+        XCTAssertEqual(stops, 1)
+    }
+
+    func testAStopWaitThatIsNotAStopGetsNoReply() throws {
+        var stops = 0
+        let server = AnswerServer(directory: folder, requestTimeout: 10, onAsk: { _, _ in }, onStop: { _, _ in stops += 1 })
+        servers.append(server)
+        try server.start()
+        let dropped = expectation(description: "closed with nothing")
+        try post(Data(#"{"session_id":"s1"}"#.utf8), route: "stop-wait") { output, status in
+            XCTAssertEqual(output, "")
+            XCTAssertNotEqual(status, 0)
+            dropped.fulfill()
+        }
+        wait(for: [dropped], timeout: 5)
+        XCTAssertEqual(stops, 0)
     }
 
     // MARK: what is not a request

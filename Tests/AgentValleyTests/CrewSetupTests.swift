@@ -300,7 +300,7 @@ final class CrewSetupTests: XCTestCase {
     }
 
     func testTheTerminalOpenedBeforeThisProcess() throws {
-        let start = try XCTUnwrap(Crew.terminalStart())
+        let start = try XCTUnwrap(CrewCommand.terminalStart())
         XCTAssertLessThanOrEqual(start, Date())
         XCTAssertGreaterThan(start, Date(timeIntervalSince1970: 1_000_000_000))
     }

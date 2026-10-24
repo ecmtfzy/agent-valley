@@ -1,11 +1,17 @@
 import CryptoKit
 import Foundation
 
+/// Which hook a request is from.
+enum HookPath: Equatable {
+    case permissionRequest
+    case stopWait
+}
+
 /// What the bytes received from the hook script amount to so far.
 enum HTTPRequest: Equatable {
     case needMore
     case invalid
-    case complete(body: Data)
+    case complete(path: HookPath, body: Data)
 }
 
 /// The wire format between the plugin's hook script and the app. Never touches the disk or a socket.
@@ -13,7 +19,7 @@ enum AnswerProtocol {
     static let maxHeaderBytes = 16 * 1024
     static let maxBodyBytes = 1024 * 1024
 
-    /// Reads the one request the hook script sends: `POST /permission-request` with a JSON body.
+    /// Reads the request a hook script sends: `POST /permission-request` or `POST /stop-wait` with a JSON body.
     /// Anything else is invalid; nothing here is guessed at or repaired.
     static func parse(_ data: Data) -> HTTPRequest {
         guard let end = data.range(of: Data("\r\n\r\n".utf8)) else {
@@ -21,7 +27,14 @@ enum AnswerProtocol {
         }
         guard end.lowerBound - data.startIndex <= maxHeaderBytes else { return .invalid }
         let lines = String(decoding: data[data.startIndex..<end.lowerBound], as: UTF8.self).components(separatedBy: "\r\n")
-        guard lines[0].hasPrefix("POST /permission-request HTTP/1.") else { return .invalid }
+        let path: HookPath
+        if lines[0].hasPrefix("POST /permission-request HTTP/1.") {
+            path = .permissionRequest
+        } else if lines[0].hasPrefix("POST /stop-wait HTTP/1.") {
+            path = .stopWait
+        } else {
+            return .invalid
+        }
         var length: Int?
         for line in lines.dropFirst() {
             let parts = line.split(separator: ":", maxSplits: 1)
@@ -30,7 +43,18 @@ enum AnswerProtocol {
         }
         guard let length, (0...maxBodyBytes).contains(length) else { return .invalid }
         let body = data[end.upperBound...]
-        return body.count < length ? .needMore : .complete(body: Data(body.prefix(length)))
+        return body.count < length ? .needMore : .complete(path: path, body: Data(body.prefix(length)))
+    }
+
+    /// What a Stop hook answers to make Claude carry on with `reason` as its next instruction.
+    static func block(reason: String) -> Data {
+        (try? JSONSerialization.data(withJSONObject: ["decision": "block", "reason": reason], options: [.sortedKeys])) ?? Data()
+    }
+
+    /// The session's id: the name of its transcript file, taken from the text of the hook's path.
+    static func session(transcriptPath: String) -> String? {
+        let session = ((transcriptPath as NSString).lastPathComponent as NSString).deletingPathExtension
+        return session.isEmpty || session.hasPrefix(".") ? nil : session
     }
 
     /// A decision as a JSON body, or no decision at all: with an empty answer the hook script
@@ -57,6 +81,26 @@ enum Answer: Equatable {
     case option(String)
     /// A question left unanswered: Claude Code is told so, and carries on without one.
     case skip
+}
+
+/// A Stop hook: Claude finished its turn and is waiting to hear whether to carry on.
+/// Everything in it is untrusted text.
+struct StopWait: Equatable {
+    let session: String
+    let lastMessage: String
+
+    init(session: String, lastMessage: String) {
+        self.session = session
+        self.lastMessage = lastMessage
+    }
+
+    init?(hookInput: Data) {
+        guard let object = SafeJSON.object(hookInput),
+              let transcript = object["transcript_path"] as? String,
+              let session = AnswerProtocol.session(transcriptPath: transcript) else { return nil }
+        // Not every Claude Code sends the last message; the turn ended all the same.
+        self.init(session: session, lastMessage: object["last_assistant_message"] as? String ?? "")
+    }
 }
 
 /// One request from Claude Code, as received from the hook. Everything in it is untrusted text.
@@ -181,8 +225,7 @@ struct Ask: Equatable {
               let transcript = object["transcript_path"] as? String,
               let toolInput = object["tool_input"] as? [String: Any],
               let input = try? JSONSerialization.data(withJSONObject: toolInput) else { return nil }
-        let session = ((transcript as NSString).lastPathComponent as NSString).deletingPathExtension
-        guard !session.isEmpty, !session.hasPrefix(".") else { return nil }
+        guard let session = AnswerProtocol.session(transcriptPath: transcript) else { return nil }
         self.session = session
         self.tool = tool
         self.input = input

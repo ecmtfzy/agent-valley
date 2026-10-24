@@ -48,6 +48,20 @@ enum Grouping: String, CaseIterable {
     var label: String { self == .projects ? "ALL" : "STATUS" }
 }
 
+/// How the crew sounds: talking, its stings alone for a meeting or a shared screen, or the
+/// Glass and Pop macOS has always had.
+enum SoundStyle: String, CaseIterable {
+    case crew, stings, chimes
+
+    var title: String {
+        switch self {
+        case .crew: return "Crew talks"
+        case .stings: return "Crew, no talking"
+        case .chimes: return "Chimes"
+        }
+    }
+}
+
 /// The app's own preferences. The only place that reads and writes UserDefaults.
 final class Settings: ObservableObject {
     static let keepFinishedChoices = [1, 5, 10, 30]
@@ -96,6 +110,16 @@ final class Settings: ObservableObject {
     /// A sound when a session ends a turn.
     @Published var soundFinished: Bool {
         didSet { defaults.set(soundFinished, forKey: Key.soundFinished) }
+    }
+
+    /// How the crew sounds.
+    @Published var soundStyle: SoundStyle {
+        didSet { defaults.set(soundStyle.rawValue, forKey: Key.soundStyle) }
+    }
+
+    /// The crew's scene when a plan limit runs out and when it is back.
+    @Published var soundScenes: Bool {
+        didSet { defaults.set(soundScenes, forKey: Key.soundScenes) }
     }
 
     /// Minutes between reminders while an agent still waits unseen; 0 for none.
@@ -168,6 +192,8 @@ final class Settings: ObservableObject {
         sounds = defaults.object(forKey: Key.sounds) as? Bool ?? false
         soundNeedsYou = defaults.object(forKey: Key.soundNeedsYou) as? Bool ?? true
         soundFinished = defaults.object(forKey: Key.soundFinished) as? Bool ?? true
+        soundScenes = defaults.object(forKey: Key.soundScenes) as? Bool ?? true
+        soundStyle = SoundStyle(rawValue: defaults.string(forKey: Key.soundStyle) ?? "") ?? .crew
         let remind = defaults.object(forKey: Key.remindMinutes) as? Int ?? 0
         remindMinutes = Self.remindChoices.contains(remind) ? remind : 0
         quietHours = defaults.object(forKey: Key.quietHours) as? Bool ?? false
@@ -196,6 +222,8 @@ final class Settings: ObservableObject {
         static let sounds = "sounds"
         static let soundNeedsYou = "soundNeedsYou"
         static let soundFinished = "soundFinished"
+        static let soundStyle = "soundStyle"
+        static let soundScenes = "soundScenes"
         static let remindMinutes = "remindMinutes"
         static let quietHours = "quietHours"
         static let quietFrom = "quietFrom"

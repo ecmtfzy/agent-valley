@@ -29,12 +29,15 @@ final class AnswerConnection {
     private var finished = false
     private var timeout: DispatchWorkItem?
     private let onAsk: (Ask, AnswerConnection) -> Void
+    private let onStop: (StopWait, AnswerConnection) -> Void
     private let onFinish: (AnswerConnection) -> Void
 
     fileprivate init(descriptor: Int32, queue: DispatchQueue, requestTimeout: TimeInterval,
-                     onAsk: @escaping (Ask, AnswerConnection) -> Void, onFinish: @escaping (AnswerConnection) -> Void) {
+                     onAsk: @escaping (Ask, AnswerConnection) -> Void, onStop: @escaping (StopWait, AnswerConnection) -> Void,
+                     onFinish: @escaping (AnswerConnection) -> Void) {
         self.descriptor = descriptor
         self.onAsk = onAsk
+        self.onStop = onStop
         self.onFinish = onFinish
         source = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: queue)
         source.setEventHandler { [weak self] in self?.readable() }
@@ -108,17 +111,22 @@ final class AnswerConnection {
             return
         case .invalid:
             finish()
-        case .complete(let body):
+        case .complete(.permissionRequest, let body):
             buffer = Data()
             guard let ask = Ask(hookInput: body) else { return finish() }
             announced = true
             onAsk(ask, self)
+        case .complete(.stopWait, let body):
+            buffer = Data()
+            guard let stop = StopWait(hookInput: body) else { return finish() }
+            announced = true
+            onStop(stop, self)
         }
     }
 }
 
 /// Listens for the plugin's hook script on a Unix socket in a folder only this account can enter.
-/// The only code that opens a socket. It decides nothing: requests go to `onAsk`, answers come back
+/// The only code that opens a socket. It decides nothing: requests go to `onAsk` and `onStop`, answers come back
 /// through each connection.
 final class AnswerServer {
     static var defaultDirectory: URL {
@@ -133,6 +141,7 @@ final class AnswerServer {
     private let queue: DispatchQueue
     private let requestTimeout: TimeInterval
     private let onAsk: (Ask, AnswerConnection) -> Void
+    private let onStop: (StopWait, AnswerConnection) -> Void
     private var accepting: DispatchSourceRead?
     private var lock: Int32 = -1
     private var connections: [ObjectIdentifier: AnswerConnection] = [:]
@@ -140,11 +149,13 @@ final class AnswerServer {
     var socketPath: String { directory.appendingPathComponent(Self.socketName).path }
 
     init(directory: URL = AnswerServer.defaultDirectory, queue: DispatchQueue = .main, requestTimeout: TimeInterval = 10,
-         onAsk: @escaping (Ask, AnswerConnection) -> Void) {
+         onAsk: @escaping (Ask, AnswerConnection) -> Void,
+         onStop: @escaping (StopWait, AnswerConnection) -> Void = { _, connection in connection.reply(nil) }) {
         self.directory = directory
         self.queue = queue
         self.requestTimeout = requestTimeout
         self.onAsk = onAsk
+        self.onStop = onStop
     }
 
     deinit {
@@ -260,7 +271,7 @@ final class AnswerServer {
             setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
             _ = fcntl(descriptor, F_SETFD, FD_CLOEXEC)
             _ = fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) | O_NONBLOCK)
-            let connection = AnswerConnection(descriptor: descriptor, queue: queue, requestTimeout: requestTimeout, onAsk: onAsk) { [weak self] finished in
+            let connection = AnswerConnection(descriptor: descriptor, queue: queue, requestTimeout: requestTimeout, onAsk: onAsk, onStop: onStop) { [weak self] finished in
                 self?.connections[ObjectIdentifier(finished)] = nil
             }
             connections[ObjectIdentifier(connection)] = connection

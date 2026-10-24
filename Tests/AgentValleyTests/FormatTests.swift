@@ -565,7 +565,7 @@ final class FormatTests: XCTestCase {
     // ~/.claude. Nine of thirteen testers stopped at the bare command. Before it now stands
     // what the plugin does, and around it the two things to do, in order.
     func testTheInstallCommandComesWithWhatItDoesAndWhatToDo() {
-        XCTAssertEqual(Format.pluginWhat, "The plugin is inside this app, and the command points Claude Code at it. It adds one hook to Claude Code: each permission prompt and question is handed to this app, on this Mac only. With the app closed or this switch off, Claude Code asks in the terminal as before.")
+        XCTAssertEqual(Format.pluginWhat, "The plugin is inside this app, and the command points Claude Code at it. It adds two hooks to Claude Code: each permission prompt and question is handed to this app, and while you're Away with your phone paired, a finished turn waits here for your next message. All on this Mac only. With the app closed or this switch off, Claude Code asks in the terminal and ends its turns as before.")
         XCTAssertEqual(Format.installSteps.run, "1. Copy this and run it in a terminal: the Terminal app, or wherever you start Claude Code.")
         XCTAssertEqual(Format.installSteps.restart, "2. Start Claude Code again. Sessions that were already open do not have the plugin.")
         XCTAssertEqual(Format.marketplaceNote, "In the command, \u{201C}marketplace\u{201D} is Claude Code's word for a list of plugins. Nothing is bought.")
@@ -591,16 +591,25 @@ final class FormatTests: XCTestCase {
     func testWhatIsSaidOfThePluginIsWhatItDoes() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("plugin/notch-answers")
         let hooks = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("hooks/hooks.json"))) as? [String: Any])
-        // One hook, on permission requests, and it runs the one script.
+        // Two hooks, on permission requests and on Stop, and each runs its one script.
         let events = try XCTUnwrap(hooks["hooks"] as? [String: Any])
-        XCTAssertEqual(Array(events.keys), ["PermissionRequest"])
-        let script = try String(contentsOf: root.appendingPathComponent("ask.sh"), encoding: .utf8)
-        // To this app's own socket on this Mac, and to no address on a network.
-        XCTAssertTrue(script.contains(#"SOCK="$HOME/Library/Application Support/AgentValley/answers.sock""#))
-        XCTAssertTrue(script.contains(#"--unix-socket "$SOCK""#))
-        XCTAssertEqual(script.components(separatedBy: "http").count - 1, 1, "one address, the one spoken over the socket")
-        // With no socket there, as when the app is closed or the switch is off, it says nothing.
-        XCTAssertTrue(script.contains(#"[ -S "$SOCK" ] || exit 0"#))
+        XCTAssertEqual(Set(events.keys), ["PermissionRequest", "Stop"])
+        for name in ["ask.sh", "stop.sh"] {
+            let script = try String(contentsOf: root.appendingPathComponent(name), encoding: .utf8)
+            // To this app's own socket on this Mac, and to no address on a network.
+            if name == "stop.sh" {
+                XCTAssertTrue(script.contains(#"DIR="$HOME/Library/Application Support/AgentValley""#), name)
+                XCTAssertTrue(script.contains(#"SOCK="$DIR/answers.sock""#), name)
+                // "while you're Away": with no flag from the app, the turn ends as before.
+                XCTAssertTrue(script.contains(#"[ -e "$DIR/away" ] || exit 0"#), name)
+            } else {
+                XCTAssertTrue(script.contains(#"SOCK="$HOME/Library/Application Support/AgentValley/answers.sock""#), name)
+            }
+            XCTAssertTrue(script.contains(#"--unix-socket "$SOCK""#), name)
+            XCTAssertEqual(script.components(separatedBy: "http").count - 1, 1, "\(name): one address, the one spoken over the socket")
+            // With no socket there, as when the app is closed or the switch is off, it says nothing.
+            XCTAssertTrue(script.contains(#"[ -S "$SOCK" ] || exit 0"#), name)
+        }
     }
 
     // Six of thirteen testers had to guess at the app's own words, and one for whom English is

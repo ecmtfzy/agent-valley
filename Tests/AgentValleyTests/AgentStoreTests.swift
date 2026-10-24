@@ -601,7 +601,8 @@ final class AgentStoreTests: XCTestCase {
     // knows the tab; off again, it has forgotten it.
     func testTheStoreLooksForATabOnlyWhileAskedTo() throws {
         var reads = 0
-        let ghostty = OwnerApp(bundle: URL(fileURLWithPath: "/Applications/Ghostty.app"), name: "Ghostty")
+        // Not on disk, so the send route (which asks for a tab of its own) never counts here.
+        let ghostty = OwnerApp(bundle: URL(fileURLWithPath: "/nowhere/Ghostty.app"), name: "Ghostty")
         let place = TabPlace(terminal: .ghostty, key: "/work")
         var there = ghostty
         there.tab = place
@@ -776,6 +777,38 @@ final class AgentStoreTests: XCTestCase {
         XCTAssertNotEqual(looks.first, looks.last)
         XCTAssertEqual(Set(reading.looks.values.map { "\($0)" }), Set(looks.map { "\($0)" }))
         XCTAssertEqual(Roster.load(file).seats.mapValues(\.look), reading.looks)
+    }
+
+    // Claude Code writes its record's start a second or two after the kernel started the process.
+    // The tab guard compares the kernel's own time, so that is the one a session's reach carries.
+    func testReachCarriesTheKernelsStartTimeNotTheRecords() throws {
+        let kernel = Date(timeIntervalSince1970: 1_791_787_806.5)   // the record says 1_791_787_807.982
+        let folder = URL(fileURLWithPath: store.root).appendingPathComponent("records-reach")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let reading = AgentStore(root: URL(fileURLWithPath: store.root), sessions: folder,
+                                 processStart: { $0 == 111 ? kernel : nil }, owner: { _ in nil })
+        try Data(recordJSON(pid: 111, session: "s1", status: "busy").utf8).write(to: folder.appendingPathComponent("111.json"))
+        reading.readSessions()
+        reading.publish()
+        let published = expectation(description: "published")
+        DispatchQueue.main.async { published.fulfill() }
+        wait(for: [published], timeout: 2)
+        XCTAssertEqual(reading.reach["s1"]?.process, SessionProcess(pid: 111, startedAt: kernel))
+    }
+
+    // A prompt that opened since the last reading is seen at once: the record is read from disk.
+    func testARecordIsReadFreshForWhetherItWaitsOnThePerson() throws {
+        let folder = URL(fileURLWithPath: store.root).appendingPathComponent("records-fresh")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = folder.appendingPathComponent("111.json")
+        XCTAssertFalse(AgentStore.recordWaitsOnPerson(pid: 111, sessions: folder.path))
+        try Data(recordJSON(pid: 111, session: "s1", status: "waiting").utf8).write(to: file)
+        XCTAssertTrue(AgentStore.recordWaitsOnPerson(pid: 111, sessions: folder.path))
+        XCTAssertFalse(AgentStore.recordWaitsOnPerson(pid: 222, sessions: folder.path))
+        try Data(recordJSON(pid: 111, session: "s1", status: "busy").utf8).write(to: file)
+        XCTAssertFalse(AgentStore.recordWaitsOnPerson(pid: 111, sessions: folder.path))
+        try Data("{\"pid\":111,".utf8).write(to: file)
+        XCTAssertFalse(AgentStore.recordWaitsOnPerson(pid: 111, sessions: folder.path))
     }
 
     // An agent starting to wait on the person is the one event the bar must not let slip by.

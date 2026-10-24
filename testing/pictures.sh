@@ -20,6 +20,7 @@
 #     history-project  the same, one project deep
 #     fishing          the 5-hour limit run out: the fish on the bar, the sign over the list
 #     fishing-week     the same for the weekly limit
+#     away             the Away button on, the yellow band, and a phone message that was not sent
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -27,7 +28,7 @@ ROOT="/Users/Shared/pt"
 FAKE_HOME="$ROOT/pictures"
 OUT="$PWD/build/pictures"
 SCENES=("$@")
-[ ${#SCENES[@]} -gt 0 ] || SCENES=(list status keys idle intro legend settings request reader oldcopy tokens history history-project fishing fishing-week)
+[ ${#SCENES[@]} -gt 0 ] || SCENES=(list status keys idle intro legend settings request reader oldcopy tokens history history-project fishing fishing-week away)
 
 # Every account on this Mac can write to /Users/Shared, so ROOT has to be this user's own
 # folder, closed to the others, before anything under it is removed: were it a link someone

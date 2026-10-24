@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 — 2026-10-24
+
+- We talk now. When a session needs you, its regular plays a few notes on their own instrument and says what it's about: a command to run, a file to edit, a question, a plan. Judy brings the plans herself. When the work is done you hear that too, with a different line after a long session, late at night, or for the first one of the morning.
+- When a plan limit runs out, one of us tells you we've gone fishing, or taken the van for the weekly one, and the same one tells you when we're back. Only once the reset has really passed.
+- Settings › Sounds has a Voice choice: Crew talks, Crew, no talking (just the instruments), or Chimes, the Glass and Pop you had before. Sounds stay off until you turn them on, and quiet while the screen is locked. Lock it mid-sentence and we stop mid-sentence.
+- In the status line, an agent's time keeps its seconds past ten minutes, the way Claude Code writes it.
+
 ## 0.2.12 — 2026-10-23
 
 - A click anywhere on a session's row, or on one of its agents' rows, takes you to its terminal, not just a click on the name. Allow and Deny stay out of the clickable part, so a near miss keeps you here.

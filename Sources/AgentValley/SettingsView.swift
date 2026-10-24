@@ -109,6 +109,9 @@ struct SettingsView: View {
             }
         }
         SettingGroup {
+            SettingRow(title: "Voice") {
+                ChoiceBar(title: "Voice", choices: SoundStyle.allCases, label: { $0.title }, selection: $settings.soundStyle)
+            }
             SettingRow(title: "When an agent needs you") {
                 Switch(title: "Sound when an agent needs you", isOn: $settings.soundNeedsYou)
             }
@@ -117,6 +120,10 @@ struct SettingsView: View {
             }
             SettingRow(title: "Remind again", caption: Format.remindCaption) {
                 ChoiceBar(title: "Remind again", choices: Settings.remindChoices, label: { $0 == 0 ? "Off" : "\($0)m" }, selection: $settings.remindMinutes)
+            }
+            SettingRow(title: "When the crew leaves and comes back", caption: settings.planLimits ? nil : Format.scenesCaption) {
+                Switch(title: "When the crew leaves and comes back", isOn: $settings.soundScenes)
+                    .dimmed(!settings.planLimits || settings.soundStyle == .chimes)
             }
         }
         .dimmed(!settings.sounds)

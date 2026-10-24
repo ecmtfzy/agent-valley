@@ -45,15 +45,16 @@ final class PluginTests: XCTestCase {
     static let marketplace = root.appendingPathComponent("plugin")
     static let plugin = marketplace.appendingPathComponent("notch-answers")
     static let script = plugin.appendingPathComponent("ask.sh")
+    static let stopScript = plugin.appendingPathComponent("stop.sh")
 
     private func json(_ url: URL) throws -> [String: Any] {
         try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
     }
 
-    // One hook and no more: every extra event is code that runs inside someone's Claude Code.
-    func testThePluginRegistersOnlyThePermissionRequestHook() throws {
+    // Two hooks and no more: every extra event is code that runs inside someone's Claude Code.
+    func testThePluginRegistersThePermissionAndStopHooks() throws {
         let hooks = try XCTUnwrap(json(Self.plugin.appendingPathComponent("hooks/hooks.json"))["hooks"] as? [String: Any])
-        XCTAssertEqual(Array(hooks.keys), ["PermissionRequest"])
+        XCTAssertEqual(Set(hooks.keys), ["PermissionRequest", "Stop"])
         let groups = try XCTUnwrap(hooks["PermissionRequest"] as? [[String: Any]])
         XCTAssertEqual(groups.count, 1)
         XCTAssertEqual(groups[0]["matcher"] as? String, "*")
@@ -62,6 +63,14 @@ final class PluginTests: XCTestCase {
         XCTAssertEqual(handlers[0]["type"] as? String, "command")
         XCTAssertEqual(handlers[0]["command"] as? String, "\"${CLAUDE_PLUGIN_ROOT}\"/ask.sh")
         XCTAssertEqual(handlers[0]["timeout"] as? Int, 600)
+        let stopGroups = try XCTUnwrap(hooks["Stop"] as? [[String: Any]])
+        XCTAssertEqual(stopGroups.count, 1)
+        XCTAssertNil(stopGroups[0]["matcher"])
+        let stopHandlers = try XCTUnwrap(stopGroups[0]["hooks"] as? [[String: Any]])
+        XCTAssertEqual(stopHandlers.count, 1)
+        XCTAssertEqual(stopHandlers[0]["type"] as? String, "command")
+        XCTAssertEqual(stopHandlers[0]["command"] as? String, "\"${CLAUDE_PLUGIN_ROOT}\"/stop.sh")
+        XCTAssertEqual(stopHandlers[0]["timeout"] as? Int, 86400)
     }
 
     func testTheManifestsNameWhatTheInstallCommandsUse() throws {
@@ -75,6 +84,7 @@ final class PluginTests: XCTestCase {
         XCTAssertEqual(manifest["name"] as? String, "notch-answers")
         for key in ["version", "description", "author"] { XCTAssertNotNil(manifest[key], key) }
         XCTAssertTrue(FileManager.default.isExecutableFile(atPath: Self.script.path))
+        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: Self.stopScript.path))
     }
 
     // Without the app there must be no trace of the plugin in a session: no output, no error.
@@ -93,6 +103,30 @@ final class PluginTests: XCTestCase {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         makeStaleSocket(at: folder.appendingPathComponent("answers.sock").path)
         let result = try runHookScript(Self.script, home: home, input: #"{"tool_name":"Bash"}"#)
+        XCTAssertEqual(result.output, "")
+        XCTAssertEqual(result.status, 0)
+    }
+
+    // Stop has its own script: with no app, or an empty answer, Claude Code ends the turn as usual.
+    func testTheStopScriptSaysNothingWhenTheAppIsNotThere() throws {
+        let home = try shortTempFolder()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let input = #"{"hook_event_name":"Stop","transcript_path":"/x/abc.jsonl","last_assistant_message":"done"}"#
+        let result = try runHookScript(Self.stopScript, home: home, input: input)
+        XCTAssertEqual(result.output, "")
+        XCTAssertEqual(result.status, 0)
+    }
+
+    func testTheStopScriptSaysNothingWhenNothingListensOnTheSocket() throws {
+        let home = try shortTempFolder()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let folder = home.appendingPathComponent("Library/Application Support/AgentValley")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        makeStaleSocket(at: folder.appendingPathComponent("answers.sock").path)
+        // Away on, as far as the script can tell: the socket is the only thing missing.
+        FileManager.default.createFile(atPath: folder.appendingPathComponent("away").path, contents: nil)
+        let input = #"{"hook_event_name":"Stop","transcript_path":"/x/abc.jsonl","last_assistant_message":"done"}"#
+        let result = try runHookScript(Self.stopScript, home: home, input: input)
         XCTAssertEqual(result.output, "")
         XCTAssertEqual(result.status, 0)
     }

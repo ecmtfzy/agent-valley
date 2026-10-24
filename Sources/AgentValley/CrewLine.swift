@@ -199,6 +199,17 @@ enum CrewLine {
         n >= 1_000_000 ? String(format: "%.1fm", n / 1_000_000) : "\(Int((n / 1000).rounded()))k"
     }
 
+    /// Time as Claude Code's own agent rows write it, seconds always: "10m 0s", "1h 2m 3s", "1d 1h 1m".
+    /// The notch panel's `Format.elapsed` drops them past ten minutes; here the rows sit beside Claude Code's.
+    static func elapsed(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds)
+        let d = total / 86400, h = total % 86400 / 3600, m = total % 3600 / 60, s = total % 60
+        if d > 0 { return "\(d)d \(h)h \(m)m" }
+        if h > 0 { return "\(h)h \(m)m \(s)s" }
+        if m > 0 { return "\(m)m \(s)s" }
+        return "\(s)s"
+    }
+
     /// What Claude Code calls a sub-agent that has finished.
     private static let doneStatuses: Set<String> = ["completed", "failed", "killed", "idle"]
 
@@ -228,7 +239,7 @@ enum CrewLine {
                 (pose, when, whenStyle) = (.done, "done", Style.faint)
             } else {
                 let start = (task["startTime"] as? NSNumber)?.doubleValue ?? now.timeIntervalSince1970 * 1000
-                (pose, when, whenStyle) = (.working, Format.elapsed(min(1e9, max(0, now.timeIntervalSince1970 - start / 1000))), "")
+                (pose, when, whenStyle) = (.working, elapsed(min(1e9, max(0, now.timeIntervalSince1970 - start / 1000))), "")
             }
 
             // The face takes two cells, then two spaces; the title gets what is left.

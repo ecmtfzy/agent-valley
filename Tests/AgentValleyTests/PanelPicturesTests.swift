@@ -180,8 +180,14 @@ final class PanelPicturesTests: XCTestCase {
         } else {
             limits = PlanLimitsClient()
         }
+        let desk = StopDesk()
+        // Its Away flag goes in a folder of its own, never beside the running app's socket.
+        let awayFolder = FileManager.default.temporaryDirectory.appendingPathComponent("pictures-away-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: awayFolder) }
+        let away = AwayWatch(desk: desk, folder: awayFolder, lastInput: { .distantPast })
         host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: limits, answers: answers,
-                                                 sound: SoundPlayer(settings: settings), usage: usage, updates: updates))
+                                                 sound: SoundPlayer(settings: settings), usage: usage, updates: updates,
+                                                 away: away, desk: desk))
         // Far to the left of any display. In the window list, so that it draws and animates.
         let window = NSWindow(contentRect: CGRect(x: -4000, y: 0, width: 600, height: 960), styleMask: [.borderless], backing: .buffered, defer: false)
         window.appearance = NSAppearance(named: .darkAqua)
@@ -313,6 +319,16 @@ final class PanelPicturesTests: XCTestCase {
             open()
             picture("page")
             spoken("page")
+        case "away":
+            // One phone message that did not go, through the desk's own path, then Away on.
+            _ = desk.deliver(id: UUID(), session: "demo", text: "Run the tests again and tell me what failed. Use `swift test`, not **npm**.")
+            desk.release()
+            away.phoneLinked = true
+            away.buttonShown = true
+            away.turnOn(.phoneButton)
+            open()
+            picture("open")
+            spoken("open")
         case "fishing", "fishing-week":
             // Everyone done for now, so that the bar has the fish and the sign hangs over an empty list.
             for card in store.sessions { state.hidden[card.id] = Date() }

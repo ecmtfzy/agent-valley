@@ -92,6 +92,12 @@ struct WaitWatch: Equatable {
         new.contains { $0.value > old[$0.key, default: 0] }
     }
 
+    /// The first card, in list order, with more rows waiting than before: the one whose lead
+    /// speaks for an arrival.
+    static func risen(from old: [String: Int], to new: [String: Int], in cards: [SessionCard]) -> SessionCard? {
+        cards.first { new[$0.id, default: 0] > old[$0.id, default: 0] }
+    }
+
     /// Whether the person is at the panel as a wait begins: it has been open under the pointer
     /// long enough to count as a look. An opening younger than that may be a pointer passing,
     /// and may never count. A pinned panel is open with nobody at it.
@@ -312,12 +318,17 @@ final class AgentStore: ObservableObject {
     /// Finds the tab of a session's process in its app.
     private let tab: (Int32, OwnerApp) -> TabPlace?
     /// Whether the person has asked for a click to reach a session's own tab. While they have
-    /// not, nothing is read for one. Only touched on `queue`.
+    /// not, no card is given one; the send route still looks up its own, with no Apple event.
+    /// Only touched on `queue`.
     private var tabs = false
     /// The app each live session runs in, by session id.
     private(set) var owners: [String: OwnerApp] = [:]
     /// The app found for each Claude Code process, by pid and when the process began. Only touched on `queue`.
-    private var owned: [Int32: (startedAt: Date, app: OwnerApp)] = [:]
+    private var owned: [Int32: (startedAt: Date, app: OwnerApp, route: SendRoute)] = [:]
+    /// The way each live session can be told something, by session id. Only touched on `queue`.
+    private var reachNow: [String: SessionReach] = [:]
+    /// The same, handed to the main thread.
+    @Published private(set) var reach: [String: SessionReach] = [:]
     private let queue = DispatchQueue(label: "agent-valley.store")
     private var stream: FSEventStreamRef?
     private var timer: DispatchSourceTimer?
@@ -395,7 +406,7 @@ final class AgentStore: ObservableObject {
         for (pid, known) in owned {
             var app = known.app
             app.tab = on ? tab(pid, app) : nil
-            owned[pid] = (known.startedAt, app)
+            owned[pid] = (known.startedAt, app, known.route)
         }
     }
 
@@ -599,10 +610,20 @@ final class AgentStore: ObservableObject {
         return info.kp_proc.p_stat == CChar(SZOMB) ? nil : info
     }
 
+    private static func startDate(_ info: kinfo_proc) -> Date {
+        let start = info.kp_proc.p_un.__p_starttime
+        return Date(timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000)
+    }
+
+    private static func ttyPath(_ info: kinfo_proc) -> String? {
+        let device = info.kp_eproc.e_tdev
+        guard device != -1, let name = devname(device, S_IFCHR) else { return nil }
+        return "/dev/" + String(cString: name)
+    }
+
     /// When the process with this pid started, or nil when no such process is running.
     static func startTime(ofProcess pid: Int32) -> Date? {
-        guard let start = info(ofProcess: pid)?.kp_proc.p_un.__p_starttime else { return nil }
-        return Date(timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000)
+        info(ofProcess: pid).map(startDate)
     }
 
     /// The process that started this one, or nil when no such process is running.
@@ -613,8 +634,21 @@ final class AgentStore: ObservableObject {
     /// The terminal device a process is attached to, such as "/dev/ttys012", or nil when it
     /// has none or no such process is running.
     static func tty(ofProcess pid: Int32) -> String? {
-        guard let device = info(ofProcess: pid)?.kp_eproc.e_tdev, device != -1, let name = devname(device, S_IFCHR) else { return nil }
-        return "/dev/" + String(cString: name)
+        info(ofProcess: pid).flatMap(ttyPath)
+    }
+
+    /// Terminal, process groups and start time of a process from one reading, or nil when no
+    /// such process is running.
+    static func facts(ofProcess pid: Int32) -> ProcessFacts? {
+        guard let info = info(ofProcess: pid) else { return nil }
+        return ProcessFacts(tty: ttyPath(info), group: info.kp_eproc.e_pgid, ttyGroup: info.kp_eproc.e_tpgid, startedAt: startDate(info))
+    }
+
+    /// Whether the record a pid holds says its session waits on the person, read from disk now:
+    /// the store's own reading can be a second old, and a prompt may have opened since.
+    static func recordWaitsOnPerson(pid: Int32, sessions folder: String) -> Bool {
+        guard let data = FileManager.default.contents(atPath: folder + "/\(pid).json") else { return false }
+        return SessionRecords.parse(data)?.state.activity == .waiting
     }
 
     /// Reads Claude Code's own record of each live session. Only files named `<pid>.json` are opened.
@@ -646,17 +680,31 @@ final class AgentStore: ObservableObject {
         running = Set(live.keys)
         // A process keeps its ancestors: an app once found is kept, and forgotten with its record.
         // One not found is looked for again, as the app may only be closed for now.
-        var found: [Int32: (startedAt: Date, app: OwnerApp)] = [:]
+        var found: [Int32: (startedAt: Date, app: OwnerApp, route: SendRoute)] = [:]
         for record in live.values {
             if let known = owned[record.pid], known.startedAt == record.startedAt {
                 found[record.pid] = known
             } else if var app = owner(record.pid) {
                 if tabs { app.tab = tab(record.pid, app) }
-                found[record.pid] = (record.startedAt, app)
+                // The route's own tab lookup does not depend on the setting: it sends no Apple event.
+                let route = SendRoute.route(bundleID: Bundle(url: app.bundle)?.bundleIdentifier,
+                                            environment: { Self.environmentValue($0, ofProcess: record.pid) },
+                                            tab: { [app] in self.tab(record.pid, app) })
+                found[record.pid] = (record.startedAt, app, route)
             }
         }
         owned = found
         owners = live.compactMapValues { found[$0.pid]?.app }
+        // An app not found is the stop hook's, and looked for again on the next read. The process
+        // carries the kernel's start time, which the tab guard compares: the record's own is a
+        // second or two later.
+        reachNow = live.compactMapValues { record in
+            processStart(record.pid).map {
+                SessionReach(process: SessionProcess(pid: record.pid, startedAt: $0),
+                             route: found[record.pid]?.route ?? .stopHook,
+                             waitingOnPerson: record.state.activity == .waiting)
+            }
+        }
     }
 
     /// The record states for the transcripts they speak for, keyed like `TrackedFile.session`.
@@ -937,8 +985,10 @@ final class AgentStore: ObservableObject {
         let looks = roster.looks
         let missing = !FileManager.default.fileExists(atPath: root)
         let scanned = scanned
+        let reach = reachNow
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            if self.reach != reach { self.reach = reach }
             if self.sessions != cards { self.sessions = cards }
             if self.looks != looks { self.looks = looks }
             if self.rootMissing != missing { self.rootMissing = missing }

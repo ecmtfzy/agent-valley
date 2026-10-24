@@ -108,6 +108,16 @@ final class CrewLineTests: XCTestCase {
         XCTAssertEqual((try JSONSerialization.jsonObject(with: Data(line.utf8)) as! [String: Any])["id"] as? String, "a1")
     }
 
+    func testTimeKeepsItsSecondsLikeClaudeCode() {
+        XCTAssertEqual(CrewLine.elapsed(45.9), "45s")
+        XCTAssertEqual(CrewLine.elapsed(600), "10m 0s")
+        XCTAssertEqual(CrewLine.elapsed(623), "10m 23s")
+        XCTAssertEqual(CrewLine.elapsed(3723), "1h 2m 3s")
+        XCTAssertEqual(CrewLine.elapsed(90_061), "1d 1h 1m")
+        let row = content([task(["startTime": (now.timeIntervalSince1970 - 623) * 1000])])[0]
+        XCTAssertTrue(plain(row).contains("  10m 23s  "))
+    }
+
     func testNoStepLineBeforeTheAgentStarts() {
         XCTAssertEqual(content([task(["label": "Find the login code"])])[0].components(separatedBy: "\n").count, 2)
     }

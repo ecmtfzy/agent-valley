@@ -2,7 +2,7 @@ import Foundation
 
 /// `AgentValley crew …`: what Claude Code runs for its status line and sub-agent rows, and the
 /// install and uninstall lines the person pastes. It answers and exits; the app never starts.
-enum Crew {
+enum CrewCommand {
     static func run(_ arguments: [String]) -> Int32 {
         let environment = ProcessInfo.processInfo.environment
         let home = URL(fileURLWithPath: environment["HOME"] ?? NSHomeDirectory())

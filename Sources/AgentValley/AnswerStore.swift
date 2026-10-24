@@ -68,6 +68,9 @@ final class AnswerStore: ObservableObject {
     private var server: AnswerServer?
     private var replies: [UUID: (Data?) -> Bool] = [:]
 
+    /// Where a Stop hook goes. Unset, it is answered with nothing at once and Claude ends its turn.
+    var onStop: ((StopWait, AnswerConnection) -> Void)?
+
     /// The plugin points at an older copy of the app, so Allow and Deny cannot reach this one.
     @Published private(set) var pluginLost = false
 
@@ -93,6 +96,9 @@ final class AnswerStore: ObservableObject {
             guard let self else { connection.reply(nil); return }
             let id = self.add(ask) { connection.reply($0) }
             connection.onClose = { [weak self] in self?.withdraw(id) }
+        } onStop: { [weak self] stop, connection in
+            guard let handler = self?.onStop else { connection.reply(nil); return }
+            handler(stop, connection)
         }
         do {
             try server.start()
