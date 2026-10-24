@@ -24,6 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler
+from pathlib import Path
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 SITE = "https://agentvalley.app"
@@ -45,9 +46,13 @@ SAID = {
     "old": "That link has run out. Ask again on the page and we'll send a fresh one.",
 }
 
-MAIL = """Someone, hopefully you, asked for AgentValley news at this address.
+# The plain words, for mail apps that show no HTML; the HTML is emails/templates/confirm.tsx, rendered by
+# `npm run emails` into emails/out with {{link}} and {{days}} left to fill. Neither says the address:
+# anyone can type one, with words of their own in it.
+MAIL = """Say yes, and we'll write.
 
-To say yes, open this link and press the button:
+Someone, hopefully you, asked for AgentValley news at this address. Open this link and press the button, and we write when a new version is out. Nothing else.
+
 {link}
 
 The link works for {days} days. If it wasn't you, do nothing: we won't write again.
@@ -55,6 +60,15 @@ The link works for {days} days. If it wasn't you, do nothing: we won't write aga
 The crew in your notch
 https://agentvalley.app
 """
+try:
+    LETTER = (Path(__file__).resolve().parent.parent / "emails" / "out" / "confirm.html").read_text()
+except OSError:
+    # ponytail: without the rendered page the mail still goes, in plain words.
+    LETTER = ""
+
+
+def letter(**fill: str) -> str:
+    return re.sub(r"\{\{(\w+)\}\}", lambda m: html.escape(fill.get(m[1], m[0])), LETTER)
 
 
 def resend(path: str, body: dict) -> tuple[int, str]:
@@ -108,12 +122,15 @@ def ask(email: str) -> str:
         return "failed"
     expiry = str(int(time.time()) + DAYS * 86400)
     link = f"{SITE}/api/subscribe?" + urllib.parse.urlencode({"e": email, "x": expiry, "t": sign(email, expiry)})
-    status, body = resend("/emails", {
+    mail = {
         "from": "AgentValley <hello@agentvalley.app>",
         "to": [email],
         "subject": "Confirm your AgentValley updates",
         "text": MAIL.format(link=link, days=DAYS),
-    })
+    }
+    if LETTER:
+        mail["html"] = letter(link=link, days=str(DAYS))
+    status, body = resend("/emails", mail)
     if 200 <= status < 300:
         SENT[exact] = now
         BOXES[box] = recent + [now]

@@ -37,10 +37,17 @@ test("when the day's mail is gone, the box says come back tomorrow", async ({ pa
 
 test.describe('without scripts', () => {
   test.use({ javaScriptEnabled: false });
+  // The page's own policy must let the form post here, or the browser drops the press.
   test('the form still posts to the list', async ({ page }) => {
+    let sent = '';
+    await page.route('**/api/subscribe', (route) => {
+      sent = route.request().postData() ?? '';
+      return route.fulfill({ contentType: 'text/html', body: "<p>Check your inbox. One click there and you're on the list.</p>" });
+    });
     await page.goto('/');
-    const form = box(page).locator('form');
-    await expect(form).toHaveAttribute('action', '/api/subscribe');
-    await expect(form).toHaveAttribute('method', 'post');
+    await box(page).getByLabel('Your email').fill('reader@example.com');
+    await box(page).getByRole('button', { name: 'Get updates' }).click();
+    await expect(page.getByText('Check your inbox.')).toBeVisible();
+    expect(new URLSearchParams(sent).get('email')).toBe('reader@example.com');
   });
 });

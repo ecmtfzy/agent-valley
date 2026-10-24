@@ -6,7 +6,7 @@ const TITLE = 'AgentValley — Every Claude Code agent in your notch';
 const DESCRIPTION =
   'A free, open-source Mac app that shows every Claude Code agent, sub-agents too, in your notch. See who is working, on which model, and who needs you.';
 const CSP =
-  "default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'";
+  "default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'";
 
 test('the head carries the old title, description, canonical, preview image and policy', async ({ page }) => {
   await page.goto('/');

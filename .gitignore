@@ -6,6 +6,7 @@ build/
 .env*
 
 site/node_modules/
+site/emails/node_modules/
 site/.next/
 site/out/
 site/next-env.d.ts
