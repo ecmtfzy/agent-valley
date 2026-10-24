@@ -4,7 +4,8 @@
   "description": "The site's mail, written with React Email. Its own packages, so Vercel never installs them.",
   "scripts": {
     "dev": "email dev --dir templates --port 3001",
-    "export": "EMAIL_ASSETS=https://agentvalley.app/email email export --dir templates --outDir out --silent && rm -rf out/static"
+    "export": "EMAIL_ASSETS=https://agentvalley.app/email email export --dir templates --outDir out --silent && rm -rf out/static",
+    "send": "node send.mjs"
   },
   "devDependencies": {
     "@react-email/ui": "6.11.3",
