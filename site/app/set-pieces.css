@@ -358,18 +358,6 @@ a.w:hover{text-decoration-style:solid}
 }
 
 @layer components {
-/* Bits of the app by the hero's heading, drifting slowly, each out of step with the others. Only
-   on a screen wide enough that they sit beside the heading, not under it. */
-.floating{display:none}
-@media (min-width:1100px){
-  .floating{display:block;position:absolute;top:0;right:0;bottom:0;width:min(34%,380px);pointer-events:none}
-  .floating>*{position:absolute;animation:drift 7s ease-in-out infinite alternate}
-}
-@keyframes drift{from{transform:translateY(-6px) rotate(var(--r,0deg))}to{transform:translateY(6px) rotate(var(--r,0deg))}}
-.float-need{padding:.35em .8em;box-shadow:0 10px 20px -12px rgba(0,0,0,.4)}
-.float-chip{padding:.35em .8em;box-shadow:0 4px 10px -6px rgba(0,0,0,.25)}
-.idle .floating>*,.still .floating>*{animation-play-state:paused}
-
 /* Product Hunt's badge at the top of the hero: four pixel sparkles twinkle in turn around it, a
    frame at a time like the crew, and an amber gleam crosses it every few seconds. */
 .ph{position:relative;display:block;width:fit-content;border-radius:10px}

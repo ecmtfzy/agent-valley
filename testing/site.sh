@@ -375,8 +375,9 @@ check)
     npm --prefix site run build --silent >/dev/null || { echo "build failed"; exit 1; }
     # 1. The page's words against the copy deck, in checkouts that keep one.
     if [ -x testing/copy-check.sh ]; then testing/copy-check.sh "$page" || fail=1; fi
-    # 2. Every file the page points to is there.
+    # 2. Every file the page points to is there. /api/ is Vercel's functions (site/api), not files.
     while IFS= read -r ref; do
+        [[ $ref == /api/* ]] && continue
         [ -e "site/out/${ref#/}" ] || { echo "missing file: $ref"; fail=1; }
     done < <(grep -oE '(src|href)="[^"#:]+"|url\([^):]+\)' "$page" | sed -E 's/^(src|href)="//; s/"$//; s/^url\(//; s/\)$//' | sort -u)
     # 3. Nothing is loaded from another site: links may leave, resources may not. The canonical

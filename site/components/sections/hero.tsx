@@ -1,5 +1,4 @@
 import { CopyCommand } from '@/components/copy-command';
-import { FloatingBits } from '@/components/floating-bits';
 import { HeroScreen } from '@/components/hero-screen';
 import { Icon } from '@/components/icons';
 import { Mascot } from '@/components/mascot';
@@ -9,9 +8,8 @@ import { Word } from '@/components/word';
 
 export function Hero() {
   return (
-    <section className="wrap hero grid gap-y-[18px] pt-8 pb-[clamp(64px,12vw,112px)] min-[900px]:grid-cols-2 min-[900px]:items-center min-[900px]:gap-x-14 min-[900px]:gap-y-10 min-[900px]:pt-8 min-[900px]:[grid-template-areas:'head_head'_'copy_screen']">
-      <div className="relative min-[900px]:[grid-area:head]">
-        <FloatingBits />
+    <section className="wrap hero grid gap-y-[18px] pt-8 pb-[clamp(64px,12vw,112px)] min-[900px]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] min-[900px]:grid-rows-[auto_1fr] min-[900px]:gap-x-14 min-[900px]:gap-y-8 min-[900px]:[grid-template-areas:'head_screen'_'copy_screen']">
+      <div className="min-[900px]:[grid-area:head]">
         {/* Product Hunt's badge with the live vote count, through our own address (api/ph.py), at the
             top of the page. Pixel sparkles take turns around it and a gleam crosses it now and then. */}
         <a className="ph mb-6" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-agentvalley">
@@ -22,15 +20,13 @@ export function Hero() {
             </svg>
           ))}
         </a>
-        <h1>
-          Every agent, at a glance,<br className="hidden min-[900px]:inline" /> right in your notch.
-        </h1>
+        <h1>Every agent, at a glance, right in your notch.</h1>
         {/* A badge in the page's own type, not Claude's logo: Anthropic's marks need its written leave. */}
         <p className="mt-5 w-fit rounded-full border border-accent-text/40 bg-card px-3.5 py-1 font-mono text-[.9375rem] font-semibold text-accent-text min-[400px]:text-[1.0625rem]">
           Only for Claude Code, on Mac
         </p>
       </div>
-      <div className="min-[900px]:self-start min-[900px]:pt-2 min-[900px]:[grid-area:copy]">
+      <div className="min-[900px]:[grid-area:copy]">
         <p className="max-w-[34em] text-[1.1875rem] leading-[1.55]">
           Each agent, sub-agents too, gets its own row and its own little programmer. See who is working, on which model, and who needs you, without leaving your app.
         </p>
@@ -39,12 +35,10 @@ export function Hero() {
             <Terms />
           </GetIt>
           <OnPhone />
-          <p className="small">
-            <a className="inline-flex min-h-11 items-center" href="https://github.com/morsechimwai/agent-valley">View the code on GitHub</a>
-          </p>
         </div>
       </div>
-      {/* Stacked, the heading and the copy below it are one block; the picture keeps its distance. */}
+      {/* Stacked, the heading and the copy below it are one block; the picture keeps its distance.
+          Side by side, it stands beside the words from the top, so the first screen holds all of it. */}
       <div className="mt-8 min-[900px]:mt-0 min-[900px]:[grid-area:screen]">
         <p className="notch-note" aria-hidden="true">
           The notch. Point at it or press it to open the panel.
@@ -83,13 +77,14 @@ export function GetIt({ quiet = false, words = true, children }: { quiet?: boole
   );
 }
 
-// What it costs and who checked it, under Download. The end of the page says what it needs on its own line.
+// What it costs and who checked it, under Download. Open source leads to the code. The end of the page says what it needs on its own line.
 export function Terms({ needs = true }: { needs?: boolean }) {
   return (
     <>
       <p className="mt-4 font-mono text-[.9375rem]">
-        <strong className="font-semibold text-accent-text">Free</strong> · Open source
-        {needs && <> · macOS 15 or later · <span className="nw">For MacBooks with a notch</span></>}
+        <strong className="font-semibold text-accent-text">Free</strong> · <a href="https://github.com/morsechimwai/agent-valley">Open source</a>
+        {/* Beside the picture the column is too narrow for one line: what it needs goes on its own. */}
+        {needs && <><span className="min-[900px]:hidden"> · </span><span className="min-[900px]:block">macOS 15 or later · <span className="nw">For MacBooks with a notch</span></span></>}
       </p>
       <p className="small">Signed, and Apple checked our papers.</p>
     </>

@@ -22,13 +22,6 @@ test('the panel stands open from the start, and nothing shuts it on its own', as
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
 });
 
-test('the floating bits are hidden from screen readers', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/');
-  await expect(page.locator('.floating')).toHaveAttribute('aria-hidden', 'true');
-  await expect(page.locator('.floating')).toBeVisible();
-});
-
 test('a picture comes up as it scrolls into view', async ({ page }) => {
   await page.goto('/');
   const terms = page.locator('.reveal:has(.anatomy)');

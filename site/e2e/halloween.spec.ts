@@ -125,7 +125,7 @@ test.describe('the hero at night', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Stop the animations' }).click();
     await page.waitForTimeout(300);
-    expect(await running(page, '.screen, .floating')).toBe(0);
+    expect(await running(page, '.screen')).toBe(0);
   });
 
   for (const width of [320, 390]) {
