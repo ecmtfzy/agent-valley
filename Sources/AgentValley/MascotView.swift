@@ -652,3 +652,35 @@ struct Flipbook: View {
         .accessibilityHidden(true)
     }
 }
+
+/// Before "N done": the finished work in a sealed manila envelope, ready to go back to the lead.
+/// The seal is green, the colour of done: red is for what waits on the person.
+struct DoneEnvelope: View {
+    /// Cells as big as a 20-point mascot's.
+    var size: CGFloat = 20 * 10 / 12
+
+    static let cells: [String] = [
+        "mmmmmmmmmm",
+        "mMmmmmmmMm",
+        "mmMmmmmMmm",
+        "mmmMGGMmmm",
+        "mmmmGGmmmm",
+        "mmmmmmmmmm",
+        "mmmmmmmmmm",
+    ]
+
+    static func hex(_ cell: Character) -> UInt32? {
+        switch cell {
+        case "m": 0xDDBA72  // manila
+        case "M": 0xA9853F  // the flap's edges
+        case "G": 0x3CB55E  // the seal
+        default: nil
+        }
+    }
+
+    var body: some View {
+        // "1 done" says it in words.
+        Pixels(cells: Self.cells.map(Array.init), size: size, colour: { Self.hex($0).map(rgb) })
+            .accessibilityHidden(true)
+    }
+}

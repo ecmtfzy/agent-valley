@@ -136,6 +136,113 @@ final class PanelPicturesTests: XCTestCase {
         return ledger
     }
 
+    /// The crew lines moving, frame by frame: a sub-agent of the checkout starts, then one
+    /// finishes. The lines are written into demo.py's transcripts as Claude Code would write
+    /// them, the store reads them as it reads any, and frames of the card are taken as the
+    /// packet runs. Also `motion.ffconcat`: each frame for as long as it really lasted, with a
+    /// hold on the first and last of each event, for pictures.sh to make a video of.
+    private func motion(store: AgentStore, state: NotchState, home: String) throws {
+        let fm = FileManager.default
+        for file in (try? fm.contentsOfDirectory(atPath: out)) ?? [] where file.hasPrefix("motion") {
+            try? fm.removeItem(atPath: "\(out)/\(file)")
+        }
+        // As roomy: the checkout's card whole, its crew lines in sight.
+        for card in store.sessions where card.name != "Refactor checkout flow" {
+            state.hidden[card.id] = Date()
+        }
+        state.expanded = true
+        state.openedAt = Date()
+        state.opens += 1
+        pump(2)
+        let checkout = try XCTUnwrap(store.sessions.first { $0.name == "Refactor checkout flow" })
+        let session = (checkout.id as NSString).lastPathComponent
+        let crew = checkout.id + "/subagents/"
+
+        // The lines as demo.py shapes them.
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        func append(_ path: String, _ lines: [[String: Any]]) throws {
+            let text = try lines.map { String(decoding: try JSONSerialization.data(withJSONObject: $0), as: UTF8.self) + "\n" }.joined()
+            if !fm.fileExists(atPath: path) { fm.createFile(atPath: path, contents: nil) }
+            let handle = try XCTUnwrap(FileHandle(forWritingAtPath: path))
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            try handle.write(contentsOf: Data(text.utf8))
+        }
+        let usage: [String: Any] = ["input_tokens": 1200, "cache_read_input_tokens": 42_000, "output_tokens": 380]
+        func turn(_ content: Any, model: String, stop: String) -> [String: Any] {
+            ["type": "assistant", "timestamp": iso.string(from: Date()), "cwd": "/Users/demo/shop-web", "gitBranch": "checkout-refactor", "sessionId": session,
+             "message": ["role": "assistant", "model": model, "stop_reason": stop, "usage": usage, "content": content]]
+        }
+
+        // The card alone, and a little room under it for the row that comes.
+        let crop = CGRect(x: 44, y: 96, width: 512, height: 320)
+        let rect = host.isFlipped ? crop : CGRect(x: crop.minX, y: host.bounds.height - crop.maxY, width: crop.width, height: crop.height)
+        func grab() -> NSBitmapImageRep? {
+            host.layoutSubtreeIfNeeded()
+            guard let image = host.bitmapImageRepForCachingDisplay(in: rect) else { return nil }
+            host.cacheDisplay(in: rect, to: image)
+            return image
+        }
+        var concat = ["ffconcat version 1.0"]
+        var gaps: [TimeInterval] = []
+
+        /// One frame before the lines are written, then frames every ~65ms for 1.8s from the
+        /// moment the store has read them.
+        func film(_ event: String, write: () throws -> Void, until seen: () -> Bool) throws {
+            var frames: [(NSBitmapImageRep, Date)] = []
+            if let before = grab() { frames.append((before, Date())) }
+            let written = Date()
+            try write()
+            let deadline = Date().addingTimeInterval(25)
+            while !seen(), Date() < deadline { pump(0.01) }
+            XCTAssertTrue(seen(), "The store never read the \(event).")
+            print("motion \(event): the store read it \(String(format: "%.2f", Date().timeIntervalSince(written)))s after it was written")
+            let start = Date()
+            for i in 0..<28 {
+                RunLoop.main.run(until: start.addingTimeInterval(Double(i) * 0.065))
+                if let image = grab() { frames.append((image, Date())) }
+            }
+            for (i, (image, at)) in frames.enumerated() {
+                let file = String(format: "motion-%@-%03d.png", event, i)
+                try image.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(out)/\(file)"))
+                let next = i + 1 < frames.count ? frames[i + 1].1.timeIntervalSince(at) : 0.6
+                if i > 0, i + 1 < frames.count { gaps.append(next) }
+                concat += ["file '\(file)'", "duration \(i == 0 ? 0.6 : next)"]
+                // The last one again: the concat reader drops the last file's duration.
+                if i + 1 == frames.count, event == "finish" { concat.append("file '\(file)'") }
+            }
+        }
+
+        // A sub-agent starts: its meta first, as Claude Code writes it, then its prompt and a call
+        // still open.
+        let review = crew + "agent-review.jsonl"
+        try film("start", write: {
+            try #"{"agentType":"general-purpose","description":"Review the refund path"}"#.write(
+                toFile: crew + "agent-review.meta.json", atomically: true, encoding: .utf8)
+            try append(review, [
+                ["type": "user", "timestamp": iso.string(from: Date()), "cwd": "/Users/demo/shop-web", "gitBranch": "checkout-refactor", "entrypoint": "cli",
+                 "sessionId": session, "message": ["role": "user", "content": "Review the refund path"]],
+                turn([["type": "tool_use", "id": "rv0", "name": "Read", "input": ["file_path": "/Users/demo/shop-web/src/checkout/refund.ts"]]],
+                     model: "claude-sonnet-5-5", stop: "tool_use"),
+            ])
+        }, until: { store.sessions.contains { $0.agents.contains { $0.id.hasSuffix("/agent-review.jsonl") } } })
+
+        // One finishes: "Run the cart tests", which demo.py leaves alone. Its command gets its
+        // result and it closes its turn with an answer; ten seconds of quiet later it is done.
+        try film("finish", write: {
+            try append(crew + "agent-verify.jsonl", [
+                ["type": "user", "timestamp": iso.string(from: Date()),
+                 "message": ["role": "user", "content": [["type": "tool_result", "tool_use_id": "v0", "content": "All 48 cart tests pass."]]]],
+                turn([["type": "text", "text": "All 48 cart tests pass, coverage 91%."]], model: "claude-sonnet-5-5", stop: "end_turn"),
+            ])
+        }, until: { store.sessions.contains { $0.agents.contains { $0.id.hasSuffix("/agent-verify.jsonl") && $0.status == .done } } })
+
+        try (concat.joined(separator: "\n") + "\n").write(toFile: "\(out)/motion.ffconcat", atomically: true, encoding: .utf8)
+        let mean = gaps.reduce(0, +) / Double(max(1, gaps.count))
+        print("motion frames every \(String(format: "%.1f", mean * 1000))ms on average, \(String(format: "%.1f", (gaps.min() ?? 0) * 1000))-\(String(format: "%.1f", (gaps.max() ?? 0) * 1000))ms")
+    }
+
     func testDrawThePanelOffTheScreen() throws {
         let environment = ProcessInfo.processInfo.environment
         guard let home = environment["PANEL_PICTURES_HOME"], let out = environment["PANEL_PICTURES_OUT"] else {
@@ -209,10 +316,72 @@ final class PanelPicturesTests: XCTestCase {
             state.opens += 1
         }
 
+        /// What the plugin's hook would send for one of the made-up sessions, handed straight to the store.
+        @discardableResult
+        func ask(_ title: String, tool: String, input: [String: Any]) throws -> SessionCard {
+            let card = try XCTUnwrap(store.sessions.first { $0.name == title })
+            let hook: [String: Any] = ["tool_name": tool, "tool_input": input, "transcript_path": card.id + ".jsonl"]
+            answers.add(try XCTUnwrap(Ask(hookInput: JSONSerialization.data(withJSONObject: hook)))) { _ in true }
+            answers.reconcile(with: store.sessions)
+            return card
+        }
+        /// The list's height as ListFit works it out, held against the height the panel measures.
+        /// PanelView.foldedRows and the lines it is given are private: its room, the headings,
+        /// the lines under the list and the rule for what stays full are repeated here, and
+        /// change with it.
+        func checkHeight() {
+            let list = list()
+            let putAway = AgentStore.putAway(answers.overlay(store.sessions), hidden: state.hidden)
+            let compact = Format.oneLineRows(liveAgents: list.cards.reduce(0) { $0 + $1.liveAgents().count })
+            let headers: Set<String> = list.cards.count + list.folded.count < 2 ? [] : settings.grouping == .projects
+                ? Set(AgentStore.projectHeaders(of: list.cards).keys) : Set(AgentStore.headers(of: list.cards, by: settings.grouping).keys)
+            let under = ListFit.under(idle: !list.folded.isEmpty, hidden: putAway.count, plain: [
+                settings.tokenUse && usage.summary.map { !$0.isEmpty } ?? false, answers.pluginLost, updates.oldCopyLeft, updates.waiting != nil,
+                state.keyboard,
+            ].filter { $0 }.count)
+            let room = NotchGeometry.listRoom(screen: state.screenFrame, barHeight: state.barHeight)
+            let entries = list.cards.map { card in
+                let session = AnswerStore.sessionID(of: card)
+                return ListFit.Entry(
+                    id: card.id,
+                    full: ListFit.fullHeight(card, header: headers.contains(card.id),
+                                             requests: { answers.requests(forRow: $0, in: card).map { ListFit.requestHeight($0.ask.kind, hidden: $0.hidden) } },
+                                             settled: { answers.settled(forRow: $0, in: card).count }, hintRow: list.hintRow,
+                                             showingDone: state.doneExpanded.contains(card.id), oneLineAgents: compact),
+                    row: ListFit.rowHeight(header: headers.contains(card.id)),
+                    keepsFull: card.group == .needsYou || answers.pending.contains { $0.ask.session == session } || answers.settledSessions.contains(session)
+                        || state.doneExpanded.contains(card.id),
+                    quiet: card.group == .quiet || card.group == .idle,
+                    header: headers.contains(card.id),
+                    crew: !card.liveAgents().isEmpty)
+            }
+            let folded = ListFit.compact(entries, room: room - ListFit.padding - under)
+            let estimate = ListFit.padding + ListFit.height(entries, folded: folded) + under
+            print("estimate \(estimate) measured \(state.contentHeight) room \(room)")
+            XCTAssertEqual(estimate, state.contentHeight, accuracy: 12)
+        }
+
         switch scene {
         case "list":
             open()
             picture("open")
+            checkHeight()
+        case "roomy":
+            // The checkout alone: room for its full card, so its crew lines are in sight. The
+            // README's card has jobs now and stays listed, so it goes with the rest.
+            for card in store.sessions where card.name != "Refactor checkout flow" {
+                state.hidden[card.id] = Date()
+            }
+            open()
+            picture("open")
+            checkHeight()
+        case "crew":
+            // A sub-agent of the checkout asks to run a command: its branch red, the card whole,
+            // the sessions around it folded to fit.
+            open()
+            try ask("Refactor checkout flow", tool: "Bash", input: ["command": "npm run test:cart -- --coverage", "description": "Check cart coverage"])
+            picture("waiting")
+            checkHeight()
         case "status":
             settings.grouping = .status
             open()
@@ -225,6 +394,8 @@ final class PanelPicturesTests: XCTestCase {
                 state.keyboard = true
                 state.selected = KeyCommand.start(in: list().cards)
                 picture("\(grouping.rawValue)-start")
+                // The line about the keys, over the list, takes room from it too.
+                if grouping == .projects { checkHeight() }
                 for step in 1...walked().count {
                     state.selected = KeyCommand.move(state.selected, by: 1, in: walked())
                     picture("\(grouping.rawValue)-down\(step)")
@@ -277,15 +448,8 @@ final class PanelPicturesTests: XCTestCase {
             click(atTopLeftOffset: CGPoint(x: 518, y: 91))
             picture("about-after-click")
         case "request":
-            // What the plugin's hook would send for two of the made-up sessions, handed straight
-            // to the store: a command to allow, then a question with options.
-            func ask(_ title: String, tool: String, input: [String: Any]) throws -> SessionCard {
-                let card = try XCTUnwrap(store.sessions.first { $0.name == title })
-                let hook: [String: Any] = ["tool_name": tool, "tool_input": input, "transcript_path": card.id + ".jsonl"]
-                answers.add(try XCTUnwrap(Ask(hookInput: JSONSerialization.data(withJSONObject: hook)))) { _ in true }
-                answers.reconcile(with: store.sessions)
-                return card
-            }
+            // What the plugin's hook would send for two of the made-up sessions: a command to
+            // allow, then a question with options.
             open()
             let deploy = try ask("Deploy preview build", tool: "Bash", input: ["command": "git push origin preview", "description": "Push the preview branch"])
             picture("command")
@@ -307,6 +471,7 @@ final class PanelPicturesTests: XCTestCase {
                             ["label": "Skip on CI", "description": "Keep it for local runs"]],
             ]]])
             picture("question")
+            checkHeight()
         case "oldcopy":
             // 0.1 from Homebrew left behind: the line in the list, then the page its Fix it opens.
             updates.lookForOldCopy([home])
@@ -381,6 +546,8 @@ final class PanelPicturesTests: XCTestCase {
             spoken("shut-from-settings")
             state.showingSettings = false
             spoken("shut")
+        case "motion":
+            try motion(store: store, state: state, home: home)
         default:
             XCTFail("No scene called \(scene). See testing/pictures.sh.")
         }
