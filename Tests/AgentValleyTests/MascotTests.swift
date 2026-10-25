@@ -244,4 +244,29 @@ final class MascotTests: XCTestCase {
         XCTAssertNil(MascotView.inHand(.reading, atWork: false, since: start, at: start + 1, reduceMotion: false))
         XCTAssertNil(MascotView.inHand(nil, atWork: false, since: start, at: start, reduceMotion: false))
     }
+
+    func testTheJobScreenScrollsItsOutputAndNothingElse() {
+        XCTAssertEqual(JobScreen.frames.count, 6)
+        for frame in JobScreen.frames {
+            XCTAssertEqual(frame.count, 12)
+            for row in frame {
+                XCTAssertEqual(row.count, 12)
+                for cell in row where cell != "." { XCTAssertNotNil(JobScreen.colour(cell), "\(cell)") }
+            }
+            // The case, the stand and the keyboard hold still.
+            XCTAssertEqual(Array(frame[0...3]) + Array(frame[9...11]), Array(JobScreen.frames[0][0...3]) + Array(JobScreen.frames[0][9...11]))
+        }
+        XCTAssertEqual(Array(JobScreen.frames[0][4...8]), [".veggggeeev.", ".veeeeeeeev.", ".veggegggev.", ".veeeeeeeev.", ".vegeeeeeev."])
+    }
+
+    func testTheJobScreenIsTheTerminalTheCrewHolds() {
+        for cell: Character in ["v", "e", "g", "d"] { XCTAssertEqual(JobScreen.hex(cell), Person.guru.hex(cell), "\(cell)") }
+    }
+
+    func testTheEyeIsTwelveCellsSquare() {
+        XCTAssertEqual(JobEye.cells.count, 12)
+        XCTAssertTrue(JobEye.cells.allSatisfy { $0.count == 12 })
+        XCTAssertEqual(JobEye.hex("w"), 0xCFC6A8)
+        XCTAssertEqual(JobEye.hex("k"), 0x1E1E1E)
+    }
 }

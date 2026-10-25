@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.4 — 2026-10-25
+
+- When a session needs you, a red badge beside "needs you" counts how long it has waited, and the bar shows the longest wait once it passes a minute. Grouped by status, the longest wait comes first. Thanks to Leo Heo for asking.
+- When we've all stopped but something we started is still running, a dev server or a watch on CI, a small green terminal sits beside the mug. Open the panel to see what runs and for how long. After half an hour it holds still and dims. The done sound waits for those jobs to finish.
+- A new version shows as a green dot on the gear and on the About tab. About says which version came in, and one click opens it.
+- Turn sounds on with the speaker button and whoever leads says so. Turn them off and they stop mid-word.
+
 ## 0.3.3 — 2026-10-24
 
 - If your MacBook sits beside a bigger screen, we can sit on that one instead. Settings › General › Display lists the displays you have connected. Automatic keeps us at the notch, or on your main display when there is no notch. Unplug the one you picked and we come back to Automatic, then move over again when you plug it back in. Thanks to DJ Sipe for asking.

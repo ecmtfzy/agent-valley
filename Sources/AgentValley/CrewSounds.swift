@@ -49,4 +49,6 @@ struct CrewSounds {
     static func group(_ topic: WaitTopic) -> String { "need-\(topic.rawValue)" }
     static func group(remind level: Int) -> String { "remind-\(min(max(level, 1), 3))" }
     static func group(_ topic: DoneTopic) -> String { "done-\(topic.rawValue)" }
+    /// What a lead says when the person turns sounds on: that they are, not that someone waits.
+    static let turnedOn = "on"
 }

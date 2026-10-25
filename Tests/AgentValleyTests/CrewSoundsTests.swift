@@ -11,6 +11,7 @@ final class CrewSoundsTests: XCTestCase {
         let sounds = real
         var groups = WaitTopic.allCases.map { CrewSounds.group($0) } + DoneTopic.allCases.map { CrewSounds.group($0) }
         groups += (1...3).map { CrewSounds.group(remind: $0) }
+        groups.append(CrewSounds.turnedOn)
         for who in Crew.leads {
             for group in groups {
                 XCTAssertFalse(sounds.lines(who, group).isEmpty, "\(who) \(group)")

@@ -293,17 +293,72 @@ final class AgentStoreTests: XCTestCase {
 
         scanning.readSessions()
         scanning.rescan()
-        XCTAssertEqual(scanning.files.keys.sorted(), [waiting, busy])
-        XCTAssertNil(scanning.files[idle])
+        XCTAssertEqual(scanning.files.keys.sorted(), [waiting, busy, idle].sorted())
+        XCTAssertNotNil(scanning.files[idle])
         XCTAssertNil(scanning.files[unknown])
         XCTAssertNil(scanning.files[dayOld])
         let cards = scanning.cards(now: Date())
         XCTAssertEqual(cards.first { $0.id.hasSuffix("/s1") }?.main?.status, .needsYou)
         // Busy and silent this long may be stuck: listed all the same, as quiet.
         XCTAssertEqual(cards.first { $0.id.hasSuffix("/s2") }?.main?.calledBusy, true)
+        // Read, but an idle session with no job is not listed.
+        XCTAssertNil(cards.first { $0.id.hasSuffix("/s3") })
         // Nothing dropped a second later.
         scanning.forget(now: Date())
-        XCTAssertEqual(scanning.files.count, 2)
+        XCTAssertEqual(scanning.files.count, 3)
+    }
+
+    // Exit removes the record. When the last Claude Code closes the folder is empty, and a job it was
+    // running is gone with it, not kept for a day.
+    func testJobsEndWhenTheLastClaudeCodeClosesAndItsRecordGoes() throws {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("agent-valley-tests-" + UUID().uuidString)
+        let folder = base.appendingPathComponent("sessions")
+        try FileManager.default.createDirectory(at: base.appendingPathComponent("projects/proj"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let scanning = AgentStore(root: base.appendingPathComponent("projects"), sessions: folder,
+                                  processStart: { _ in Date(timeIntervalSince1970: 0) })
+        let path = scanning.root + "/proj/s1.jsonl"
+        try Data((JobLines.bash().joined(separator: "\n") + "\n").utf8).write(to: URL(fileURLWithPath: path))
+        scanning.readSessions()
+        scanning.rescan()
+        XCTAssertNotNil(scanning.files[path])
+        let card = scanning.cards(now: Date()).first { $0.id.hasSuffix("/s1") }
+        XCTAssertEqual(card?.jobs ?? [], [])
+    }
+
+    // The spec's "ตอนเปิดแอป": an open session's files are read back as far as `forget` keeps,
+    // sub-agents' too, so a job started long before launch is seen.
+    func testScanAtLaunchReadsEveryFileOfAnOpenSessionForItsJobs() throws {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("agent-valley-tests-" + UUID().uuidString)
+        let folder = base.appendingPathComponent("sessions")
+        try FileManager.default.createDirectory(at: base.appendingPathComponent("projects/proj/s1/subagents"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let scanning = AgentStore(root: base.appendingPathComponent("projects"), sessions: folder,
+                                  processStart: { _ in Date(timeIntervalSince1970: 0) })
+        func write(_ lines: [String], _ relative: String) throws -> String {
+            let path = scanning.root + "/proj/" + relative
+            try Data((lines.joined(separator: "\n") + "\n").utf8).write(to: URL(fileURLWithPath: path))
+            try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-7200)], ofItemAtPath: path)
+            return path
+        }
+        let answer = #"{"type":"assistant","timestamp":"2026-10-24T15:00:10.000Z","message":{"model":"claude-opus-5-5","stop_reason":"end_turn","content":[{"type":"text","text":"Started it."}]}}"#
+        let main1 = try write(JobLines.bash() + [answer], "s1.jsonl")
+        let sub1 = try write(JobLines.monitor(persistent: true), "s1/subagents/agent-x.jsonl")
+        let main2 = try write(JobLines.bash("other"), "s2.jsonl")
+        try Data(recordJSON(pid: 111, session: "s1", status: "idle").utf8).write(to: folder.appendingPathComponent("111.json"))
+
+        scanning.readSessions()
+        scanning.rescan()
+        XCTAssertNotNil(scanning.files[main1])
+        XCTAssertNotNil(scanning.files[sub1])
+        XCTAssertNil(scanning.files[main2])
+        let card = scanning.cards(now: Date()).first { $0.id.hasSuffix("/s1") }
+        XCTAssertEqual(card?.jobs.map(\.id), ["bfbr6r6ou", "b66ml5arc"])
+        XCTAssertEqual(card?.onlyForJobs, true)
     }
 
     // Walking the whole folder again is only needed when the window reaches further back than before.
@@ -503,6 +558,43 @@ final class AgentStoreTests: XCTestCase {
             card("waiting1", main: .needsYou), card("working2", main: .done, agents: [.working]), card("waiting2", main: .working, agents: [.needsYou]),
         ]
         XCTAssertEqual(AgentStore.ordered(all, by: .status).map(\.id), ["waiting1", "waiting2", "working1", "working2", "quiet", "idle"])
+    }
+
+    // By status, those that wait on the person are listed the longest wait first: a tester
+    // wanted to answer the oldest first. A wait's start does not move, so a card that starts
+    // to wait joins the end of the group and those above it stay where they are.
+    func testByStatusTheLongestWaitComesFirst() {
+        func card(_ id: String, main: AgentStatus, waited: TimeInterval, agents: [(AgentStatus, TimeInterval)] = []) -> SessionCard {
+            func row(_ name: String, _ status: AgentStatus, _ waited: TimeInterval) -> AgentRow {
+                AgentRow(id: id + name, info: AgentInfo(), status: status, elapsed: 0, quietFor: waited)
+            }
+            return SessionCard(id: id, project: id, branch: "", main: row("/main", main, waited),
+                               agents: agents.enumerated().map { row("/agent\($0.offset)", $0.element.0, $0.element.1) }, startedAt: now)
+        }
+        let all = [
+            card("new", main: .needsYou, waited: 38),
+            card("working", main: .working, waited: 900),
+            card("old", main: .needsYou, waited: 725),
+            // Its own agent is quiet; a sub-agent of it has waited longest of all.
+            card("agent", main: .quiet, waited: 2000, agents: [(.needsYou, 1200)]),
+            card("tie", main: .needsYou, waited: 38),
+        ]
+        XCTAssertEqual(AgentStore.ordered(all, by: .status).map(\.id), ["agent", "old", "new", "tie", "working"])
+        // By project, the order stays the order they came in.
+        XCTAssertEqual(AgentStore.ordered(all, by: .projects).map(\.id), ["new", "working", "old", "agent", "tie"])
+    }
+
+    // The bar's time is the longest of the waits on the person, whatever else has gone quiet.
+    func testTheLongestWaitIsTheLongestOfThoseOnThePerson() {
+        func row(_ status: AgentStatus, _ waited: TimeInterval) -> AgentRow {
+            AgentRow(id: UUID().uuidString, info: AgentInfo(), status: status, elapsed: 0, quietFor: waited)
+        }
+        let sessions = [
+            SessionCard(id: "a", project: "a", branch: "", main: row(.needsYou, 90), agents: [row(.needsYou, 400)], startedAt: now),
+            SessionCard(id: "b", project: "b", branch: "", main: row(.quiet, 5000), agents: [], startedAt: now),
+        ]
+        XCTAssertEqual(AgentStore.longestWait(sessions), 400)
+        XCTAssertNil(AgentStore.longestWait([sessions[1]]))
     }
 
     func testAGroupsLineStandsOverItsFirstCard() {
@@ -1411,5 +1503,47 @@ final class AgentStoreTests: XCTestCase {
         XCTAssertNil(AgentStore.startTime(ofProcess: pid))
         var status: Int32 = 0
         waitpid(pid, &status, 0)
+    }
+
+    private var job: BackgroundJob { BackgroundJob(id: "j", kind: .shell, name: "npm run dev", startedAt: now - 60, endsBy: nil) }
+
+    func testACardWithJobsOutlivesVisibleForAndSaysSo() {
+        var main = tracked("/p/s", main: true, idle: 3600)
+        main.info.turnEnded = true
+        XCTAssertTrue(AgentStore.cards(from: ["/p/s.jsonl": main], now: now).isEmpty)
+        main.info.jobs = [job]
+        let card = AgentStore.cards(from: ["/p/s.jsonl": main], now: now).first
+        XCTAssertEqual(card?.jobs, [job])
+        XCTAssertEqual(card?.onlyForJobs, true)
+        XCTAssertEqual(card?.isIdle, true)
+    }
+    func testAFreshCardWithJobsIsNotOnlyForJobs() {
+        var main = tracked("/p/s", main: true, idle: 60)
+        main.info.turnEnded = true
+        main.info.jobs = [job]
+        XCTAssertEqual(AgentStore.cards(from: ["/p/s.jsonl": main], now: now).first?.onlyForJobs, false)
+    }
+    func testACardKnowsWhenItsSessionIsClosed() {
+        let main = tracked("/p/s", main: true, idle: 60)
+        XCTAssertEqual(AgentStore.cards(from: ["/p/s.jsonl": main], now: now, running: [:]).first?.closed, true)
+        XCTAssertEqual(AgentStore.cards(from: ["/p/s.jsonl": main], now: now, running: ["s": now - 600]).first?.closed, false)
+        XCTAssertEqual(AgentStore.cards(from: ["/p/s.jsonl": main], now: now).first?.closed, false)
+    }
+    func testASessionWithJobsIsNeitherFoldedNorHidden() {
+        var busy = card("jobs", main: .done)
+        busy.jobs = [job]
+        let plain = card("plain", main: .done)
+        for idle in [IdleSessions.fold, .hide] {
+            let list = AgentStore.arrange([busy, plain], idle: idle)
+            XCTAssertEqual(list.cards.map(\.id), ["jobs"], "\(idle)")
+        }
+    }
+    func testAStuckCardKeepsItsJobs() {
+        var stuck = SessionCard(id: "a", project: "a", branch: "",
+                                main: AgentRow(id: "a/main", info: AgentInfo(), status: .working, elapsed: 0, quietFor: AgentStore.stuckAfter + 1),
+                                agents: [], startedAt: now)
+        stuck.jobs = [job]
+        XCTAssertEqual(stuck.asShown.main?.status, .quiet)
+        XCTAssertEqual(stuck.asShown.jobs, [job])
     }
 }

@@ -131,7 +131,8 @@ enum Format {
     /// Read out as the ring arrives on a session: which one the keys now act on. The session's
     /// own name, then the app's word for how it is doing: listed, and not made into a sentence.
     static func chosen(_ card: SessionCard) -> String {
-        [card.name, cardStatus(card)].compactMap { $0 }.joined(separator: ", ")
+        let wait = card.main.flatMap { $0.status == .needsYou ? waitedAloud($0.quietFor) : nil }
+        return [card.name, cardStatus(card), wait].compactMap { $0 }.joined(separator: ", ")
     }
 
     /// What the ring says of itself to a screen reader, ahead of the card's own words.
@@ -364,8 +365,10 @@ enum Format {
         pinned ? "Let the panel close again" : "Keep the panel open"
     }
 
-    static func gearHelp(showingSettings: Bool) -> String {
-        showingSettings ? "Back to agents" : "Settings"
+    /// `update`: the version whose green dot is on the gear.
+    static func gearHelp(showingSettings: Bool, update: String? = nil) -> String {
+        if showingSettings { return "Back to agents" }
+        return update.map { "Settings · " + updateWaiting(version: $0) } ?? "Settings"
     }
 
     static func historyHelp(showing: Bool) -> String {
@@ -601,6 +604,7 @@ enum Format {
     static func oneLineRows(liveAgents: Int) -> Bool { liveAgents > compactPast }
     static let shortcutCaption = "Opens the panel from any app. ↑ ↓ move between sessions, return goes to the session's app, ⌘return and ⌘delete answer a request, esc closes. The ? lists every key."
     static let barCaption = "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet."
+    static let waitCaption = "Once an agent has waited a minute for you, the longest wait shows in red where the ring is."
     static let ringCaption = "The ring shows how much of your 5-hour limit is used. It turns yellow at 80%. It is shown only when Plan limits is on."
 
     /// The ring on the bar, read out: it has no room for a word of its own.
@@ -652,7 +656,65 @@ enum Format {
         // At work: how long this turn has run, as a sub-agent's row says how long it has.
         // Gone silent, it says since when in that same place.
         if main.status == .working { return lastMoved(main.status, silentFor: main.quietFor) ?? (main.elapsed > 0 ? elapsed(main.elapsed) : nil) }
+        // Idle with jobs still running: the jobs are the news, not the word "idle".
+        if main.status == .done, !card.jobs.isEmpty { return jobsRunning(card.jobs) }
         return statusLabel(main.status, isMain: true, quietFor: main.quietFor)
+    }
+
+    /// "1 shell, 2 monitors running": how many of each kind, as Claude Code counts them.
+    static func jobsRunning(_ jobs: [BackgroundJob]) -> String {
+        func count(_ kind: BackgroundJob.Kind, _ word: String) -> String? {
+            let n = jobs.filter { $0.kind == kind }.count
+            return n == 0 ? nil : "\(n) \(word)\(n == 1 ? "" : "s")"
+        }
+        return [count(.shell, "shell"), count(.monitor, "monitor")].compactMap { $0 }.joined(separator: ", ") + " running"
+    }
+
+    /// The same count for VoiceOver, which has no row to say where they run.
+    static func jobsInBackground(_ jobs: [BackgroundJob]) -> String { jobsRunning(jobs) + " in the background" }
+
+    /// What a job does: a shell's own description, or what a monitor waits for.
+    static func jobLine(_ job: BackgroundJob) -> String {
+        switch job.kind {
+        case .shell: return job.name.isEmpty ? "Background command" : job.name
+        case .monitor: return job.name.isEmpty ? "Monitor" : "Watching for: \(job.name)"
+        }
+    }
+
+    /// How long a job has run, or how long it has left when it has an end. Never negative: the
+    /// clock can step back.
+    static func jobTime(_ job: BackgroundJob, now: Date) -> String {
+        if let end = job.endsBy { return "ends in " + elapsed(max(0, end.timeIntervalSince(now))) }
+        return elapsed(max(0, now.timeIntervalSince(job.startedAt)))
+    }
+
+    /// The tail of a list of jobs that did not fit.
+    static func moreJobs(_ count: Int) -> String { "+\(count) more" }
+
+    /// The red badge beside "needs you": how long the row has waited, from the first second,
+    /// on the clock a working row keeps. Nil for a row not waiting on the person.
+    static func waited(_ row: AgentRow?) -> String? {
+        guard let row, row.status == .needsYou else { return nil }
+        return elapsed(row.quietFor)
+    }
+
+    /// A wait read out: "4m" is read as four metres.
+    static func waitedAloud(_ seconds: TimeInterval) -> String {
+        func count(_ n: Int, _ unit: String) -> String { "\(n) \(unit)\(n == 1 ? "" : "s")" }
+        let total = Int(seconds)
+        if total < 60 { return "waiting \(count(total, "second"))" }
+        let minutes = total / 60
+        if minutes < 60 { return "waiting \(count(minutes, "minute"))" }
+        let hours = "waiting \(count(minutes / 60, "hour"))"
+        return minutes % 60 == 0 ? hours : "\(hours) \(count(minutes % 60, "minute"))"
+    }
+
+    /// The longest wait on the bar, where the ring stands: whole minutes from the first, so
+    /// nothing at the top of the screen ticks every second, and short enough for the wing.
+    static func barWait(_ seconds: TimeInterval?) -> String? {
+        guard let seconds, seconds >= 60 else { return nil }
+        let minutes = Int(seconds) / 60
+        return minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h"
     }
 
     /// The word shown in place of progress, or nil while the agent is working.
@@ -660,11 +722,13 @@ enum Format {
         switch status {
         case .working:
             return nil
-        case .quiet, .needsYou:
+        case .quiet:
             // Two minutes and forty minutes of silence mean different things; say which.
-            let word = status == .quiet ? "quiet" : "needs you"
             let minutes = Int(quietFor) / 60
-            return minutes < 1 ? word : "\(word) \(span(minutes: minutes))"
+            return minutes < 1 ? "quiet" : "quiet \(span(minutes: minutes))"
+        case .needsYou:
+            // For how long is on the red badge beside it: `waited`.
+            return "needs you"
         case .done:
             return isMain ? "idle" : "done"
         }
@@ -1001,10 +1065,23 @@ struct PanelView: View {
                         // Once a plan limit has run out, a fish on the line: the crew went fishing.
                         // Looked at twice a minute, so the coffee is back once the limit resets.
                         TimelineView(.periodic(from: .now, by: 30)) { context in
-                            if let out = limits.display.runOut(now: context.date) {
-                                if out.weekly { Van(size: 18) } else { Fish(size: 18) }
-                            } else {
-                                Mug(size: 18)
+                            let jobs = sessions.flatMap(\.jobs)
+                            // Beside it, while a job left in the background still runs: the crew
+                            // rests, its commands don't. Still and dim once every job has run half
+                            // an hour. Only here, with nobody at work: it never stands in for one.
+                            // Five from the end, 18 of coffee, a gap of three and a screen of 17:
+                            // 43 of the wing's 44, and nothing may run under the notch.
+                            HStack(spacing: 3) {
+                                if let out = limits.display.runOut(now: context.date) {
+                                    if out.weekly { Van(size: 18) } else { Fish(size: 18) }
+                                } else {
+                                    Mug(size: 18)
+                                }
+                                if !jobs.isEmpty {
+                                    JobScreen(size: 17, still: BackgroundJobs.resting(jobs, now: context.date))
+                                        .accessibilityElement(children: .ignore)
+                                        .accessibilityLabel(Text(verbatim: Format.jobsInBackground(jobs)))
+                                }
                             }
                         }
                     }
@@ -1131,9 +1208,17 @@ struct PanelView: View {
                         .accessibilityHidden(true)
                 }
                 Spacer(minLength: 0)
-                // How much of the 5-hour limit is used, when that is known. Gone with the panel
-                // open, as the number is: the line under the bar has both limits in full.
-                if let ring = limits.display.ring {
+                // While someone has waited a minute or more, how long the longest wait has run, in
+                // the ring's place: the other wing is full. A wait outranks the limit, which the line
+                // under the bar has in full. Gone with the panel open, as the number is.
+                if let wait = AgentStore.longestWait(sessions), let text = Format.barWait(wait) {
+                    Text(verbatim: text).bold().foregroundStyle(MascotFlag.red).fixedSize()
+                        .opacity(state.expanded ? 0 : 1)
+                        .animation(motion.reveal(index: 0), value: state.expanded)
+                        .accessibilityLabel(Text(verbatim: Format.waitedAloud(wait)))
+                } else if let ring = limits.display.ring {
+                    // How much of the 5-hour limit is used, when that is known. Gone with the panel
+                    // open, as the number is: the line under the bar has both limits in full.
                     LimitRingView(ring: ring)
                         .opacity(state.expanded ? 0 : 1)
                         .animation(motion.reveal(index: 0), value: state.expanded)
@@ -1197,12 +1282,14 @@ struct PanelView: View {
                 .help(Format.legendHelp(showing: state.showingLegend && !state.showingSettings))
                 .accessibilityLabel(Text(verbatim: Format.legendHelp(showing: state.showingLegend && !state.showingSettings)))
                 Button { state.showingSettings.toggle() } label: {
-                    Image(systemName: "gearshape").frame(width: 26, height: 26).contentShape(Rectangle()).hoverFill()
+                    Image(systemName: "gearshape").frame(width: 26, height: 26)
+                        .overlay(alignment: .topTrailing) { if updates.waiting != nil { UpdateDot().padding(4) } }
+                        .contentShape(Rectangle()).hoverFill()
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.white.opacity(state.showingSettings ? 1 : 0.6))
-                .help(Format.gearHelp(showingSettings: state.showingSettings))
-                .accessibilityLabel(Text(verbatim: Format.gearHelp(showingSettings: state.showingSettings)))
+                .help(Format.gearHelp(showingSettings: state.showingSettings, update: updates.waiting))
+                .accessibilityLabel(Text(verbatim: Format.gearHelp(showingSettings: state.showingSettings, update: updates.waiting)))
             }
             .padding(.trailing, 8)
             .modifier(Reveal(shown: state.expanded, index: 0, motion: motion, travels: false))
@@ -1274,8 +1361,9 @@ struct PanelView: View {
         .onChange(of: sessions) { _, cards in listen(cards) }
         .onChange(of: store.loaded, initial: true) { _, _ in listen(sessions) }
         // Turned on, by the speaker or in the settings: the person hears what that means.
+        // Turned off: quiet now, not after the clip playing.
         .onChange(of: settings.sounds) { _, on in
-            if on { sound.sample(sessions) }
+            if on { sound.sample(sessions, turnedOn: true) } else { sound.silence() }
         }
         // A new way for the crew to sound: the person hears it at once.
         .onChange(of: settings.soundStyle) { _, _ in
@@ -1882,6 +1970,7 @@ struct HiddenRow: View {
                 if let status, let text = Format.cardStatus(status) {
                     Text(verbatim: text).fixedSize()
                         .foregroundStyle(status.main?.status == .needsYou ? MascotFlag.red : Color.white.opacity(0.6))
+                    WaitBadge(row: status.main)
                 }
                 Text(verbatim: word).foregroundStyle(.white).fixedSize()
             }
@@ -2148,6 +2237,22 @@ struct BarBadge: View {
     }
 }
 
+/// How long a row has waited on the person, beside its "needs you": black on red, as the bar's
+/// count is. One column on every card, so the longest wait can be found at a glance. Nothing
+/// for a row that is not waiting.
+struct WaitBadge: View {
+    let row: AgentRow?
+
+    var body: some View {
+        if let row, let text = Format.waited(row) {
+            Text(verbatim: text).bold().foregroundStyle(.black).fixedSize()
+                .padding(.horizontal, 5)
+                .background(MascotFlag.red, in: Capsule())
+                .accessibilityLabel(Text(verbatim: Format.waitedAloud(row.quietFor)))
+        }
+    }
+}
+
 /// App icons by where the app is on disk, each asked of the system once. Main thread only.
 enum AppIcons {
     private static var known: [String: NSImage] = [:]
@@ -2390,11 +2495,14 @@ struct SessionCardView: View {
             // How it is doing, then which model: two sizes, set on one baseline.
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if let label = Format.cardStatus(card) {
+                    // The jobs' count is no length of time: no tip, rather than one that says it is.
+                    let jobs = !card.jobs.isEmpty && label == Format.jobsRunning(card.jobs)
                     // Red where the person is waited on, as on the bar and the mascot.
                     Text(verbatim: label).fontWeight(card.main?.status == .needsYou ? .bold : .regular)
                         .foregroundStyle(card.main?.status == .needsYou ? MascotFlag.red : Format.runningClock(card) ? .white.opacity(0.6) : .white)
-                        .help(Format.timeHelp)
+                        .help(Text(verbatim: jobs ? "" : Format.timeHelp))
                 }
+                WaitBadge(row: card.main)
                 if let main = card.main {
                     Text(main.info.model).font(CardStyle.aside).foregroundStyle(.white.opacity(0.6))
                 }
@@ -2444,6 +2552,9 @@ struct SessionCardView: View {
                             heading
                             place
                         }
+                        // What it left running, whether or not its turn is over: a dev server
+                        // runs on while Claude edits.
+                        if !card.jobs.isEmpty { JobList(jobs: card.jobs, reserveHide: hide != nil || reserveHide) }
                         // No step line above a request: the request says what is asked, in full, and
                         // the step would repeat it or name something older.
                         if let main = card.main, main.status != .done, asking?.requests(main.id).isEmpty ?? true,
@@ -2543,6 +2654,48 @@ struct WayToAnswer: View {
     }
 }
 
+/// The jobs a session left running, a line each, oldest on top: the newest three, then how many
+/// more. Looked at once a second, for the clocks.
+struct JobList: View {
+    let jobs: [BackgroundJob]
+    var reserveHide = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            VStack(alignment: .leading, spacing: CardStyle.line) {
+                ForEach(jobs.suffix(3)) { job in
+                    let long = job.isLong(now: context.date)
+                    // Half an hour in, likely left running on purpose: dimmed, as a quiet agent is.
+                    // Once: the screen stops and dims itself, as on the bar.
+                    let dim = long ? 0.5 : 1
+                    // verbatim: what a job does is the model's own words, never Markdown.
+                    let line = Format.jobLine(job)
+                    HStack(spacing: 6) {
+                        Group {
+                            switch job.kind {
+                            case .shell: JobScreen(size: 14, still: long)
+                            case .monitor: JobEye(size: 14).opacity(dim)
+                            }
+                        }
+                        .frame(width: 14, height: 14)
+                        Text(verbatim: line).lineLimit(1).help(Text(verbatim: line)).opacity(dim)
+                        Spacer(minLength: 8)
+                        // Whole, as an agent row's time is: a long name gives way first.
+                        Text(verbatim: Format.jobTime(job, now: context.date)).monospacedDigit().opacity(dim).fixedSize()
+                    }
+                    // One thing for VoiceOver: the time alone said nothing of which job.
+                    .accessibilityElement(children: .combine)
+                }
+                if jobs.count > 3 { Text(verbatim: Format.moreJobs(jobs.count - 3)) }
+            }
+            .font(CardStyle.aside)
+            .foregroundStyle(.white.opacity(0.8))
+            // The clocks in line with the model's name, which keeps a place for the hide button.
+            .padding(.trailing, reserveHide ? 8 + 18 : 0)
+        }
+    }
+}
+
 /// A card's finished subagents in one line. Click to list them.
 struct DoneRow: View {
     let agents: [AgentRow]
@@ -2619,6 +2772,7 @@ struct AgentRowView: View {
                                     .fontWeight(row.status == .needsYou ? .bold : .regular)
                                     .foregroundStyle(row.status == .needsYou ? MascotFlag.red : row.status == .working && Format.lastMoved(row.status, silentFor: row.quietFor) == nil ? .white.opacity(0.6) : .white)
                                     .help(Format.timeHelp)
+                                WaitBadge(row: row)
                                 // Dim on every row, as on the session's own. Coloured only where it
                                 // differed from the session's, the rule could not be read off the screen.
                                 Text(verbatim: row.info.model).font(CardStyle.aside).foregroundStyle(.white.opacity(0.6))

@@ -77,6 +77,66 @@ final class SoundTests: XCTestCase {
         center.post(name: Notification.Name(name), object: nil)
     }
 
+    private func job(age: TimeInterval, at seconds: TimeInterval) -> BackgroundJob {
+        BackgroundJob(id: "j", kind: .shell, name: "", startedAt: after(seconds - age), endsBy: nil)
+    }
+
+    func testAYoungJobHoldsTheDoneSoundUntilItEnds() {
+        let began = Sound.finished([card(.working)], since: [:], now: now).since
+        var held = card(.done, moved: after(40)); held.jobs = [job(age: 60, at: 50)]
+        let waiting = Sound.finished([held], since: began, now: after(50))
+        XCTAssertTrue(waiting.finished.isEmpty)
+        XCTAssertEqual(waiting.since, ["s": now])
+        XCTAssertEqual(Sound.finished([card(.done, moved: after(200))], since: waiting.since, now: after(210)).finished.map(\.id), ["s"])
+    }
+
+    // The job turned half an hour old with nothing more written: the turn ended long ago.
+    func testAFinishHeldUntilTheJobAgesIsDroppedNotSounded() {
+        let began = Sound.finished([card(.working)], since: [:], now: now).since
+        var held = card(.done, moved: after(40)); held.jobs = [job(age: 60, at: 50)]
+        let waiting = Sound.finished([held], since: began, now: after(50))
+        XCTAssertTrue(waiting.finished.isEmpty)
+        var aged = card(.done, moved: after(40)); aged.jobs = [job(age: 1800, at: 1790)]
+        let late = Sound.finished([aged], since: waiting.since, now: after(1790))
+        XCTAssertTrue(late.finished.isEmpty)
+        XCTAssertEqual(late.since, [:])
+    }
+
+    // The job's end is written before the line that wakes Claude, and the two may be read apart:
+    // the card is idle, jobless, and its last line is old. The held sound still rings.
+    func testAJobEndingWhileIdleStillRingsTheHeldSound() {
+        let began = Sound.finished([card(.working)], since: [:], now: now).since
+        var held = card(.done, moved: after(40)); held.jobs = [job(age: 60, at: 50)]
+        let waiting = Sound.finished([held], since: began, now: after(50))
+        XCTAssertTrue(waiting.finished.isEmpty)
+        let ended = Sound.finished([card(.done, moved: after(40))], since: waiting.since, now: after(300))
+        XCTAssertEqual(ended.finished.map(\.id), ["s"])
+    }
+
+    // An old dev server is no reason to call a finish stale: only a job that aged out is.
+    func testAnOldJobBesideAYoungOneEndingDoesNotMakeTheFinishStale() {
+        let began = Sound.finished([card(.working)], since: [:], now: now).since
+        var held = card(.done, moved: after(40)); held.jobs = [job(age: 2000, at: 50), job(age: 60, at: 50)]
+        let waiting = Sound.finished([held], since: began, now: after(50))
+        XCTAssertTrue(waiting.finished.isEmpty)
+        var ended = card(.done, moved: after(40)); ended.jobs = [job(age: 2250, at: 300)]
+        XCTAssertEqual(Sound.finished([ended], since: waiting.since, now: after(300)).finished.map(\.id), ["s"])
+    }
+
+    func testAJobPastHalfAnHourHoldsNothing() {
+        let began = Sound.finished([card(.working)], since: [:], now: now).since
+        var long = card(.done, moved: after(40)); long.jobs = [job(age: 1800, at: 50)]
+        XCTAssertEqual(Sound.finished([long], since: began, now: after(50)).finished.map(\.id), ["s"])
+    }
+
+    func testAClosedSessionFinishesNothing() {
+        let began = Sound.finished([card(.working)], since: [:], now: now).since
+        var closed = card(.done, moved: after(40)); closed.closed = true
+        let gone = Sound.finished([closed], since: began, now: after(50))
+        XCTAssertTrue(gone.finished.isEmpty)
+        XCTAssertEqual(gone.since, [:])
+    }
+
     /// The one session of a test that has only one.
     private func card(_ status: AgentStatus, ran: TimeInterval = 0, agents: [AgentStatus] = [], moved: Date? = nil,
                       look: LeadLook? = LeadLook(face: 1), tool: String? = nil, agentType: String = "agent",
@@ -642,6 +702,21 @@ final class SoundTests: XCTestCase {
         XCTAssertEqual(played, ["pearl-need-generic-1.m4a", "walt-need-generic-1.m4a"])
     }
 
+    // The speaker button says sounds are on, not that someone waits; the Voice picker still
+    // plays a wait, which is what the person will hear.
+    func testTurningSoundsOnSaysSoAndTheVoicePickerPlaysAWait() {
+        player.sample([], turnedOn: true)
+        player.sample([])
+        XCTAssertEqual(played, ["walt-on-1.m4a", "walt-need-generic-1.m4a"])
+    }
+
+    // An old bundle with no such line: the wait line, not silence.
+    func testTurningSoundsOnWithoutItsLineFallsBackToAWait() throws {
+        player.sounds = CrewSounds(folder: try folder(holding: ["walt-need-generic-1.m4a"]))
+        player.sample([], turnedOn: true)
+        XCTAssertEqual(played, ["walt-need-generic-1.m4a"])
+    }
+
     // The speaker never said the clip ended, and it is not playing: the next bark still plays.
     // Its file is empty, so nothing is heard; that it was tried shows in the crew's memory.
     func testAClipThatStoppedWithoutSayingSoDoesNotSilenceTheRest() throws {
@@ -682,6 +757,44 @@ final class SoundTests: XCTestCase {
         post("com.apple.screenIsLocked")
         XCTAssertFalse(player.speaking)
         XCTAssertNil(player.playing)
+    }
+
+    /// A system sound playing at no volume: a clip the speaker is in the middle of, heard by nobody.
+    private func playingClip() throws -> NSSound {
+        let clip = try XCTUnwrap(NSSound(named: "Glass")?.copy() as? NSSound)
+        clip.volume = 0
+        XCTAssertTrue(clip.play())
+        addTeardownBlock { clip.stop() }
+        player.speaking = true
+        player.playing = clip
+        return clip
+    }
+
+    // Sounds off: the clip playing stops at once, and nothing waiting behind it plays after.
+    func testTurningSoundsOffStopsTheClipAndDropsTheQueue() throws {
+        player.sink = nil
+        player.sounds = CrewSounds(folder: try folder(holding: ["walt-need-generic-1.m4a"]))
+        let clip = try playingClip()
+        player.sample([])
+        list([card(.working)])
+        list([card(.needsYou)], at: 5)
+        settings.sounds = false
+        player.silence()
+        XCTAssertFalse(clip.isPlaying)
+        XCTAssertNil(player.playing)
+        XCTAssertNil(player.queued)
+        XCTAssertFalse(player.speaking)
+    }
+
+    // Clicked on again and again: each click is heard now, never in a line behind the last.
+    func testTheSampleCutsOffTheClipPlaying() throws {
+        player.sink = nil
+        player.sounds = CrewSounds(folder: try folder(holding: ["walt-need-generic-1.m4a"]))
+        let clip = try playingClip()
+        player.sample([])
+        XCTAssertFalse(clip.isPlaying)
+        XCTAssertNil(player.queued)
+        XCTAssertFalse(player.speaking)
     }
 
     // A clip waiting its turn meets the rules as they are when it would start.

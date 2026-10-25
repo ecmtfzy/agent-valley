@@ -352,9 +352,10 @@ final class AnswerStore: ObservableObject {
                 guard let first = requests(forRow: row.id, in: card).map(\.receivedAt).min() else { return row }
                 return AgentRow(id: row.id, info: row.info, status: .needsYou, elapsed: row.elapsed, quietFor: time.timeIntervalSince(first))
             }
-            return SessionCard(id: card.id, project: card.project, branch: card.branch, main: card.main.map(shown),
-                               agents: card.agents.map(shown), startedAt: card.startedAt, title: card.title, owner: card.owner, worktree: card.worktree,
-                               look: card.look)
+            var card = card
+            card.main = card.main.map(shown)
+            card.agents = card.agents.map(shown)
+            return card
         }
     }
 

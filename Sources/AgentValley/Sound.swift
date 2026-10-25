@@ -7,6 +7,12 @@ enum Sound {
     // ponytail: one length for everyone; make it a setting if people ask.
     static let shortTurn: TimeInterval = 30
 
+    /// A finish is dropped, not sounded, when a job still listed turned half an hour old more than
+    /// this after the session's last line: the sound was let go by a job aging, long after the turn
+    /// ended. A job that ended is not that, however late it is seen (it is gone from the list), and
+    /// neither is one already half an hour old by then.
+    static let staleFinish: TimeInterval = 120
+
     /// Whether `hour` falls in the quiet hours: from `start` up to, not including, `end`. A
     /// start after the end runs through midnight. The same hour for both is no quiet at all.
     static func isQuiet(hour: Int, from start: Int, until end: Int) -> Bool {
@@ -40,7 +46,8 @@ enum Sound {
     /// Follows how long each session has been at it. `since` says when each session that is not
     /// idle began; what comes back says the same for this list. Finished: a session in `since`
     /// is idle now, and wrote its last line at least `shortTurn` after it began: a row is only
-    /// called done some seconds after that line. A session first seen idle has finished
+    /// called done some seconds after that line. Not when a job aged into letting it go, more
+    /// than `staleFinish` after its last line: that finish is dropped with its start. A session first seen idle has finished
     /// nothing, and one first seen at work began when its longest-running agent did.
     /// `resumed`: when each session last stopped waiting on the person. Work is counted from the
     /// later of that and its start; the 30 s rule still counts from its start.
@@ -49,9 +56,12 @@ enum Sound {
         var going: [String: Date] = [:]
         var finished: [Finish] = []
         for card in cards {
-            if card.isIdle {
-                guard let began = since[card.id] else { continue }
+            // A young job still running keeps the session going: it is not done yet. A closed
+            // session has nothing live left to be done.
+            if card.isIdle && BackgroundJobs.resting(card.jobs, now: now) {
+                guard !card.closed, let began = since[card.id] else { continue }
                 let end = card.movedAt ?? now
+                guard !card.jobs.contains(where: { $0.startedAt.addingTimeInterval(BackgroundJobs.longAfter) > end.addingTimeInterval(staleFinish) }) else { continue }
                 if end.timeIntervalSince(began) >= shortTurn {
                     finished.append(Finish(id: card.id, worked: max(0, end.timeIntervalSince(max(began, resumed[card.id] ?? began)))))
                 }
@@ -64,8 +74,9 @@ enum Sound {
     }
 }
 
-/// What a sound is for, least to most pressing: a playing clip is never cut off, and the one
-/// waiting behind it gives way only to something as pressing or more.
+/// What a sound is for, least to most pressing: a playing clip is cut off only by the person
+/// (a sample, sounds off, the lock), and the one waiting behind it gives way only to something
+/// as pressing or more.
 enum BarkKind: Int, Comparable {
     case finished, scene, needsYou
 
@@ -186,6 +197,12 @@ final class SoundPlayer: NSObject, NSSoundDelegate {
         ended()
     }
 
+    /// Sounds turned off: the clip playing stops mid-word, and nothing waiting behind it plays after.
+    func silence() {
+        queued = nil
+        hush()
+    }
+
     /// Whether this moment is in the person's quiet hours.
     func quiet(at now: Date) -> Bool {
         settings.quietHours && Sound.isQuiet(hour: hour(now), from: settings.quietFrom, until: settings.quietUntil)
@@ -276,12 +293,16 @@ final class SoundPlayer: NSObject, NSSoundDelegate {
         if let name { say(.scene, name, at: nil) }
     }
 
-    /// A wait's sound, on the person's own click: they have just turned sounds on or picked
-    /// how the crew sounds, and hear what that means. Said by the lead of the newest session
-    /// that has one, or by Walt. Not held back by the quiet hours.
-    func sample(_ cards: [SessionCard]) {
+    /// A sound on the person's own click: they have just turned sounds on or picked how the
+    /// crew sounds, and hear what that means. `turnedOn`: the lead says sounds are on; else a
+    /// wait, which is what the person will hear. Said by the lead of the newest session that
+    /// has one, or by Walt. Not held back by the quiet hours. Heard at once: it cuts off the
+    /// clip playing, so clicks in a row never line up behind each other.
+    func sample(_ cards: [SessionCard], turnedOn: Bool = false) {
         let lead = cards.filter { $0.look != nil }.max { $0.startedAt < $1.startedAt }?.look.map(Crew.lead) ?? .walt
-        say(.needsYou, file(lead, lead: lead, groups: [CrewSounds.group(WaitTopic.generic)], moment: "need"), at: nil, asked: true)
+        let groups = (turnedOn ? [CrewSounds.turnedOn] : []) + [CrewSounds.group(WaitTopic.generic)]
+        silence()
+        say(.needsYou, file(lead, lead: lead, groups: groups, moment: "need"), at: nil, asked: true)
     }
 
     /// Who speaks for a wait that has just begun in `card`, and about what: its own row if that

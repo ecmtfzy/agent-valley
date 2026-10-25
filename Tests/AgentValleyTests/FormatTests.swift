@@ -82,7 +82,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.rowTime(.working, elapsed: 400, quietFor: 14 * 60 + 20), "14m ago")
         XCTAssertEqual(Format.rowTime(.working, elapsed: 400, quietFor: 20), "6m 40s")
         XCTAssertEqual(Format.rowTime(.quiet, elapsed: 400, quietFor: 300), "quiet 5m")
-        XCTAssertEqual(Format.rowTime(.needsYou, elapsed: 400, quietFor: 70), "needs you 1m")
+        XCTAssertEqual(Format.rowTime(.needsYou, elapsed: 400, quietFor: 70), "needs you")
         XCTAssertEqual(Format.rowTime(.done, elapsed: 400, quietFor: 0), "done")
         XCTAssertEqual(Format.lastMoved(.working, silentFor: 3700), "1h 01m ago")
         // Quiet and asking rows already say for how long, beside their name.
@@ -105,7 +105,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.cardStatus(card(main: .done, agents: [.quiet])), "idle")
         // At work and silent for three minutes: since when, where its time would stand.
         XCTAssertEqual(Format.cardStatus(card(main: .working, agents: [.working])), "3m ago")
-        XCTAssertEqual(Format.cardStatus(card(main: .needsYou, agents: [.working])), "needs you 3m")
+        XCTAssertEqual(Format.cardStatus(card(main: .needsYou, agents: [.working])), "needs you")
     }
 
     func testQuitLabelNamesTheApp() {
@@ -297,9 +297,48 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.answersStatus(.failed("its folder is open to other accounts"), now: now), "Could not listen: its folder is open to other accounts. Switch it off and on to try again.")
     }
 
-    func testNeedsYouLabelSaysForHowLong() {
+    // How long it has waited is on the red badge beside the words, not in them.
+    func testNeedsYouLabelLeavesTheTimeToItsBadge() {
         XCTAssertEqual(Format.statusLabel(.needsYou, isMain: false, quietFor: 20), "needs you")
-        XCTAssertEqual(Format.statusLabel(.needsYou, isMain: true, quietFor: 200), "needs you 3m")
+        XCTAssertEqual(Format.statusLabel(.needsYou, isMain: true, quietFor: 200), "needs you")
+    }
+
+    // A tester asked how long each agent had waited, to answer the oldest first. The badge
+    // counts from the first second, as a working row's clock does.
+    func testTheWaitBadgeCountsFromTheFirstSecond() {
+        func row(_ status: AgentStatus, waited: TimeInterval) -> AgentRow {
+            AgentRow(id: "r", info: AgentInfo(), status: status, elapsed: 0, quietFor: waited)
+        }
+        XCTAssertEqual(Format.waited(row(.needsYou, waited: 0)), "0s")
+        XCTAssertEqual(Format.waited(row(.needsYou, waited: 41)), "41s")
+        XCTAssertEqual(Format.waited(row(.needsYou, waited: 255)), "4m 15s")
+        XCTAssertEqual(Format.waited(row(.needsYou, waited: 3900)), "1h 05m")
+        XCTAssertNil(Format.waited(row(.quiet, waited: 255)))
+        XCTAssertNil(Format.waited(row(.working, waited: 255)))
+        XCTAssertNil(Format.waited(nil))
+    }
+
+    // Read out in words: "4m" is read as four metres.
+    func testTheWaitIsReadOutInWords() {
+        XCTAssertEqual(Format.waitedAloud(1), "waiting 1 second")
+        XCTAssertEqual(Format.waitedAloud(41), "waiting 41 seconds")
+        XCTAssertEqual(Format.waitedAloud(60), "waiting 1 minute")
+        XCTAssertEqual(Format.waitedAloud(255), "waiting 4 minutes")
+        XCTAssertEqual(Format.waitedAloud(3600), "waiting 1 hour")
+        XCTAssertEqual(Format.waitedAloud(3900), "waiting 1 hour 5 minutes")
+        XCTAssertEqual(Format.waitedAloud(7260), "waiting 2 hours 1 minute")
+    }
+
+    // The bar: whole minutes only, from the first, so nothing at the top of the screen ticks
+    // every second.
+    func testTheBarSaysTheLongestWaitInWholeMinutes() {
+        XCTAssertNil(Format.barWait(nil))
+        XCTAssertNil(Format.barWait(59))
+        XCTAssertEqual(Format.barWait(60), "1m")
+        XCTAssertEqual(Format.barWait(12 * 60 + 59), "12m")
+        XCTAssertEqual(Format.barWait(59 * 60 + 59), "59m")
+        XCTAssertEqual(Format.barWait(3600 + 1800), "1h")
+        XCTAssertEqual(Format.barWait(10 * 3600), "10h")
     }
 
     // "quiet" alone does not say whether it has been two minutes or forty.
@@ -385,6 +424,9 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.pinHelp(pinned: true), "Let the panel close again")
         XCTAssertEqual(Format.gearHelp(showingSettings: false), "Settings")
         XCTAssertEqual(Format.gearHelp(showingSettings: true), "Back to agents")
+        // The green dot on the gear, in words: under the pointer and to a screen reader.
+        XCTAssertEqual(Format.gearHelp(showingSettings: false, update: "0.3.4"), "Settings · Version 0.3.4 came in.")
+        XCTAssertEqual(Format.gearHelp(showingSettings: true, update: "0.3.4"), "Back to agents")
         XCTAssertEqual(Format.historyHelp(showing: false), "History")
         XCTAssertEqual(Format.historyHelp(showing: true), "Back to agents")
     }
@@ -660,6 +702,7 @@ final class FormatTests: XCTestCase {
         // colour takes over were more than a reader needs.
         XCTAssertEqual(Format.barMascotCaption, "The mascot on the bar is the agent to look at first.")
         XCTAssertEqual(Format.barCaption, "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet.")
+        XCTAssertEqual(Format.waitCaption, "Once an agent has waited a minute for you, the longest wait shows in red where the ring is.")
         XCTAssertEqual(Format.ringCaption, "The ring shows how much of your 5-hour limit is used. It turns yellow at 80%. It is shown only when Plan limits is on.")
         XCTAssertEqual(Format.beatCaption, "While an agent waits for you, the bar glows red every few seconds, until you open the panel.")
         // A label that was half a sentence, and "your login", which could have been a password.
@@ -674,9 +717,9 @@ final class FormatTests: XCTestCase {
         var card = SessionCard(id: "/r/p/s1", project: "api", branch: "main",
                                main: AgentRow(id: "/r/p/s1.jsonl", info: AgentInfo(), status: .needsYou, elapsed: 0, quietFor: 250),
                                agents: [], startedAt: Date(timeIntervalSince1970: 0))
-        XCTAssertEqual(Format.chosen(card), "api, needs you 4m")
+        XCTAssertEqual(Format.chosen(card), "api, needs you, waiting 4 minutes")
         card.title = "Fix flaky login test"
-        XCTAssertEqual(Format.chosen(card), "Fix flaky login test, needs you 4m")
+        XCTAssertEqual(Format.chosen(card), "Fix flaky login test, needs you, waiting 4 minutes")
         XCTAssertEqual(Format.chosenLabel, "The arrow keys are on this session")
     }
 
@@ -820,5 +863,54 @@ final class FormatTests: XCTestCase {
             XCTAssertEqual(picture.pixelsHigh, Int(art.size.height * 2), art.file)
             XCTAssertLessThan(art.boardMiddle, art.size.height)
         }
+    }
+
+    // MARK: Background jobs
+
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func job(_ kind: BackgroundJob.Kind, _ name: String = "x", age: TimeInterval = 60, endsIn: TimeInterval? = nil) -> BackgroundJob {
+        BackgroundJob(id: name, kind: kind, name: name, startedAt: now.addingTimeInterval(-age), endsBy: endsIn.map { now.addingTimeInterval($0) })
+    }
+
+    private func card(main: AgentStatus, agents: [AgentStatus] = []) -> SessionCard {
+        func row(_ id: String, _ status: AgentStatus) -> AgentRow { AgentRow(id: id, info: AgentInfo(), status: status, elapsed: 0) }
+        return SessionCard(id: "s", project: "p", branch: "", main: row("m", main),
+                           agents: agents.enumerated().map { row("a\($0.offset)", $0.element) }, startedAt: Date(timeIntervalSince1970: 0))
+    }
+
+    func testJobCountsReadLikeClaudeCode() {
+        XCTAssertEqual(Format.jobsRunning([job(.shell)]), "1 shell running")
+        XCTAssertEqual(Format.jobsRunning([job(.shell), job(.shell)]), "2 shells running")
+        XCTAssertEqual(Format.jobsRunning([job(.monitor)]), "1 monitor running")
+        XCTAssertEqual(Format.jobsRunning([job(.monitor), job(.shell)]), "1 shell, 1 monitor running")
+        XCTAssertEqual(Format.jobsRunning([job(.shell), job(.shell), job(.monitor), job(.monitor), job(.monitor)]), "2 shells, 3 monitors running")
+        XCTAssertEqual(Format.jobsInBackground([job(.shell), job(.monitor)]), "1 shell, 1 monitor running in the background")
+    }
+
+    func testAJobLineSaysWhatItRuns() {
+        XCTAssertEqual(Format.jobLine(job(.shell, "Run CadQuery benchmark")), "Run CadQuery benchmark")
+        XCTAssertEqual(Format.jobLine(job(.monitor, "CadQuery benchmark completion")), "Watching for: CadQuery benchmark completion")
+        XCTAssertEqual(Format.jobLine(job(.shell, "")), "Background command")
+        XCTAssertEqual(Format.jobLine(job(.monitor, "")), "Monitor")
+    }
+
+    func testAJobTimeIsItsAgeOrWhenItEnds() {
+        XCTAssertEqual(Format.jobTime(job(.shell, age: 720), now: now), "12m")
+        XCTAssertEqual(Format.jobTime(job(.monitor, endsIn: 185), now: now), "ends in 3m 05s")
+        XCTAssertEqual(Format.jobTime(job(.monitor, age: 90), now: now), "1m 30s")
+        // A clock that stepped back never shows a negative time.
+        XCTAssertEqual(Format.jobTime(job(.shell, age: -30), now: now), "0s")
+        XCTAssertEqual(Format.jobTime(job(.monitor, endsIn: -5), now: now), "ends in 0s")
+        XCTAssertEqual(Format.moreJobs(2), "+2 more")
+    }
+
+    func testOnlyIdleGivesWayToTheJobCount() {
+        var idle = card(main: .done); idle.jobs = [job(.shell), job(.monitor)]
+        XCTAssertEqual(Format.cardStatus(idle), "1 shell, 1 monitor running")
+        var behind = card(main: .done, agents: [.working]); behind.jobs = [job(.shell)]
+        XCTAssertEqual(Format.cardStatus(behind), "1 working")
+        var waiting = card(main: .needsYou); waiting.jobs = [job(.shell)]
+        XCTAssertEqual(Format.cardStatus(waiting), "needs you")
     }
 }

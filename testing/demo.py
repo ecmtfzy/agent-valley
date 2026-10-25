@@ -5,14 +5,15 @@ Real sessions rarely wait on anyone while a test runs, and their requests must n
 by a test. These can be: nothing here touches your own ~/.claude.
 
   testing/demo.py start <home>
-      Writes six sessions under <home>/.claude, then keeps the working ones moving for 20
+      Writes seven sessions under <home>/.claude, then keeps the working ones moving for 20
       minutes. testing/pictures.sh runs it in the background and draws the panel over them.
         Refactor checkout flow   working, with two working sub-agents and one finished
         Fix flaky login test     asks a question with three options
         Migrate users table      has a plan waiting for approval
         Deploy preview build     waits for permission to run a command
         Bump dependencies        quiet for twelve minutes
-        Update README badges     finished two minutes ago
+        Update README badges     finished two minutes ago, a dev server and a watch on CI left running
+        Fix broken doc links     finished two minutes ago, folded into the idle line
 
   testing/demo.py ask <home> permission|question
       Sends what the plugin's hook would send for "Deploy preview build" or "Fix flaky login
@@ -52,12 +53,14 @@ SESSIONS = {
     "deploy": ("-Users-demo-shop-web", "/Users/demo/shop-web", "preview", "claude-sonnet-5-5", "Deploy preview build"),
     "deps": ("-Users-demo-docs-site", "/Users/demo/docs-site", "main", "claude-haiku-5-5", "Bump dependencies"),
     "readme": ("-Users-demo-docs-site", "/Users/demo/docs-site", "main", "claude-haiku-5-5", "Update README badges"),
+    "links": ("-Users-demo-docs-site", "/Users/demo/docs-site", "main", "claude-haiku-5-5", "Fix broken doc links"),
 }
 IDS = {name: f"00000000-0000-4000-8000-{index:012d}" for index, name in enumerate(SESSIONS, 1)}
 
 # What Claude Code's own record says of each session. "deps" says busy while its transcript has
 # been silent for twelve minutes: the quiet case that stays listed.
-RECORDS = [("checkout", "busy"), ("login", "waiting"), ("migrate", "waiting"), ("deploy", "waiting"), ("deps", "busy")]
+RECORDS = [("checkout", "busy"), ("login", "waiting"), ("migrate", "waiting"), ("deploy", "waiting"), ("deps", "busy"),
+           ("readme", "idle")]
 
 STEPS = [
     ("Read", {"file_path": "/Users/demo/shop-web/src/cart/total.ts"}),
@@ -174,8 +177,11 @@ def start(home):
     append(transcript(home, "deps"), prompt("deps", "Bump the dependencies.", 800),
            call("deps", "Bash", {"command": "npm install", "description": "Install the new versions"}, "b1", 720))
     append(transcript(home, "readme"), prompt("readme", "Fix the badges in the README.", 200),
-           call("readme", "Edit", {"file_path": "/Users/demo/docs-site/README.md"}, "r1", 150), result("r1", ago=148),
-           say("readme", "Badges point at the new CI now.", 120))
+           call("readme", "Edit", {"file_path": "/Users/demo/docs-site/README.md"}, "r1", 150), result("r1", ago=148))
+    # Idle with no jobs and no record: the one session that folds into the idle line.
+    append(transcript(home, "links"), prompt("links", "Fix the broken links in the docs.", 200),
+           call("links", "Edit", {"file_path": "/Users/demo/docs-site/guide/setup.md"}, "k1", 150), result("k1", ago=148),
+           say("links", "All links resolve now.", 120))
 
     # A record counts only while the process that wrote it lives, so each gets one of its own.
     sleepers = {}
@@ -186,6 +192,20 @@ def start(home):
         record(home, sleepers[name].pid, name, status)
     with open(os.path.join(home, "demo.json"), "w") as file:
         json.dump({name: sleeper.pid for name, sleeper in sleepers.items()}, file)
+    # Its jobs, shaped like the tests' JobLines. They start after its record: a job older than the
+    # process that holds its session died with an earlier one. A millisecond later at least: in
+    # the same one, the two dates read back in either order. Its turn still ended two minutes
+    # ago, the last line's time, or the card would read as at work for the ten seconds done waits.
+    # Should both jobs land in one millisecond, their ids keep the shell first.
+    time.sleep(0.01)
+    append(transcript(home, "readme"),
+           call("readme", "Bash", {"command": "npm run dev", "description": "Serve the docs site", "run_in_background": True}, "r2", 125),
+           dict(result("r2"), toolUseResult={"stdout": "", "stderr": "", "interrupted": False, "isImage": False,
+                                             "noOutputExpected": False, "backgroundTaskId": "bdocs1srv"}),
+           call("readme", "Monitor", {"description": "CI run for the badge fix", "timeout_ms": 900_000, "persistent": True,
+                                      "command": "gh run watch"}, "r3", 123),
+           dict(result("r3"), toolUseResult={"taskId": "bwatch2ci", "timeoutMs": 900_000, "persistent": True}),
+           say("readme", "Badges point at the new CI now.", 120))
 
     def stop(*_):
         for sleeper in sleepers.values():

@@ -127,8 +127,8 @@ struct SessionCard: Identifiable, Equatable {
     let id: String
     let project: String
     let branch: String
-    let main: AgentRow?
-    let agents: [AgentRow]
+    var main: AgentRow?
+    var agents: [AgentRow]
     let startedAt: Date
     /// The session's own title, or empty when Claude Code has not named it.
     var title = ""
@@ -143,6 +143,12 @@ struct SessionCard: Identifiable, Equatable {
     var repo = ""
     /// Where the session's folder sits in git, while git can tell.
     var git: GitPlace?
+    /// Background jobs the session still has running, oldest first.
+    var jobs: [BackgroundJob] = []
+    /// Listed only because it has jobs: its agents are old enough that it would be gone without them.
+    var onlyForJobs = false
+    /// The machine keeps records of live sessions, and this one has none: its terminal is closed.
+    var closed = false
 }
 
 extension SessionCard {
@@ -197,7 +203,10 @@ extension SessionCard {
         func quiet(_ row: AgentRow) -> AgentRow {
             row.status == .working ? AgentRow(id: row.id, info: row.info, status: .quiet, elapsed: row.elapsed, quietFor: row.quietFor, calledBusy: true) : row
         }
-        return SessionCard(id: id, project: project, branch: branch, main: main.map(quiet), agents: agents.map(quiet), startedAt: startedAt, title: title, owner: owner, worktree: worktree, look: look, repo: repo, git: git)
+        var card = self
+        card.main = main.map(quiet)
+        card.agents = agents.map(quiet)
+        return card
     }
 }
 
@@ -308,8 +317,10 @@ final class AgentStore: ObservableObject {
     /// by file name. Only touched on `queue`.
     private var records: [String: (record: SessionRecord, misses: Int)] = [:]
     private let processStart: (Int32) -> Date?
-    /// The sessions a running Claude Code holds a record of, by session id. Only touched on `queue`.
-    private var running: Set<String> = []
+    /// The sessions a running Claude Code holds a record of, with when that process started, by session id. Only touched on `queue`.
+    private var runningSince: [String: Date] = [:]
+    /// Whether the sessions folder could be listed. A Claude Code that keeps no records has none; one that removed its last record on exit has the folder, empty. Only touched on `queue`.
+    private var keepsRecords = false
     /// Who sits in which session. Only touched on `queue`.
     private var roster: Roster
     /// Where the roster is kept, or nil to keep it in memory only.
@@ -441,6 +452,11 @@ final class AgentStore: ObservableObject {
             + rows.filter { $0.status == .working && !$0.isStalled } + rows.filter { $0.status == .working && $0.isStalled }
     }
 
+    /// How long the longest of the waits on the person has run, nil with nobody waiting.
+    static func longestWait(_ sessions: [SessionCard]) -> TimeInterval? {
+        sessions.flatMap(\.rows).filter { $0.status == .needsYou }.map(\.quietFor).max()
+    }
+
     /// How many rows wait on the person in each session that has any.
     static func waiting(_ sessions: [SessionCard]) -> [String: Int] {
         Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0.rows.filter { $0.status == .needsYou }.count) }.filter { $0.1 > 0 })
@@ -495,7 +511,7 @@ final class AgentStore: ObservableObject {
     /// idle. Each has a line on it that says how a request ended, and a folded card has no
     /// place for it.
     static func arrange(_ sessions: [SessionCard], idle: IdleSessions, keeping: Set<String> = []) -> SessionList {
-        func folds(_ card: SessionCard) -> Bool { card.isIdle && !keeping.contains(AnswerStore.sessionID(of: card)) }
+        func folds(_ card: SessionCard) -> Bool { card.isIdle && card.jobs.isEmpty && !keeping.contains(AnswerStore.sessionID(of: card)) }
         switch idle {
         case .show: return SessionList(cards: sessions, folded: [])
         case .hide: return SessionList(cards: sessions.filter { !folds($0) }, folded: [])
@@ -505,8 +521,8 @@ final class AgentStore: ObservableObject {
 
     /// The sessions in the order the panel lists them. By project, each project's sessions
     /// stand together, the projects in the order their newest session came. By status, those
-    /// that wait on the person come first, then those at work, the quiet and the idle. Inside
-    /// a group the order they came in is kept.
+    /// that wait on the person come first, the longest wait first, then those at work, the quiet
+    /// and the idle. Inside the other groups the order they came in is kept.
     static func ordered(_ sessions: [SessionCard], by grouping: Grouping) -> [SessionCard] {
         // Gathered, not sorted: gathering keeps each group in the order it came in, which a
         // sort does not promise, and works out each card's group once.
@@ -518,7 +534,11 @@ final class AgentStore: ObservableObject {
             return order.flatMap { groups[$0] ?? [] }
         case .status:
             let groups = Dictionary(grouping: sessions, by: \.group)
-            return StatusGroup.allCases.flatMap { groups[$0] ?? [] }
+            // The oldest wait is the one to answer first. A wait's start does not move, so one that
+            // begins joins the end and those above stay put. Ties keep the order they came in.
+            let waiting = (groups[.needsYou] ?? []).enumerated().map { ($0, longestWait([$1]) ?? 0, $1) }
+                .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0 < $1.0 }.map(\.2)
+            return waiting + StatusGroup.allCases.filter { $0 != .needsYou }.flatMap { groups[$0] ?? [] }
         }
     }
 
@@ -654,7 +674,9 @@ final class AgentStore: ObservableObject {
     /// Reads Claude Code's own record of each live session. Only files named `<pid>.json` are opened.
     // ponytail: read on the one-second tick, a handful of small files; watch the folder if it ever shows in a profile.
     func readSessions() {
-        let names = ((try? FileManager.default.contentsOfDirectory(atPath: sessionsFolder)) ?? []).filter(SessionRecords.isRecordName)
+        let listing = try? FileManager.default.contentsOfDirectory(atPath: sessionsFolder)
+        keepsRecords = listing != nil
+        let names = (listing ?? []).filter(SessionRecords.isRecordName)
         var read: [String: (record: SessionRecord, misses: Int)] = [:]
         for name in names {
             guard let data = FileManager.default.contents(atPath: sessionsFolder + "/" + name) else { continue }
@@ -677,7 +699,7 @@ final class AgentStore: ObservableObject {
         let unread = Set(names.filter { read[$0] == nil }.compactMap { last[$0]?.record.sessionId })
         let gone = Set(states.keys).subtracting(live.keys).subtracting(unread).map { ($0, SessionState(activity: .idle)) }
         states = live.mapValues(\.state).merging(gone) { held, _ in held }
-        running = Set(live.keys)
+        runningSince = live.mapValues(\.startedAt)
         // A process keeps its ancestors: an app once found is kept, and forgotten with its record.
         // One not found is looked for again, as the app may only be closed for now.
         var found: [Int32: (startedAt: Date, app: OwnerApp, route: SendRoute)] = [:]
@@ -737,7 +759,7 @@ final class AgentStore: ObservableObject {
     /// anything in its session is fresh. `visibleFor` is for agents that have finished; one still
     /// in the middle of a turn keeps at least the default window, or a long command would hide it.
     static func visible(_ files: [String: TrackedFile], now: Date, visibleFor: TimeInterval = AgentStore.defaultVisibleFor,
-                        claimed: [String: SessionState] = [:]) -> [String: TrackedFile] {
+                        claimed: [String: SessionState] = [:], holding: Set<String> = []) -> [String: TrackedFile] {
         // A file with no conversation line is not an agent anyone ran: some other program's
         // file under the folder, a stub Claude Code left behind, or one cut off before its first
         // line ended. Its own time used to stand in, and each such file was listed as an agent
@@ -747,6 +769,7 @@ final class AgentStore: ObservableObject {
             // Claude Code says the session is at work or waiting on the person: its card stays,
             // however long the transcript has been silent.
             // ponytail: a suspended Claude Code keeps saying busy, so its card stays until `forget` drops it after a day.
+            if $0.value.isMain, holding.contains($0.value.session) { return true }
             if $0.value.isMain, let activity = claimed[$0.value.session]?.activity, activity != .idle { return true }
             let info = $0.value.info
             let midTurn = max(visibleFor, info.asking ? askingVisibleFor : defaultVisibleFor)
@@ -822,8 +845,11 @@ final class AgentStore: ObservableObject {
     static func cards(from files: [String: TrackedFile], now: Date, visibleFor: TimeInterval = AgentStore.defaultVisibleFor,
                       states: [String: SessionState] = [:], owners: [String: OwnerApp] = [:],
                       worktree: (String) -> Bool = { _ in false }, home: String = NSHomeDirectory(),
-                      git: (String) -> GitPlace? = { _ in nil }) -> [SessionCard] {
+                      git: (String) -> GitPlace? = { _ in nil }, running: [String: Date]? = nil) -> [SessionCard] {
         let claimed = claims(states, files: files)
+        let jobs = BackgroundJobs.bySession(files, now: now, running: running)
+        let holding = Set(jobs.filter { !$0.value.isEmpty }.keys)
+        let withoutJobs = Set(visible(files, now: now, visibleFor: visibleFor, claimed: claimed).values.map(\.session))
         func row(_ path: String, _ file: TrackedFile) -> AgentRow {
             let state = signal(for: file, in: claimed)
             let status = TranscriptReader.status(of: file.info, lastActivity: file.activity, now: now, session: state?.activity)
@@ -837,7 +863,7 @@ final class AgentStore: ObservableObject {
                 quietFor: status == .done ? 0 : max(0, now.timeIntervalSince(since))
             )
         }
-        return Dictionary(grouping: visible(files, now: now, visibleFor: visibleFor, claimed: claimed), by: { $0.value.session })
+        return Dictionary(grouping: visible(files, now: now, visibleFor: visibleFor, claimed: claimed, holding: holding), by: { $0.value.session })
             .compactMap { session, entries -> SessionCard? in
                 let main = entries.first { $0.value.isMain }
                 let subs = entries.filter { !$0.value.isMain }.sorted {
@@ -867,7 +893,10 @@ final class AgentStore: ObservableObject {
                     owner: claimed[session] == nil ? nil : owners[(session as NSString).lastPathComponent],
                     worktree: !source.branch.isEmpty && worktree(source.folder),
                     repo: repo,
-                    git: place
+                    git: place,
+                    jobs: jobs[session] ?? [],
+                    onlyForJobs: !withoutJobs.contains(session),
+                    closed: running.map { $0[(session as NSString).lastPathComponent] == nil } ?? false
                 ).asShown
             }
             // By start, newest first: the order holds still while agents work.
@@ -915,8 +944,8 @@ final class AgentStore: ObservableObject {
         rescan()
     }
 
-    /// Reads every transcript that moved recently, and the one of each session that Claude Code
-    /// says is at work or waiting on the person. Also the recovery path when FSEvents drops events.
+    /// Reads every transcript that moved recently, and every file, main and sub-agent, of each
+    /// session with a live record. Also the recovery path when FSEvents drops events.
     func rescan() {
         let now = Date()
         // As far back as `visible` can still show an agent that is mid-turn.
@@ -927,14 +956,23 @@ final class AgentStore: ObservableObject {
         // A session that waits on the person writes nothing for as long as the wait lasts, and its
         // card is the one the person opened the app to find. Not past what `forget` keeps, or the
         // card would show at launch and go a second later.
-        let held = Set(states.filter { $0.value.activity != .idle }.keys)
+        // An open session's idle files too: a background job outlives the turn that started it.
+        // ponytail: whole transcripts of every open session at launch; read only job lines of files older than ten minutes if launch slows.
+        let held = Set(runningSince.keys)
         let heldCutoff = now.addingTimeInterval(-Self.forgetAfter)
         let keys: [URLResourceKey] = [.contentModificationDateKey]
         guard let walker = FileManager.default.enumerator(at: URL(fileURLWithPath: root), includingPropertiesForKeys: keys) else { return }
         for case let url as URL in walker where url.pathExtension == "jsonl" {
             guard let modified = try? url.resourceValues(forKeys: Set(keys)).contentModificationDate else { continue }
             // A transcript is named after its session, and `ingest` turns away any other file.
-            let isHeld = modified > heldCutoff && held.contains(url.deletingPathExtension().lastPathComponent)
+            // A sub-agent's file is named for its agent, so the session comes from the path.
+            let isHeld: Bool
+            switch Self.classify(url.path, root: root) {
+            case .main(let key)?, .sub(let key)?:
+                isHeld = modified > heldCutoff && held.contains((key as NSString).lastPathComponent)
+            case nil:
+                isHeld = false
+            }
             guard modified > cutoff || isHeld else { continue }
             ingest(path: url.path)
         }
@@ -968,7 +1006,8 @@ final class AgentStore: ObservableObject {
     /// The cards as of `now`, from everything the store has read. Only called on `queue`.
     func cards(now: Date) -> [SessionCard] {
         // ponytail: the disk is asked again for every card on every publish, a stat or two each; keep the answers by folder if that ever shows.
-        Self.cards(from: files, now: now, visibleFor: visibleFor, states: states, owners: owners, worktree: Self.isWorktree, git: Self.gitPlace(of:))
+        Self.cards(from: files, now: now, visibleFor: visibleFor, states: states, owners: owners, worktree: Self.isWorktree, git: Self.gitPlace(of:),
+                    running: keepsRecords ? runningSince : nil)
     }
 
     /// Hands the cards to the main thread. Only called on `queue`, and by tests.
@@ -980,7 +1019,7 @@ final class AgentStore: ObservableObject {
         let listed = cards(now: now)
         let atWork = Set(listed.filter { !$0.isIdle }.map(AnswerStore.sessionID(of:)))
         let before = roster
-        let cards = roster.seat(listed, busy: { [running] in byRecords ? running.contains($0) : atWork.contains($0) }, now: now)
+        let cards = roster.seat(listed, busy: { [runningSince] in byRecords ? runningSince[$0] != nil : atWork.contains($0) }, now: now)
         if roster != before, let rosterFile { try? roster.save(rosterFile) }
         let looks = roster.looks
         let missing = !FileManager.default.fileExists(atPath: root)

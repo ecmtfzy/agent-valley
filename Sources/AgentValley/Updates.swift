@@ -7,19 +7,22 @@ import Sparkle
 final class Updates: NSObject, ObservableObject, SPUStandardUserDriverDelegate {
     /// The version a check on its own found, while the person has not seen it yet. The app has
     /// no Dock icon, and Sparkle keeps a window of its own from taking the keys someone is typing
-    /// with, so it may wait behind other windows: the panel says it is there.
-    @Published private(set) var waiting: String?
+    /// with, so it may wait behind other windows: the panel says it is there, and a green dot
+    /// on the gear and the About tab. Set by Sparkle's calls below; the panel's pictures set it too.
+    @Published var waiting: String?
     /// 0.1 from Homebrew is still installed beside this copy: the panel and Settings say how to
     /// take it out.
     @Published private(set) var oldCopyLeft = false
     let isAvailable: Bool
     private var controller: SPUStandardUpdaterController!
 
-    init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
+    /// `starts`: false for the panel's pictures, which draw a release's About page and must
+    /// never look for one.
+    init(info: [String: Any] = Bundle.main.infoDictionary ?? [:], starts: Bool = true) {
         isAvailable = Self.isConfigured(info)
         super.init()
         controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: self)
-        if isAvailable { controller.startUpdater() }
+        if isAvailable, starts { controller.startUpdater() }
     }
 
     static func isConfigured(_ info: [String: Any]) -> Bool {

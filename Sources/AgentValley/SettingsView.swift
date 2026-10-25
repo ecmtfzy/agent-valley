@@ -46,7 +46,8 @@ struct SettingsView: View {
                 // The way back, in words: the gear that led here is the only other one.
                 BackToAgents(action: back)
                 Spacer(minLength: 0)
-                PageTabs(title: "Settings pages", pages: SettingsTab.allCases, label: { $0.label }, selection: $tab)
+                PageTabs(title: "Settings pages", pages: SettingsTab.allCases, label: { $0.label }, selection: $tab,
+                         note: { $0 == .about ? updates.waiting.map(Format.updateWaiting) : nil })
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -257,8 +258,14 @@ struct SettingsView: View {
                 SettingRow(title: Format.updatesTitle, caption: Format.updatesCaption) {
                     Switch(title: Format.updatesTitle, isOn: Binding(get: { updates.checksAutomatically }, set: { updates.checksAutomatically = $0 }))
                 }
-                Button { updates.checkNow() } label: { quietLabel(Format.checkNow, symbol: "arrow.triangle.2.circlepath") }
-                    .buttonStyle(.plain)
+                // What the green dot on the gear and this tab is for, a click from its window.
+                if let version = updates.waiting {
+                    Button { updates.show() } label: { quietLabel(Format.updateWaiting(version: version) + " " + Format.updateLook, symbol: "", dot: true) }
+                        .buttonStyle(.plain)
+                } else {
+                    Button { updates.checkNow() } label: { quietLabel(Format.checkNow, symbol: "arrow.triangle.2.circlepath") }
+                        .buttonStyle(.plain)
+                }
             }
         }
         SettingGroup {
@@ -289,12 +296,16 @@ struct SettingsView: View {
 
     /// A row-wide button in grey text that lights up under the pointer, its symbol before it.
     /// The symbols stand in one column, whatever their width; the words say what they do.
-    private func quietLabel(_ title: String, symbol: String) -> some View {
+    /// `dot`: the green dot of an update in the symbol's place, and the words in full white.
+    private func quietLabel(_ title: String, symbol: String, dot: Bool = false) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: symbol).font(.system(size: 11)).frame(width: 14).accessibilityHidden(true)
+            Group {
+                if dot { UpdateDot() } else { Image(systemName: symbol).font(.system(size: 11)) }
+            }
+            .frame(width: 14).accessibilityHidden(true)
             Text(verbatim: title)
         }
-            .foregroundStyle(.white.opacity(0.6))
+            .foregroundStyle(.white.opacity(dot ? 1 : 0.6))
             .padding(.horizontal, 6)
             .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
             .contentShape(Rectangle())
@@ -504,9 +515,11 @@ struct Legend: View {
             mark("quiet") { Text(verbatim: "2").foregroundStyle(.white.opacity(0.6)) }
             // A ring as an example, two thirds used: the real one is on the bar.
             mark("5h limit") { LimitRingView(ring: LimitRing(limit: PlanLimit(usedPercent: 65, resetsAt: nil), stale: false)).accessibilityHidden(true) }
+            mark("longest wait") { Text(verbatim: "12m").bold().foregroundStyle(MascotFlag.red) }
         }
         caption(Format.barCaption)
         caption(Format.ringCaption)
+        caption(Format.waitCaption)
         caption(Format.barMascotCaption)
         caption(Format.beatCaption)
         caption(Format.displayCaption)
@@ -647,6 +660,8 @@ struct PageTabs<Page: Hashable>: View {
     let pages: [Page]
     let label: (Page) -> String
     @Binding var selection: Page
+    /// What waits on a page: a green dot after its name, and these words to a screen reader.
+    var note: (Page) -> String? = { _ in nil }
 
     var body: some View {
         HStack(spacing: 2) {
@@ -659,15 +674,30 @@ struct PageTabs<Page: Hashable>: View {
                         .overlay(alignment: .bottom) {
                             Rectangle().fill(page == selection ? Color.white : Color.clear).frame(height: 2).padding(.horizontal, 8)
                         }
+                        // In the room after the name: the tabs keep their places as it comes and goes.
+                        .overlay(alignment: .topTrailing) { if note(page) != nil { UpdateDot().padding(.top, 2).padding(.trailing, -3) } }
                         .contentShape(Rectangle())
                         .hoverFill()
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(page == selection ? .isSelected : [])
+                .accessibilityValue(Text(verbatim: note(page) ?? ""))
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(verbatim: title))
+    }
+}
+
+/// A new version came in and has not been looked at yet: on the gear, the About tab and its
+/// line there. Green, apart from the red of needs you, and still. Ringed in the panel's black so
+/// that it stands clear of the gear it sits on.
+struct UpdateDot: View {
+    var body: some View {
+        Circle().fill(Color.green).frame(width: 6, height: 6)
+            .padding(1.5)
+            .background(Circle().fill(Color.black))
+            .accessibilityHidden(true)
     }
 }
 

@@ -62,6 +62,10 @@ struct AgentInfo: Equatable {
     var openTools: [OpenTool] = []
     /// The calls that most recently got their result, newest last.
     var closedTools: [ClosedTool] = []
+    /// Background shells and monitors started in this file and not seen ending in it, newest last.
+    var jobs: [BackgroundJob] = []
+    /// Task ids seen ending in this file, newest last: a start written again must not bring one back.
+    var endedJobs: [String] = []
 }
 
 /// Turns Claude Code transcript lines into `AgentInfo`. Never touches the disk or the clock.
@@ -124,13 +128,24 @@ enum TranscriptReader {
         return consumed
     }
 
-    /// Folds one transcript line into `info`. Lines that are not valid user/assistant JSON are skipped.
+    /// Folds one transcript line into `info`. Read: user and assistant lines, the session's title,
+    /// and the job ends in a notice queued for the model, as a `queue-operation` enqueue or a
+    /// `queued_command` attachment. Any other line, and one that is not valid JSON, is skipped.
     static func apply(line: Data, to info: inout AgentInfo) {
         guard let object = SafeJSON.object(line),
               let type = object["type"] as? String else { return }
         // Claude Code names the session itself and rewrites the name as the work changes; the latest stands.
         if type == "ai-title", let title = object["aiTitle"] as? String, !title.isEmpty {
             info.title = clipped(title)
+        }
+        if type == "queue-operation", object["operation"] as? String == "enqueue", let text = object["content"] as? String {
+            for id in BackgroundJobs.ended(in: text) { info.endJob(id) }
+        }
+        // A notice can be queued as an attachment alone. That kind only: a snapshot of the system
+        // prompt is an attachment too, and holds the words of a notice.
+        if type == "attachment", let attachment = object["attachment"] as? [String: Any],
+           attachment["type"] as? String == "queued_command", let text = attachment["prompt"] as? String {
+            for id in BackgroundJobs.ended(in: text) { info.endJob(id) }
         }
         guard type == "user" || type == "assistant" else { return }
         let date = (object["timestamp"] as? String).flatMap(Self.date(from:))
@@ -146,6 +161,7 @@ enum TranscriptReader {
         if let branch = object["gitBranch"] as? String, !branch.isEmpty { info.branch = branch == "HEAD" ? "" : clipped(branch) }
         if let entrypoint = object["entrypoint"] as? String, !entrypoint.isEmpty { info.entrypoint = entrypoint }
         guard type == "assistant", let message = object["message"] as? [String: Any] else {
+            if type == "user" { info.readJobs(in: object, at: date) }
             // A user line normally means work is about to start. The notice Claude Code writes when
             // the user presses Esc means it just stopped.
             info.turnEnded = type == "user" && isInterruptNotice(object["message"] as? [String: Any])
