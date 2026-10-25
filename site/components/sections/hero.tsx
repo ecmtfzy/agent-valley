@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { TrickOrTreat } from '@/components/trick-or-treat';
 import { Word } from '@/components/word';
 
-// Product Hunt's badge with the live vote count, through our own address (api/ph.py), held in the
-// bottom-right corner of the window. Pixel sparkles take turns around it and a gleam crosses it now
-// and then. Outside the hero, so it keeps moving after the hero scrolls away.
-export function PhBadge() {
+// Product Hunt's #4 of the day badge (24 Oct 2026), their own file kept here: the rank is final, so
+// the page loads nothing from them. At the top of the hero, over both columns, so the picture still
+// stands level with the heading. Pixel sparkles take turns around it and a gleam crosses it now and then.
+function PhBadge() {
   return (
-    <a className="ph" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-agentvalley">
-      <img src="/api/ph" alt="Featured on Product Hunt, with its vote count" width="250" height="54" />
+    <a className="ph min-[900px]:[grid-area:badge]" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-agentvalley">
+      <img src="/product-hunt.svg" alt="#4 Product of the Day on Product Hunt" width="250" height="54" />
       {['s1', 's2', 's3', 's4'].map((s) => (
         <svg key={s} className={`spark ${s}`} viewBox="0 0 7 7" aria-hidden="true">
           <path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z" />
@@ -24,7 +24,8 @@ export function PhBadge() {
 
 export function Hero() {
   return (
-    <section className="wrap hero grid gap-y-[18px] pt-8 pb-[clamp(64px,12vw,112px)] min-[900px]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] min-[900px]:grid-rows-[auto_1fr] min-[900px]:gap-x-14 min-[900px]:gap-y-8 min-[900px]:[grid-template-areas:'head_screen'_'copy_screen']">
+    <section className="wrap hero grid gap-y-[18px] pt-8 pb-[clamp(64px,12vw,112px)] min-[900px]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] min-[900px]:grid-rows-[auto_auto_1fr] min-[900px]:gap-x-14 min-[900px]:gap-y-8 min-[900px]:[grid-template-areas:'badge_badge'_'head_screen'_'copy_screen']">
+      <PhBadge />
       <div className="min-[900px]:[grid-area:head]">
         <h1>Every agent, at a glance, right in your notch.</h1>
         {/* A badge in the page's own type, not Claude's logo: Anthropic's marks need its written leave. */}

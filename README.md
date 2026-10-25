@@ -5,8 +5,7 @@
   <img src="docs/logo.svg" alt="AgentValley" width="432">
 </picture>
 
-<!-- Through the site's address (site/api/ph.py): Product Hunt's own badge keeps one count for four hours, ours a minute. -->
-<a href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-agentvalley"><img src="https://agentvalley.app/api/ph" alt="Featured on Product Hunt, with its vote count" width="250" height="54"></a>
+<a href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-agentvalley"><img src="site/public/product-hunt.svg" alt="#4 Product of the Day on Product Hunt" width="250" height="54"></a>
 
 ### Every agent, at a glance, right in your notch.
 
