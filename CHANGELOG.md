@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.5 — 2026-10-25
+
+- When ALL would run past the bottom of the panel, sessions fold to one line each instead, still showing the file we're on, so your second project stays in sight. Quiet sessions fold first, then working ones from the bottom up. One that needs you never folds, and one with sub-agents at work stays open longest.
+- Inside a session, pixel lines run from the lead to each sub-agent. A white pixel runs down the line when a sub-agent starts and back up when it hands its work in. When one is waiting on you, its line turns red.
+- Finished sub-agents fold into one line marked with a sealed envelope: work handed back. Folding into that line no longer shows the words on top of each other for a moment.
+
 ## 0.3.4 — 2026-10-25
 
 - When a session needs you, a red badge beside "needs you" counts how long it has waited, and the bar shows the longest wait once it passes a minute. Grouped by status, the longest wait comes first. Thanks to Leo Heo for asking.

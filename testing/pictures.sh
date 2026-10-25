@@ -6,6 +6,8 @@
 #
 #   testing/pictures.sh [scene ...]   Every scene when none is named. Results in build/pictures.
 #     list      the list as it opens
+#     roomy     few sessions: full cards and their crew lines
+#     crew      a sub-agent waits: its line red, the rest folded to fit
 #     status    the same, grouped by status
 #     keys      the ring on each session in turn, in both orders
 #     idle      the ring on an idle session unfolded from its line
@@ -22,6 +24,8 @@
 #     fishing          the 5-hour limit run out: the fish on the bar, the sign over the list
 #     fishing-week     the same for the weekly limit
 #     away             the Away button on, the yellow band, and a phone message that was not sent
+#     motion           frames of the crew lines moving: a sub-agent starts, then one finishes.
+#                      Slow, so only when named. Also motion.mp4 and motion.gif out of the frames.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -29,7 +33,7 @@ ROOT="/Users/Shared/pt"
 FAKE_HOME="$ROOT/pictures"
 OUT="$PWD/build/pictures"
 SCENES=("$@")
-[ ${#SCENES[@]} -gt 0 ] || SCENES=(list status keys idle intro legend settings request reader oldcopy update tokens history history-project fishing fishing-week away)
+[ ${#SCENES[@]} -gt 0 ] || SCENES=(list roomy crew status keys idle intro legend settings request reader oldcopy update tokens history history-project fishing fishing-week away)
 
 # Every account on this Mac can write to /Users/Shared, so ROOT has to be this user's own
 # folder, closed to the others, before anything under it is removed: were it a link someone
@@ -59,6 +63,14 @@ trap 'kill "$DEMO" 2>/dev/null || true
 sleep 2
 for scene in "${SCENES[@]}"; do
     PANEL_PICTURES_HOME="$FAKE_HOME" PANEL_PICTURES_OUT="$OUT" PANEL_PICTURES_AXDUMP="$OUT/axdump" PANEL_PICTURES_SCENE="$scene" \
-        swift test --filter PanelPicturesTests 2>&1 | grep -E "error|passed \(|failed" || true
+        swift test --filter PanelPicturesTests 2>&1 | grep -E "error|passed \(|failed|^estimate |^motion " || true
 done
+# The motion scene's frames, each shown for as long as it really lasted: twice the size,
+# pixel for pixel, as an MP4 and as a GIF.
+if [[ " ${SCENES[*]} " == *" motion "* ]] && [ -f "$OUT/motion.ffconcat" ]; then
+    ffmpeg -loglevel error -y -f concat -i "$OUT/motion.ffconcat" -vf "scale=iw*2:ih*2:flags=neighbor,format=yuv420p" \
+        -r 30 -c:v libx264 -movflags +faststart "$OUT/motion.mp4"
+    ffmpeg -loglevel error -y -f concat -i "$OUT/motion.ffconcat" \
+        -vf "split[a][b];[a]palettegen[p];[b][p]paletteuse=dither=none" "$OUT/motion.gif"
+fi
 echo "Pictures in $OUT"

@@ -913,4 +913,26 @@ final class FormatTests: XCTestCase {
         var waiting = card(main: .needsYou); waiting.jobs = [job(.shell)]
         XCTAssertEqual(Format.cardStatus(waiting), "needs you")
     }
+
+    // A folded session shows the step of whichever row moved last and is not finished: while the
+    // lead waits on its helpers its own step is only "> Agent ...", which names no file.
+    func testASessionShowsTheStepOfItsLatestUnfinishedRow() {
+        let t = Date(timeIntervalSince1970: 1_000_000)
+        func row(_ id: String, _ status: AgentStatus, _ step: String, _ at: Date?) -> AgentRow {
+            var info = AgentInfo()
+            info.lastStep = step
+            info.lastActivity = at
+            return AgentRow(id: id, info: info, status: status, elapsed: 0)
+        }
+        let card = SessionCard(id: "s", project: "shop", branch: "", main: row("m", .working, "Agent Write cart tests", t.addingTimeInterval(-30)),
+                               agents: [row("a", .working, "Edit Cart.tsx", t.addingTimeInterval(-5)), row("b", .done, "Read x", t.addingTimeInterval(-1))],
+                               startedAt: t)
+        XCTAssertEqual(Format.sessionStep(card), "> Edit Cart.tsx")
+    }
+
+    func testASessionWithNoStepShowsNone() {
+        let cardWithEmptySteps = SessionCard(id: "s", project: "shop", branch: "", main: AgentRow(id: "m", info: AgentInfo(), status: .working, elapsed: 0),
+                                             agents: [], startedAt: Date())
+        XCTAssertNil(Format.sessionStep(cardWithEmptySteps))
+    }
 }

@@ -27,6 +27,11 @@ enum NotchGeometry {
         barHeight + statusRowHeight + contentHeight > screen.height * maxHeightRatio
     }
 
+    /// How much height the session list may take: what the open island allows, less the bar and the status row.
+    static func listRoom(screen: CGRect, barHeight: CGFloat) -> CGFloat {
+        screen.height * maxHeightRatio - barHeight - statusRowHeight
+    }
+
     /// Whether something in the list is on screen from top to bottom: not cut by the list's top
     /// edge and not under the band of `fade` points that fades out its bottom.
     /// Of the requests the bottom edge or its fade still hides, the one nearest the top: where

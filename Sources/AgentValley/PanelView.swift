@@ -35,6 +35,14 @@ enum Format {
         lastStep.isEmpty ? nil : "> \(lastStep)"
     }
 
+    /// A folded session's one step: that of the unfinished row, lead or sub-agent, that moved
+    /// last. While the lead waits on its helpers its own step names no file.
+    static func sessionStep(_ card: SessionCard) -> String? {
+        card.rows.filter { $0.status != .done && !$0.step.isEmpty }
+            .max { ($0.info.lastActivity ?? .distantPast) < ($1.info.lastActivity ?? .distantPast) }
+            .flatMap { stepLine($0.step) }
+    }
+
     static func steps(_ count: Int) -> String {
         count == 1 ? "1 step" : "\(count) steps"
     }
@@ -768,6 +776,10 @@ struct PanelView: View {
     /// Whether the list is scrolled to its very top, and the cards wholly above its top edge.
     @State private var atTop = true
     @State private var above: Set<String> = []
+    /// The white packets running along the cards' branches: a sub-agent started or finished.
+    @State private var pulses: [CrewPulse] = []
+    /// The cards' sub-agents as the packets last saw them; empty while the list is not drawn.
+    @State private var seen: [String: [String: AgentStatus]] = [:]
     /// How tall the band at the top of a scrolled list is right now; 0 when there is none.
     /// Worked out from where the list is, not kept: kept, it lagged a pass behind the band.
     private var topFade: CGFloat { state.expanded && !atTop ? NotchGeometry.topBand : 0 }
@@ -967,6 +979,8 @@ struct PanelView: View {
         // not on the list: the list is not there to hear of it while the settings show.
         .onChange(of: state.expanded) { _, open in
             guard !open else { return }
+            // Shut, no packet is left half way to play out on the next opening.
+            pulses = []
             // Once it has stayed shut: a pointer that slipped out and came straight back finds
             // the lines where they were.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -1488,12 +1502,27 @@ struct PanelView: View {
         let list = AgentStore.arrange(sessions, idle: settings.idleSessions, keeping: answers.settledSessions)
         let looks = AgentStore.looks(sessions)
         let putAway = AgentStore.putAway(answers.overlay(store.sessions), hidden: state.hidden)
+        // Past eight sub-agents each takes one line.
+        let compact = Format.oneLineRows(liveAgents: list.cards.reduce(0) { $0 + $1.liveAgents().count })
         // The line over each group's first card, when the list is grouped and there is more
         // than one session to group.
         let byProject = grouped && settings.grouping == .projects
         let headers: [String: String] = !grouped ? [:] : byProject
             ? AgentStore.projectHeaders(of: list.cards).mapValues(Format.projectHeader)
             : AgentStore.headers(of: list.cards, by: settings.grouping).mapValues(Format.groupHeader)
+        // The lines under the list, which take room from it.
+        let under = ListFit.under(idle: !list.folded.isEmpty, hidden: putAway.count, plain: [
+            settings.tokenUse && usage.summary.map { !$0.isEmpty } ?? false, answers.pluginLost, updates.oldCopyLeft, updates.waiting != nil,
+            // The line about the keys sits over the list, not under it, but takes as much room.
+            state.keyboard,
+        ].filter { $0 }.count)
+        // Sessions drawn as one line, so the list fits the panel without a scroll.
+        let folded = foldedRows(list, headers: headers, oneLineAgents: compact, under: under)
+        let crew = CrewTree.snapshot(list.cards)
+        let leftOut = folded.union(below).union(above)
+        // A change in this very frame is already a packet on its way, before `.onChange` below
+        // keeps it: the new row is hidden from its first frame, and the finished one held.
+        let fresh = CrewTree.pulses(old: seen, new: crew, open: state.expanded, reduced: motion.reduced, leftOut: leftOut)
         return VStack(alignment: .leading, spacing: 10) {
             if away.mode.on {
                 AwayBand().modifier(Reveal(shown: state.expanded, index: 0, motion: motion))
@@ -1553,8 +1582,6 @@ struct PanelView: View {
                 // A folder that is not there is something wrong, and as bright as every other such line.
                 notice(empty, motion, dim: !store.rootMissing)
             }
-            // Past eight sub-agents each takes one line.
-            let compact = Format.oneLineRows(liveAgents: list.cards.reduce(0) { $0 + $1.liveAgents().count })
             // With a hide button on any card, every card keeps its place for one: the columns
             // beside it then stand in line down the list.
             let anyHide = list.cards.contains { card in card.canHide && !answers.pending.contains { $0.ask.session == AnswerStore.sessionID(of: card) } }
@@ -1571,28 +1598,36 @@ struct PanelView: View {
                         .transition(.opacity)
                 }
                 let asked = answers.pending.contains { $0.ask.session == AnswerStore.sessionID(of: card) }
-                SessionCardView(card: card, motion: motion, look: looks[card.main?.id ?? ""] ?? LeadLook(), showsApp: list.showsApps,
-                                underProject: byProject ? card.belongsTo : nil, asking: AnswerContext(
-                    requests: { [answers] in answers.requests(forRow: $0, in: card) },
-                    settled: { [answers] in answers.settled(forRow: $0, in: card) },
-                    armsAt: { [answers, state] in answers.armsAt($0, panelOpenedAt: state.openedAt) },
-                    inFullView: { NotchGeometry.isInFullView(minY: $0, maxY: $1, viewport: viewport, fade: fade, top: topFade) },
-                    answer: { [answers, state] id, answer, clickAt in answers.answer(id, answer, clickAt: clickAt, panelOpenedAt: state.openedAt) },
-                    placed: { [spans] id, view, span in
-                        if let span { spans.place(id, by: view, at: span) } else { spans.forget(id, by: view) }
-                    },
-                    reveal: { scrollTarget = .request($0) },
-                    moved: { [answers] in answers.noteMoved($0) },
-                    hide: { [answers, state] id, clickAt in answers.hide(id, clickAt: clickAt, panelOpenedAt: state.openedAt) },
-                    keyTarget: state.keyboard && state.selected == card.id ? answers.keyTarget(in: card)?.id : nil,
-                    keyNote: keyNote
-                ), hide: card.canHide && !asked ? { state.hidden[card.id] = card.movedAt ?? Date() } : nil,
-                    moved: { [answers] in answers.noteLayoutChange() }, compact: compact, hintRow: list.hintRow,
-                    // Whether each sub-agent's row starts past the bottom edge, for the band.
-                    viewport: viewport, rowBelow: { row, below in
-                        if below { belowRows.insert(row) } else { belowRows.remove(row) }
-                    }, reserveHide: anyHide, showingDone: state.doneExpanded.contains(card.id),
-                    toggleDone: { state.doneExpanded.formSymmetricDifference([card.id]) })
+                let hide: (() -> Void)? = card.canHide && !asked ? { state.hidden[card.id] = card.movedAt ?? Date() } : nil
+                Group {
+                    if folded.contains(card.id) {
+                        CompactSessionRow(card: card, motion: motion, look: looks[card.main?.id ?? ""] ?? LeadLook(), hide: hide, reserveHide: anyHide)
+                    } else {
+                        SessionCardView(card: card, motion: motion, look: looks[card.main?.id ?? ""] ?? LeadLook(), showsApp: list.showsApps,
+                                        underProject: byProject ? card.belongsTo : nil, asking: AnswerContext(
+                            requests: { [answers] in answers.requests(forRow: $0, in: card) },
+                            settled: { [answers] in answers.settled(forRow: $0, in: card) },
+                            armsAt: { [answers, state] in answers.armsAt($0, panelOpenedAt: state.openedAt) },
+                            inFullView: { NotchGeometry.isInFullView(minY: $0, maxY: $1, viewport: viewport, fade: fade, top: topFade) },
+                            answer: { [answers, state] id, answer, clickAt in answers.answer(id, answer, clickAt: clickAt, panelOpenedAt: state.openedAt) },
+                            placed: { [spans] id, view, span in
+                                if let span { spans.place(id, by: view, at: span) } else { spans.forget(id, by: view) }
+                            },
+                            reveal: { scrollTarget = .request($0) },
+                            moved: { [answers] in answers.noteMoved($0) },
+                            hide: { [answers, state] id, clickAt in answers.hide(id, clickAt: clickAt, panelOpenedAt: state.openedAt) },
+                            keyTarget: state.keyboard && state.selected == card.id ? answers.keyTarget(in: card)?.id : nil,
+                            keyNote: keyNote
+                        ), hide: hide,
+                            moved: { [answers] in answers.noteLayoutChange() }, compact: compact, hintRow: list.hintRow,
+                            // Whether each sub-agent's row starts past the bottom edge, for the band.
+                            viewport: viewport, rowBelow: { row, below in
+                                if below { belowRows.insert(row) } else { belowRows.remove(row) }
+                            }, reserveHide: anyHide, showingDone: state.doneExpanded.contains(card.id),
+                            toggleDone: { state.doneExpanded.formSymmetricDifference([card.id]) },
+                            pulses: (pulses + fresh).filter { $0.card == card.id })
+                    }
+                }
                     .overlay { ring(on: card) }
                     .id(card.id)
                     .overlay(alignment: .top) {
@@ -1613,6 +1648,9 @@ struct PanelView: View {
                     .onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).maxY <= NotchGeometry.bandCover } action: { hidden in
                         if hidden { above.insert(card.id) } else { above.remove(card.id) }
                     }
+                    // One folded row under another stands closer than cards do: 4 points, not 10.
+                    // Out here, so the ring and the marks above keep the row's own frame.
+                    .padding(.top, index > 0 && headers[card.id] == nil && folded.contains(card.id) && folded.contains(list.cards[index - 1].id) ? -6 : 0)
                     .modifier(Reveal(shown: state.expanded, index: index, motion: motion))
                     .transition(.opacity)
             }
@@ -1621,11 +1659,19 @@ struct PanelView: View {
                     .modifier(Reveal(shown: state.expanded, index: list.cards.count, motion: motion))
                 if state.idleExpanded {
                     ForEach(list.folded) { card in
-                        // Unfolded, the arrow keys walk these too, after the cards above.
-                        SessionCardView(card: card, motion: motion, look: looks[card.main?.id ?? ""] ?? LeadLook(), showsApp: list.showsApps, compact: compact)
+                        // Unfolded, the arrow keys walk these too, after the cards above. One
+                        // line each while the list above has folded any.
+                        Group {
+                            if folded.isEmpty {
+                                SessionCardView(card: card, motion: motion, look: looks[card.main?.id ?? ""] ?? LeadLook(), showsApp: list.showsApps, compact: compact)
+                            } else {
+                                CompactSessionRow(card: card, motion: motion, look: looks[card.main?.id ?? ""] ?? LeadLook(), reserveHide: anyHide)
+                            }
+                        }
                             .overlay { ring(on: card) }
                             .id(card.id)
                             .overlay(alignment: .top) { Self.mark(above: card.id) }
+                            .padding(.top, !folded.isEmpty && card.id != list.folded.first?.id ? -6 : 0)
                             .transition(.opacity)
                     }
                 }
@@ -1663,7 +1709,11 @@ struct PanelView: View {
 
         }
         .padding(12)
-        .animation(motion.list, value: list.cards.map(\.id) + ["|"] + list.folded.map(\.id) + [state.idleExpanded ? "open" : "shut"] + headers.keys.sorted())
+        // Also as a card grows or closes up with its agents: what is under it moves with it, in
+        // step, rather than jumping to where it ends up.
+        .animation(motion.list, value: list.cards.map(\.id) + ["|"] + list.folded.map(\.id) + [state.idleExpanded ? "open" : "shut"] + headers.keys.sorted()
+            + list.cards.flatMap { card in card.agents.map { card.id + "/" + $0.id + ($0.status == .done ? " done" : "") } }
+            + (pulses + fresh).filter { $0.up && !$0.arrived }.map { $0.card + "/" + $0.agent + " up" })
         // h and d, from the keys, on the session they are on.
         // A key for the list: acted on once, here, as it is pressed, on the session the arrow
         // keys were on at that moment. Nothing of it is handed on or kept: a key that found
@@ -1695,7 +1745,8 @@ struct PanelView: View {
                 state.selected = index + 1 < ids.count ? ids[index + 1] : index > 0 ? ids[index - 1] : nil
                 state.hidden[card.id] = card.movedAt ?? Date()
             case .done:
-                guard !card.doneAgents().isEmpty else { return }
+                // A folded row shows no sub-agents to unfold.
+                guard !folded.contains(card.id), !card.doneAgents().isEmpty else { return }
                 state.doneExpanded.formSymmetricDifference([card.id])
                 answers.noteLayoutChange()
             default:
@@ -1707,6 +1758,28 @@ struct PanelView: View {
             guard keyNote != nil else { return }
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             if !Task.isCancelled { keyNote = nil }
+        }
+        // A sub-agent that starts or finishes sends a packet along its branch: only while the
+        // panel is open and the card is drawn whole and in view. Nothing plays back on opening:
+        // shut, the list is still drawn and keeps up with what it has seen.
+        .onChange(of: crew, initial: true) { _, new in
+            for pulse in CrewTree.pulses(old: seen, new: new, open: state.expanded, reduced: motion.reduced, leftOut: leftOut) {
+                let id = pulse.id
+                pulses.append(pulse)
+                DispatchQueue.main.asyncAfter(deadline: .now() + CrewTree.run) {
+                    if let i = pulses.firstIndex(where: { $0.id == id }) { pulses[i].arrived = true }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + CrewTree.run + CrewTree.flash) {
+                    pulses.removeAll { $0.id == id }
+                }
+            }
+            seen = new
+        }
+        // Away behind a page, it sees nothing: back, it starts from what is there then.
+        .onDisappear { seen = [:] }
+        // A session folding or unfolding moves every card under it.
+        .onChange(of: folded) { _, _ in
+            answers.noteLayoutChange()
         }
         // A hide button coming or going makes its line a little taller or shorter.
         .onChange(of: list.cards.filter(\.canHide).map(\.id)) { _, _ in
@@ -1727,6 +1800,30 @@ struct PanelView: View {
 
         // Back from the settings the whole list is drawn afresh, where the settings stood a moment ago.
         .onAppear { answers.noteLayoutChange() }
+    }
+
+    /// The sessions to draw as one line: as few as it takes for the list to fit the panel.
+    private func foldedRows(_ list: SessionList, headers: [String: String], oneLineAgents: Bool, under: CGFloat) -> Set<String> {
+        // Less the list's padding and the lines under it.
+        let room = NotchGeometry.listRoom(screen: state.screenFrame, barHeight: state.barHeight) - ListFit.padding - under
+        let entries = list.cards.map { card in
+            let session = AnswerStore.sessionID(of: card)
+            return ListFit.Entry(
+                id: card.id,
+                full: ListFit.fullHeight(card, header: headers[card.id] != nil,
+                                         requests: { answers.requests(forRow: $0, in: card).map { ListFit.requestHeight($0.ask.kind, hidden: $0.hidden) } },
+                                         settled: { answers.settled(forRow: $0, in: card).count }, hintRow: list.hintRow,
+                                         showingDone: state.doneExpanded.contains(card.id), oneLineAgents: oneLineAgents),
+                row: ListFit.rowHeight(header: headers[card.id] != nil),
+                // Asks something of the person, or has just been answered and shows how, or the
+                // person has just opened its done agents.
+                keepsFull: card.group == .needsYou || answers.pending.contains { $0.ask.session == session } || answers.settledSessions.contains(session)
+                    || state.doneExpanded.contains(card.id),
+                quiet: card.group == .quiet || card.group == .idle,
+                header: headers[card.id] != nil,
+                crew: !card.liveAgents().isEmpty)
+        }
+        return ListFit.compact(entries, room: room)
     }
 
     /// Where the arrow keys are. A ring and no more: it moves nothing. To a screen reader it is
@@ -2397,6 +2494,8 @@ struct SessionCardView: View {
     /// Whether the finished subagents are listed, and what a click on their line does.
     var showingDone = false
     var toggleDone: () -> Void = {}
+    /// The packets running along this card's branches.
+    var pulses: [CrewPulse] = []
     @Environment(\.goTo) private var goTo
 
     /// The requests under one row, each with its buttons.
@@ -2494,14 +2593,7 @@ struct SessionCardView: View {
             Spacer(minLength: 12)
             // How it is doing, then which model: two sizes, set on one baseline.
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if let label = Format.cardStatus(card) {
-                    // The jobs' count is no length of time: no tip, rather than one that says it is.
-                    let jobs = !card.jobs.isEmpty && label == Format.jobsRunning(card.jobs)
-                    // Red where the person is waited on, as on the bar and the mascot.
-                    Text(verbatim: label).fontWeight(card.main?.status == .needsYou ? .bold : .regular)
-                        .foregroundStyle(card.main?.status == .needsYou ? MascotFlag.red : Format.runningClock(card) ? .white.opacity(0.6) : .white)
-                        .help(Text(verbatim: jobs ? "" : Format.timeHelp))
-                }
+                CardStatusText(card: card)
                 WaitBadge(row: card.main)
                 if let main = card.main {
                     Text(main.info.model).font(CardStyle.aside).foregroundStyle(.white.opacity(0.6))
@@ -2509,23 +2601,7 @@ struct SessionCardView: View {
             }
             .fixedSize()
             if let hide {
-                // For a session that was closed with a question up, or has stalled:
-                // it would otherwise keep the bar flagged for up to an hour.
-                Button(action: hide) {
-                    // Takes clicks over 24 points and stands in the line as 18. The
-                    // struck eye of the hidden row: an x read as closing the session.
-                    Image(systemName: "eye.slash").font(.system(size: 10, weight: .bold))
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
-                        .hoverFill()
-                        .padding(-3)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white.opacity(0.6))
-                .help("Hide until it does something again")
-                // The title is a transcript's text: read out as it is, not inside the app's sentence.
-                .accessibilityLabel(Text(verbatim: "Hide until it does something again"))
-                .accessibilityValue(Text(verbatim: card.name))
+                HideButton(name: card.name, action: hide)
             } else if reserveHide {
                 // Its width only: the line is no taller for it.
                 Color.clear.frame(width: 18, height: 1)
@@ -2534,17 +2610,28 @@ struct SessionCardView: View {
     }
 
     var body: some View {
+        // A finished agent with the outcome of a request under it keeps its row until the
+        // line has gone: folded away, the line would go with it.
+        // So does one that just finished while its packet runs up its branch to the lead.
+        let running = Set(pulses.filter { $0.up && !$0.arrived }.map(\.agent))
+        let holding = Set(card.agents.filter { !(asking?.settled($0.id).isEmpty ?? true) }.map(\.id)).union(running)
+        let flash = pulses.contains { $0.up && $0.arrived }
+        let live = card.liveAgents(holding: holding)
+        let finished = card.doneAgents(holding: holding)
+        // The rows a line runs to from the lead, top to bottom, and the ones that wait on the person.
+        let branches = live.map(\.id) + (finished.isEmpty ? [] : ["done"]) + (showingDone ? finished.map(\.id) : [])
+        let hot = Set(live.filter { CrewTree.hot($0, requests: asking?.requests($0.id).count ?? 0) }.map(\.id))
+        // A new one shows once the packet running down reaches it; the lead lights up as one gets back.
+        // One that waits on the person shows at once: its request must not be answered unseen.
+        let coming = Set(pulses.filter { !$0.up && !$0.arrived }.map(\.agent)).subtracting(hot)
         VStack(alignment: .leading, spacing: compact ? CardStyle.block : CardStyle.row) {
             VStack(alignment: .leading, spacing: CardStyle.block) {
                 // The main agent's row is built like a subagent's: mascot, then its lines under one another.
                 HStack(alignment: .top, spacing: 8) {
-                    // Awake while agents it started work on: asleep over working rows read as a finished session.
-                    // Still once every row called busy has gone silent: nothing here is known to move.
-                    MascotView(status: card.workingAfterMain > 0 ? .working : card.main?.status ?? .done, kind: .lead(look),
-                               flag: card.main.flatMap { MascotFlag(status: $0.status) },
-                               still: card.rows.filter { $0.status == .working }.allSatisfy(\.isStalled),
-                               // Its own turn over while its helpers work: on the phone to them.
-                               activity: card.main?.activity ?? (card.workingAfterMain > 0 ? .calling : nil))
+                    Self.leadMascot(card, look: look, size: 20)
+                        .brightness(flash ? 0.35 : 0)
+                        .animation(.easeOut(duration: 0.15), value: flash)
+                        .anchorPreference(key: CrewAnchors.self, value: .bounds) { ["lead": $0] }
                     VStack(alignment: .leading, spacing: CardStyle.block) {
                         // What it is and where it runs read as one: the place hugs the name, and
                         // what the session is doing stands apart below.
@@ -2595,35 +2682,97 @@ struct SessionCardView: View {
                 }
                 .padding(.leading, CardStyle.underMascot)
             }
-            // A finished agent with the outcome of a request under it keeps its row until the
-            // line has gone: folded away, the line would go with it.
-            let holding = Set(card.agents.filter { !(asking?.settled($0.id).isEmpty ?? true) }.map(\.id))
-            ForEach(card.liveAgents(holding: holding)) { row in
+            ForEach(live) { row in
                 AgentRowView(row: row, asking: asking, hint: hintRow == row.id, compact: compact, reserveHide: hide != nil || reserveHide, owner: card.owner)
+                    // Kept in place while hidden: its branch is drawn to where it stands.
+                    .opacity(coming.contains(row.id) ? 0 : 1)
+                    .animation(.easeOut(duration: 0.15), value: coming.contains(row.id))
+                    .padding(.leading, CrewTree.indent)
                     // So the list can scroll to the row itself.
                     .id(row.id)
                     .onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).minY >= viewport - NotchGeometry.bandCover } action: { rowBelow?(row.id, $0) }
                     .onDisappear { rowBelow?(row.id, false) }
-                    .transition(motion.rowEntrance)
+                    // Gone quickly as it finishes: a slow fade showed under the row moving up into its place.
+                    .transition(.asymmetric(insertion: motion.rowEntrance, removal: .opacity.animation(.easeOut(duration: 0.1))))
             }
-            let finished = card.doneAgents(holding: holding)
             if !finished.isEmpty {
                 DoneRow(agents: finished, expanded: showingDone) {
                     toggleDone()
                     // The rows that unfold push down the cards below, and their answer buttons with them.
                     moved?()
                 }
+                .padding(.leading, CrewTree.indent)
+                // In once the rows over it have moved up: in at once, it showed through the last of them.
+                .transition(.asymmetric(insertion: .opacity.animation(.easeOut(duration: 0.15).delay(0.2)), removal: .opacity))
                 if showingDone {
                     ForEach(finished) { row in
-                        AgentRowView(row: row, compact: compact, reserveHide: hide != nil || reserveHide, owner: card.owner).transition(.opacity)
+                        AgentRowView(row: row, compact: compact, reserveHide: hide != nil || reserveHide, owner: card.owner)
+                            .padding(.leading, CrewTree.indent).transition(.opacity)
                     }
                 }
             }
         }
         .padding(CardStyle.inset)
         .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
-        // Rows settle in as agents start, and the card closes up as they finish.
-        .animation(motion.list, value: card.agents.map { $0.id + ($0.status == .done ? " done" : "") })
+        .overlayPreferenceValue(CrewAnchors.self) { CrewTreeView(anchors: $0, order: branches, hot: hot, pulses: pulses) }
+        // Rows settle in as agents start, and the card closes up as they finish: also once a
+        // packet has run up from one.
+        .animation(motion.list, value: card.agents.map { $0.id + ($0.status == .done ? " done" : "") } + running.sorted())
+    }
+}
+
+/// What a full card and a folded row both draw of the session.
+extension SessionCardView {
+    /// The session's own agent. Awake while agents it started work on: asleep over working rows
+    /// read as a finished session. Still once every row called busy has gone silent: nothing
+    /// here is known to move.
+    static func leadMascot(_ card: SessionCard, look: LeadLook, size: CGFloat) -> MascotView {
+        MascotView(status: card.workingAfterMain > 0 ? .working : card.main?.status ?? .done, kind: .lead(look), size: size,
+                   flag: card.main.flatMap { MascotFlag(status: $0.status) },
+                   still: card.rows.filter { $0.status == .working }.allSatisfy(\.isStalled),
+                   // Its own turn over while its helpers work: on the phone to them.
+                   activity: card.main?.activity ?? (card.workingAfterMain > 0 ? .calling : nil))
+    }
+
+    /// How the session is doing. Red where the person is waited on, as on the bar and the mascot.
+    struct CardStatusText: View {
+        let card: SessionCard
+
+        var body: some View {
+            if let label = Format.cardStatus(card) {
+                // The jobs' count is no length of time: no tip, rather than one that says it is.
+                let jobs = !card.jobs.isEmpty && label == Format.jobsRunning(card.jobs)
+                // Red where the person is waited on, as on the bar and the mascot.
+                Text(verbatim: label).fontWeight(card.main?.status == .needsYou ? .bold : .regular)
+                    .foregroundStyle(card.main?.status == .needsYou ? MascotFlag.red : Format.runningClock(card) ? .white.opacity(0.6) : .white)
+                    .help(Text(verbatim: jobs ? "" : Format.timeHelp))
+            }
+        }
+    }
+
+    /// For a session that was closed with a question up, or has stalled: it would otherwise
+    /// keep the bar flagged for up to an hour.
+    struct HideButton: View {
+        let name: String
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                // Takes clicks over 24 points and stands in the line as 18. The
+                // struck eye of the hidden row: an x read as closing the session.
+                Image(systemName: "eye.slash").font(.system(size: 10, weight: .bold))
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+                    .hoverFill()
+                    .padding(-3)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white.opacity(0.6))
+            .help("Hide until it does something again")
+            // The title is a transcript's text: read out as it is, not inside the app's sentence.
+            .accessibilityLabel(Text(verbatim: "Hide until it does something again"))
+            .accessibilityValue(Text(verbatim: name))
+        }
     }
 }
 
@@ -2705,7 +2854,10 @@ struct DoneRow: View {
     var body: some View {
         Button(action: toggle) {
             HStack(spacing: 8) {
-                FoldMark(open: expanded).frame(width: 20)
+                // The anchor on the envelope itself, so the line ends just short of it.
+                DoneEnvelope()
+                    .anchorPreference(key: CrewAnchors.self, value: .bounds) { ["done": $0] }
+                    .frame(width: 20)
                 Text(verbatim: Format.done(agents.count)).foregroundStyle(.white.opacity(0.8))
                 // verbatim: task names come from transcripts and must never be read as Markdown.
                 let names = agents.map { Format.rowTitle(task: $0.info.task, type: $0.info.type) }.joined(separator: " · ")
@@ -2713,6 +2865,8 @@ struct DoneRow: View {
                 Spacer(minLength: 0)
             }
             .foregroundStyle(.white.opacity(0.6))
+            // "1 done" turns into "2 done" at once: faded one into the other, the two showed on top of each other.
+            .contentTransition(.identity)
             // As tall as the other lines that take a click.
             .frame(minHeight: 22)
             .contentShape(Rectangle())
@@ -2747,6 +2901,8 @@ struct AgentRowView: View {
             HStack(alignment: .top, spacing: 8) {
                 MascotView(status: row.status, kind: MascotKind(type: row.info.type), size: oneLine ? 14 : 20,
                            flag: MascotFlag(status: row.status), still: row.isStalled, activity: row.activity)
+                    // The anchor on the mascot itself, so the line ends just short of a small one too.
+                    .anchorPreference(key: CrewAnchors.self, value: .bounds) { [row.id: $0] }
                     .frame(width: 20)
                     // The person stands for the type; resting the pointer on it says which.
                     // verbatim: the type is a transcript's text.

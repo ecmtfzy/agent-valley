@@ -7,7 +7,7 @@ by a test. These can be: nothing here touches your own ~/.claude.
   testing/demo.py start <home>
       Writes seven sessions under <home>/.claude, then keeps the working ones moving for 20
       minutes. testing/pictures.sh runs it in the background and draws the panel over them.
-        Refactor checkout flow   working, with two working sub-agents and one finished
+        Refactor checkout flow   working, with three working sub-agents and one finished
         Fix flaky login test     asks a question with three options
         Migrate users table      has a plan waiting for approval
         Deploy preview build     waits for permission to run a command
@@ -34,6 +34,7 @@ PID_FILE = ROOT + "/demo.pid"
 LIFETIME = 20 * 60
 
 PUSH = {"command": "git push origin preview", "description": "Push the preview branch"}
+CART = {"command": "npm run test:cart -- --coverage", "description": "Check cart coverage"}
 QUESTION = {"questions": [{
     "question": "The login test fails only on CI. Which fix do you want?",
     "header": "Fix",
@@ -164,6 +165,11 @@ def start(home):
            say("checkout", "Round per line, then sum.", 150))
     with open(plan[:-len(".jsonl")] + ".meta.json", "w") as file:
         json.dump({"agentType": "Plan", "description": "Plan the tax rounding fix"}, file)
+    # Stands still on a command no other agent runs, so a request for it matches this row alone.
+    verify = os.path.join(subagents, "agent-verify.jsonl")
+    append(verify, prompt("checkout", "Run the cart tests", 165), call("checkout", "Bash", CART, "v0", 30, "claude-sonnet-5-5"))
+    with open(verify[:-len(".jsonl")] + ".meta.json", "w") as file:
+        json.dump({"agentType": "general-purpose", "description": "Run the cart tests"}, file)
 
     append(transcript(home, "login"), prompt("login", "The login test is flaky. Fix it.", 240),
            call("login", "Bash", {"command": "npm test -- login", "description": "Run the login test"}, "l1", 200), result("l1", ago=150),
