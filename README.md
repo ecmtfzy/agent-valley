@@ -70,7 +70,7 @@ Sessions get a card, and the sub-agents they start get rows under it. Each row s
 
 When an agent asks a question or waits for permission, a red count appears beside the notch. Open the panel to read the question or the command.
 
-<p align="center"><img src="docs/needs-you.gif" alt="The top of a Mac screen. An agent works in a terminal while the crew stands in the valley. It asks to run git push origin preview: the terminal waits, a red 1 appears beside the notch, and the one who asks waves. The pointer opens the panel over the terminal and presses Allow once. The panel shuts and the push goes through." width="544"></p>
+<p align="center"><img src="docs/needs-you.gif" alt="The top of a Mac screen. An agent works in a terminal. It asks to run git push origin preview: the terminal waits and a red 1 appears beside the notch. The pointer opens the panel over the terminal and presses Allow once. The panel shuts and the push goes through." width="544"></p>
 
 - **Jump to its app in one click.** Turn on Go to the session's tab in the Shortcuts settings, and Terminal and iTerm2 open the exact tab. Ghostty does too, unless two sessions run in the same folder.
 - **Answer from the notch.** Allow once or Deny, using a plugin you install yourself: turn on Answer from the notch in the Claude Code settings, run the command it shows, then start Claude Code again.

@@ -66,17 +66,16 @@ test.describe('the switch', () => {
   });
 });
 
-// Spec A: the hero at night.
+// Spec A: the hero at dusk.
 const running = (page: Page, within: string) =>
   page.evaluate((sel) => document.getAnimations().filter((a) => a.playState === 'running' && ((a.effect as KeyframeEffect)?.target as Element | null)?.closest(sel)).length, within);
 
-test.describe('the hero at night', () => {
+test.describe('the hero at dusk', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test('a spider hangs under the notch with its note', async ({ page }) => {
     await on(page);
     await page.goto('/');
-    await expect(page.locator('.screen .moon')).toBeVisible();
     await expect(page.locator('.screen .bat')).toHaveCount(3);
     const spider = page.locator('.screen .spider');
     await expect(spider).toBeVisible();
@@ -87,20 +86,10 @@ test.describe('the hero at night', () => {
     expect(await note.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Caveat/);
   });
 
-  test('the moon is pixel art like the bats, with no soft glow', async ({ page }) => {
-    await on(page);
-    await page.goto('/');
-    const moon = page.locator('.screen .moon');
-    await expect(moon).toBeVisible();
-    const style = await moon.evaluate((el) => getComputedStyle(el));
-    expect(style.backgroundImage).toContain('/mascots/moon.svg');
-    expect(style.boxShadow).toBe('none');
-  });
-
   test('every night piece is hidden from screen readers', async ({ page }) => {
     await on(page);
     await page.goto('/');
-    for (const el of await page.locator('.moon, .bat, .spider, .spider-note').all()) {
+    for (const el of await page.locator('.bat, .spider, .spider-note').all()) {
       expect(await el.evaluate((e) => !!e.closest('[aria-hidden="true"]'))).toBe(true);
     }
   });
@@ -108,7 +97,7 @@ test.describe('the hero at night', () => {
   test('nothing night shows on 5 November', async ({ page }) => {
     await off(page);
     await page.goto('/');
-    await expect(page.locator('.screen .moon')).toBeHidden();
+    await expect(page.locator('.screen .bat').first()).toBeHidden();
     await expect(page.locator('.screen .spider')).toBeHidden();
   });
 
@@ -143,8 +132,8 @@ test.describe('the hero at night', () => {
 const NOTCH = 'The notch: the AgentValley panel';
 const ALLOW_REPLY = 'Thanks. Walt already took the peanut butter cups.';
 const DENY_REPLY = 'Fair. Trick it is.';
-const ANSWERED_OPEN = 'The top of a MacBook screen. The AgentValley panel is open under the notch: four agents are working, and nobody needs you. Below, the crew stands in the valley.';
-const ANSWERED_SHUT = 'The top of a MacBook screen. Beside the notch, a working programmer: nobody needs you. Below, the crew stands in the valley.';
+const ANSWERED_OPEN = 'The top of a MacBook screen. The AgentValley panel is open under the notch: four agents are working, and nobody needs you.';
+const ANSWERED_SHUT = 'The top of a MacBook screen. Beside the notch, a working programmer: nobody needs you.';
 const lightsOut = (page: Page) =>
   page.evaluate(() => document.getAnimations().filter((a) => (a as CSSAnimation).animationName === 'lights-out' && a.playState === 'running').length);
 

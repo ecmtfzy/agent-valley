@@ -233,7 +233,6 @@ for n, picture in pictures.items():
 PY
     # The entry loads the report's font for every composition.
     cp site/public/needs-you/shut-*.webp site/public/needs-you/open-*.webp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
-    mkdir -p "$work/public/mascots" && cp site/public/mascots/*.svg "$work/public/mascots/"
     # The terminal waiting, the red 1 and the pointer on the notch (BEATS.pointIn's end).
     (cd site && npx remotion still motion/index.tsx NeedsYouMotion "$work/still.png" --frame=58 --scale=1.25 \
         --props='{"base":""}' --public-dir="$work/public" --log=error)

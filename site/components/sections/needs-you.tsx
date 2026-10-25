@@ -29,7 +29,7 @@ export function NeedsYou() {
       <figure
         className="s-figure min-w-0"
         role="img"
-        aria-label="The top of a Mac screen. An agent works in a terminal while the crew stands in the valley. It asks to run git push origin preview: the terminal waits, a red 1 appears beside the notch, and the one who asks waves. The pointer opens the panel over the terminal and presses Allow once. The panel shuts and the push goes through."
+        aria-label="The top of a Mac screen. An agent works in a terminal. It asks to run git push origin preview: the terminal waits and a red 1 appears beside the notch. The pointer opens the panel over the terminal and presses Allow once. The panel shuts and the push goes through."
       >
         <img className="s-still" src="/needs-you/still.webp" width={1500} height={1125} alt="" loading="lazy" decoding="async" />
         <NeedsYouLoop />

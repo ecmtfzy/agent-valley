@@ -51,12 +51,15 @@ html{scroll-padding-top:80px}
 .command code::before{content:"$ ";content:"$ "/"";color:var(--muted-foreground)}
 
 /* The top of a MacBook screen: menu bar, the notch with the bar beside it, the panel under it,
-   and the crew standing in the valley below. The panel stands open from the first paint; the bar
+   and the sun setting on the horizon below. The panel stands open from the first paint; the bar
    is a button that shuts and opens it, by click, tap or keyboard. Shut, the bar calls as the
    app's does. */
 .screen{--bar:clamp(30px,9cqw,46px);--sh:calc(var(--bar) * .2);position:relative;color:var(--app-fg);container-type:inline-size;width:100%;max-width:560px;margin-inline:auto;aspect-ratio:20/21;overflow:hidden;border:1px solid var(--bezel);border-radius:14px;box-shadow:0 0 0 6px var(--bezel),0 0 0 7px var(--border);
-  background:radial-gradient(130% 55% at 50% 100%,var(--glow),transparent 70%),linear-gradient(180deg,var(--wall) 0 calc(100% - 36px),var(--hz1) 0 calc(100% - 30px),var(--hz2) 0 calc(100% - 24px),var(--hz3) 0 calc(100% - 18px),var(--hz4) 0 calc(100% - 12px),var(--hz5) 0)}
-.menubar{position:absolute;inset:0 0 auto;display:flex;align-items:center;justify-content:space-between;height:var(--bar);padding:0 3cqw;background:rgba(var(--menu),.09)}
+  background:linear-gradient(180deg,var(--sky-hi),var(--sky) 62%,var(--sky-lo) calc(100% - 36px),var(--hz1) 0 calc(100% - 30px),var(--hz2) 0 calc(100% - 24px),var(--hz3) 0 calc(100% - 18px),var(--hz4) 0 calc(100% - 12px),var(--hz5) 0)}
+/* The sun sets on the horizon, in stripes that thicken as it goes down. */
+.sun{position:absolute;left:27cqw;bottom:36px;width:46cqw;height:23cqw;border-radius:23cqw 23cqw 0 0;background:linear-gradient(180deg,var(--sun-hi),var(--sun) 60%,var(--sun-lo));
+  mask:linear-gradient(180deg,#000 0 54%,transparent 0 60%,#000 0 74%,transparent 0 82%,#000 0 90%,transparent 0)}
+.menubar{position:absolute;inset:0 0 auto;display:flex;align-items:center;justify-content:space-between;height:var(--bar);padding:0 3cqw;background:rgba(255,255,255,.38)}
 .menubar .menus,.menubar .status{display:flex;align-items:center;gap:2.4cqw}
 .menubar .menus i{width:5.5cqw;height:1.3cqw;border-radius:1cqw;background:rgba(var(--menu),.32)}
 .menubar .menus i:first-child{width:2.4cqw;height:2.4cqw;border-radius:50%}
@@ -91,23 +94,21 @@ html{scroll-padding-top:80px}
 .panel::before,.bar::before{right:100%;background:radial-gradient(circle at 0 100%,transparent calc(var(--sh) - .5px),var(--ink) var(--sh))}
 .panel::after,.bar::after{left:100%;background:radial-gradient(circle at 100% 100%,transparent calc(var(--sh) - .5px),var(--ink) var(--sh))}
 .screen[data-state=shut] .panel{clip-path:inset(0 22.34% calc(100% - var(--bar)) 22.34% round 0 0 2.2cqw 2.2cqw);transition:clip-path .3s cubic-bezier(.4,0,.2,1)}
-.valley{position:absolute;z-index:1;left:0;right:0;bottom:30px;display:flex;justify-content:center;gap:2cqw}
-.valley .m{--s:clamp(30px,8.5cqw,44px)}
 /* The button over the bar: at least 44 points tall, as wide as the bar, ringed in amber on the dark. */
 .bar-hit{position:absolute;z-index:4;top:0;left:24cqw;width:52cqw;height:max(44px,var(--bar));padding:0;border:0;border-radius:0 0 2.2cqw 2.2cqw;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .bar-hit:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
 .bar-hit[hidden]{display:none}
 /* Shut, a note on the wallpaper under the notch, its arrow up to the bar's left wing (24-37cqw):
-   the bar is the thing to press. In the row's hand, in amber like the spider's note: the pen's
-   orange is too faint on this black. The arrow's head sits 78% into its box, so 5 + 18.8 + 6.2
-   lands it at 30cqw. Open, the panel covers the wallpaper and the note goes. */
-.notch-note{position:absolute;z-index:1;top:calc(var(--bar) + 1cqw);left:5cqw;width:40cqw;margin:0;color:var(--amber);font:600 clamp(13px,3.6cqw,20px)/1.15 var(--hand);text-wrap:balance;pointer-events:none;transition:opacity .3s}
+   the bar is the thing to press. In the row's hand and pen, on the cream sky. The arrow's head
+   sits 78% into its box, so 5 + 18.8 + 6.2 lands it at 30cqw. Open, the panel covers the
+   wallpaper and the note goes. */
+.notch-note{position:absolute;z-index:1;top:calc(var(--bar) + 1cqw);left:5cqw;width:40cqw;margin:0;color:var(--accent-text);font:600 clamp(13px,3.6cqw,20px)/1.15 var(--hand);text-wrap:balance;pointer-events:none;transition:opacity .3s}
 .screen[data-state=open] .notch-note{opacity:0}
 .notch-note svg{display:block;width:8cqw;height:9cqw;margin:0 0 1cqw 18.8cqw;overflow:visible;transform:scaleY(-1)}
-.notch-note path{fill:none;stroke:var(--amber);stroke-width:2.2px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.notch-note path{fill:none;stroke:var(--pen);stroke-width:2.2px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .screen>[role=img]{position:absolute;inset:0;pointer-events:none}
 /* A phone keeps the sub-agent rows, the point of the app: the screen grows taller to hold both cards. */
-/* Halloween's trick-or-treat card brings a second project line: a little more screen keeps the panel off the crew. */
+/* Halloween's trick-or-treat card brings a second project line: a little more screen keeps the panel off the horizon. */
 @media (min-width:600px){.halloween .screen{aspect-ratio:8/9}}
 @media (max-width:599px){.screen{aspect-ratio:4/5}.panel .extra{display:none}}
 /* Narrower still, a row's figures drop under its task rather than cut it short. */
@@ -418,14 +419,12 @@ a.w:hover{text-decoration-style:solid}
 .s-player{position:absolute;inset:0}
 
 @layer components {
-/* Halloween night on the hero's wallpaper (hero.tsx Night): over the wallpaper, under the panel and
+/* Halloween dusk on the hero's wallpaper (hero.tsx Night): over the wallpaper, under the panel and
    the bar, so the spider's thread starts out of sight under the notch. The note is in the row's
-   hand, in amber: the pen's orange is too faint on this black. */
+   hand, as the notch's note is. */
 .night{position:absolute;inset:0;z-index:1;pointer-events:none}
 /* The not-found page's caption above its picture (not-found.tsx), in the comics' own box. */
 .tool-tag{display:inline-block;margin-bottom:.75rem;padding:.2em .6em;border:2px solid #2a2118;background:#f6dc84;color:#1c1300;font:600 clamp(12px,1.5vw,17px)/1.3 var(--mono);white-space:nowrap}
-/* The moon is drawn in square pixels, as the bats and the spider are, its glow in two steps. */
-.moon{position:absolute;top:calc(var(--bar) + 13cqw);right:6cqw;width:17cqw;aspect-ratio:1;background:url(/mascots/moon.svg) center/contain no-repeat}
 .bat{--s:clamp(14px,5.5cqw,28px);position:absolute}
 .bat img{object-fit:contain}
 .bat.b1{top:calc(var(--bar) + 38cqw);right:27cqw}
@@ -434,7 +433,7 @@ a.w:hover{text-decoration-style:solid}
 .web{position:absolute;top:calc(var(--bar) - 10cqw);left:48cqw;display:flex;flex-direction:column;align-items:center;width:4cqw;animation:dangle 4s ease-in-out infinite alternate}
 .silk{width:1px;height:20cqw;background:rgba(var(--menu),.45)}
 .spider{width:4cqw;image-rendering:pixelated}
-.spider-note{position:absolute;top:calc(var(--bar) + 8cqw);left:55cqw;max-width:30cqw;margin:0;color:var(--amber);font:600 clamp(13px,3.9cqw,21px)/1.15 var(--hand);transform:rotate(-3deg)}
+.spider-note{position:absolute;top:calc(var(--bar) + 8cqw);left:55cqw;max-width:30cqw;margin:0;color:var(--accent-text);font:600 clamp(13px,3.9cqw,21px)/1.15 var(--hand);transform:rotate(-3deg)}
 @keyframes dangle{from{transform:translateY(-2cqw)}to{transform:translateY(3cqw)}}
 .idle .web,.still .web{animation-play-state:paused}
 @container (max-width:419px){.spider-note{display:none}}

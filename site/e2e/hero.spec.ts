@@ -10,7 +10,7 @@ test('the panel stands open at first, the notch shuts and opens it from the keyb
   await expect(page.locator('.screen > [role=img]')).toHaveAttribute('aria-label', /The AgentValley panel is open under the notch/);
   await notch.press('Enter');
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'shut');
-  await expect(page.locator('.screen > [role=img]')).toHaveAttribute('aria-label', 'The top of a MacBook screen. Beside the notch, a waving programmer and a red 1: an agent needs you. Below, the crew stands in the valley.');
+  await expect(page.locator('.screen > [role=img]')).toHaveAttribute('aria-label', 'The top of a MacBook screen. Beside the notch, a waving programmer and a red 1: an agent needs you.');
   await notch.press('Enter');
   await expect(page.locator('.screen')).toHaveAttribute('data-state', 'open');
 });

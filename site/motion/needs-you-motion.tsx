@@ -1,13 +1,12 @@
 import type React from 'react';
 import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from 'remotion';
-import { Face, type Thing } from './crew-motion';
 
-// The top of a Mac screen, as the hero draws one: an agent at work in a terminal, the crew in the
-// valley below. It asks to push: the terminal waits on it, the bar beside the notch shows a red 1
-// and the one who asks waves. The pointer opens the panel over the terminal, presses Allow once,
-// the panel shuts and the push goes through. The four pictures of the bar and the panel are the
-// app's own, drawn by testing/site.sh needs-you. The site plays it round and round: it ends on
-// the empty terminal it starts on.
+// The top of a Mac screen, as the hero draws one: an agent at work in a terminal, the sun setting
+// below. It asks to push: the terminal waits on it and the bar beside the notch shows a red 1.
+// The pointer opens the panel over the terminal, presses Allow once, the panel shuts and the push
+// goes through. The four pictures of the bar and the panel are the app's own, drawn by
+// testing/site.sh needs-you. The site plays it round and round: it ends on the empty terminal it
+// starts on.
 export type NeedsYouMotionProps = { readonly base: string };
 
 const PICTURE = {
@@ -16,32 +15,18 @@ const PICTURE = {
   open: 'open-asking.webp',
   allowed: 'open-allowed.webp',
 } as const;
-// The crew in the valley, each with what it holds at work, as the hero has them. The first is the one
-// who asks: Pearl, the face the app gives the asking session (NeedsYouMotionAssetsTests).
-const CREW: readonly (readonly [who: string, holds: Thing])[] = [
-  ['pearls', 'running'],
-  ['walrus', 'reading'],
-  ['afro', 'searching'],
-  ['beatnik', 'typing'],
-];
-const MASCOT = { wave: (who: string, n: number) => `${who}-wave${n}.svg` };
 /** What the motion draws from, for the site to have ready before the player covers its still. */
 export const PICTURES = Object.values(PICTURE);
-export const MASCOTS = [
-  ...CREW.flatMap(([who, holds]) => [`${who}-${holds}-run.svg`, `${who}-thinking-run.svg`]),
-  MASCOT.wave(CREW[0][0], 0),
-  MASCOT.wave(CREW[0][0], 1),
-];
 
 const W = 1200;
 const H = 900;
 const AMBER = '#ffb000';
 const RED = '#f0503c';
-// The hero's screen (globals.css): wallpaper, glow, horizon, menu bar, terminal.
-const WALL = '#1b110a';
-const GLOW = 'rgba(229,160,58,.3)';
+// The hero's screen (globals.css): the sunset's sky and sun, horizon, menu bar, terminal.
+const SKY = ['#fff6e4', '#fde6bf', '#f8c98c'];
+const SUN = ['#ffd166', '#f6a53f', '#e8792e'];
 const HORIZON = ['#e5a03a', '#d9772e', '#b4501f', '#7a3417', '#3d1f10'];
-const MENU = '255,236,210';
+const MENU = '60,36,14';
 const TERM = { bg: '#16120f', head: '#221c17', edge: '#3a322b', fg: '#d9d2c3', dim: '#bab2a2', dot: '#4a4038', wait: '#5a2a26' };
 const MONO = 'ui-monospace, "SF Mono", Menlo, monospace';
 
@@ -120,9 +105,10 @@ const Ring: React.FC<{ x: number; y: number; w: number; h: number; t: number; co
   />
 );
 
-// The wallpaper with its glow and the horizon the crew stands on, and the menu bar over it.
+// The wallpaper, a 70s sunset over the horizon, and the menu bar over it.
 const Screen: React.FC = () => {
   const band = 15;
+  const sun = 480;
   const pill = (left: number, width: number, round = false) => (
     <div
       key={left}
@@ -133,12 +119,25 @@ const Screen: React.FC = () => {
     <>
       <AbsoluteFill
         style={{
-          background: `radial-gradient(130% 55% at 50% 100%, ${GLOW}, transparent 70%), linear-gradient(180deg, ${WALL} 0 ${H - band * 5}px, ${HORIZON.map(
+          background: `linear-gradient(180deg, ${SKY[0]}, ${SKY[1]} 62%, ${SKY[2]} ${H - band * 5}px, ${HORIZON.map(
             (c, i) => `${c} ${H - band * (5 - i)}px ${H - band * (4 - i)}px`,
           ).join(', ')})`,
         }}
       />
-      <div style={{ position: 'absolute', inset: '0 0 auto 0', height: ISLAND.h, background: `rgba(${MENU},.09)` }}>
+      {/* The sun sets in stripes that thicken as it goes down (the hero's .sun). */}
+      <div
+        style={{
+          position: 'absolute',
+          left: (W - sun) / 2,
+          bottom: band * 5,
+          width: sun,
+          height: sun / 2,
+          borderRadius: `${sun / 2}px ${sun / 2}px 0 0`,
+          background: `linear-gradient(180deg, ${SUN[0]}, ${SUN[1]} 60%, ${SUN[2]})`,
+          maskImage: 'linear-gradient(180deg, #000 0 54%, transparent 0 60%, #000 0 74%, transparent 0 82%, #000 0 90%, transparent 0)',
+        }}
+      />
+      <div style={{ position: 'absolute', inset: '0 0 auto 0', height: ISLAND.h, background: 'rgba(255,255,255,.38)' }}>
         {[pill(36, 22, true), pill(82, 64), pill(166, 52), pill(238, 60)]}
         <div style={{ position: 'absolute', right: 172, top: 26, width: 46, height: 22, padding: 2, boxSizing: 'border-box', border: `2px solid rgba(${MENU},.6)`, borderRadius: 6 }}>
           <div style={{ width: '70%', height: '100%', borderRadius: 2, background: `rgba(${MENU},.6)` }} />
@@ -204,28 +203,10 @@ const Terminal: React.FC<{ f: number }> = ({ f }) => {
   );
 };
 
-// The crew on the horizon; the one who asks waves while the request waits.
-const Valley: React.FC<{ f: number; file: (name: string) => string }> = ({ f, file }) => {
-  const waving = f >= BEATS.ring && f < BEATS.allowed;
-  const size = 92;
-  return (
-    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 62, display: 'flex', justifyContent: 'center', gap: 22 }}>
-      {CREW.map(([who, holds], i) =>
-        i === 0 && waving ? (
-          <Img key={who} src={file(MASCOT.wave(who, Math.floor(f / 6) % 2))} style={{ width: size, height: size, imageRendering: 'pixelated' }} />
-        ) : (
-          // Face counts at the crew motion's 60 a second; a third of a round apart, as on the site.
-          <Face key={who} who={who} holds={holds} size={size} f={f * 2} lag={(i % 3) * 168} file={file} />
-        ),
-      )}
-    </div>
-  );
-};
-
 export const NeedsYouMotion: React.FC<NeedsYouMotionProps> = ({ base }) => {
   const f = useCurrentFrame();
-  // On the site the pictures sit in /needs-you/ and the crew in /mascots/; a render reads both from its public folder.
-  const file = (name: string) => (name.endsWith('.svg') ? (base ? `/mascots/${name}` : staticFile(`mascots/${name}`)) : base ? base + name : staticFile(name));
+  // On the site the pictures sit in /needs-you/; a render reads them from its public folder.
+  const file = (name: string) => (base ? base + name : staticFile(name));
   const B = BEATS;
   const there = (a: readonly [number, number], b: readonly [number, number], easing = snap) =>
     interpolate(f, [a[0], a[1], b[0], b[1]], [0, 1, 1, 0], { ...clamp, easing });
@@ -261,10 +242,9 @@ export const NeedsYouMotion: React.FC<NeedsYouMotionProps> = ({ base }) => {
   );
 
   return (
-    <AbsoluteFill style={{ background: WALL }}>
+    <AbsoluteFill style={{ background: SKY[0] }}>
       <AbsoluteFill style={{ transformOrigin: `${W / 2}px 330px`, scale: String(zoom) }}>
         <Screen />
-        <Valley f={f} file={file} />
         <Terminal f={f} />
         <div style={{ position: 'absolute', left: PANEL.x, top: 0, width: PANEL.w, height: PANEL.h }}>
           {grow > 0 && (

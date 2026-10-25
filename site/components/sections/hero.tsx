@@ -98,12 +98,11 @@ export function OnPhone() {
   );
 }
 
-// Halloween night on the wallpaper, under the panel: a moon, three bats, and a spider let down on
-// its thread from under the notch, with a note in pen.
+// Halloween dusk on the wallpaper, under the panel: three bats over the setting sun, and a spider
+// let down on its thread from under the notch, with a note in pen.
 function Night() {
   return (
     <div className="night hw" aria-hidden="true">
-      <i className="moon" />
       {['b1', 'b2', 'b3'].map((b) => (
         <span key={b} className={`m wave bat ${b}`}>
           <img src="/mascots/bat-0.svg" alt="" fetchPriority="high" />
@@ -120,10 +119,11 @@ function Night() {
 }
 
 // The top of a MacBook screen: menu bar, the notch with the bar beside it, the panel under it, and
-// the crew standing in the valley below.
+// the sun setting on the horizon below.
 function ScreenDrawing() {
   return (
     <>
+      <i className="sun" aria-hidden="true" />
       <div className="menubar" aria-hidden="true">
         <span className="menus"><i /><i /><i /></span>
         <span className="status"><i className="battery" /><span className="clock">Thu 9:41</span></span>
@@ -193,12 +193,6 @@ function ScreenDrawing() {
         <span className="wing"><Mascot who="guru" pose="wave" className="wait-only" eager /><Mascot who="guru" pose="work" holds="running" className="after-only" /><span className="count wait-only">1</span></span>
         <span className="lens" />
         <span className="wing"><span className="gauge" /></span>
-      </div>
-      <div className="valley" aria-hidden="true">
-        <Mascot who="guru" pose="wave" eager />
-        <Mascot who="walrus" pose="work" holds="reading" eager />
-        <Mascot who="afro" pose="work" holds="searching" eager />
-        <Mascot who="beatnik" pose="work" holds="typing" eager />
       </div>
     </>
   );

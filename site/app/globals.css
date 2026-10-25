@@ -59,15 +59,20 @@
   --part1: #e0a030;
   --part2: #f2ead8;
   --part3: #8c8378;
-  /* The hero's Mac: its wallpaper, its menu bar drawn in the wallpaper's cream, the camera, the notch's edge,
-     the bezel round the screen, the sunset's glow over the horizon. */
-  --wall: #1b110a;
-  --menu: 255, 236, 210;
+  /* The hero's Mac: a 70s sunset for its wallpaper, as on the Another display sign (motion/display-motion.tsx):
+     a cream sky, light at the top, the sun in stripes; its menu bar drawn in brown on the cream, the camera,
+     the notch's edge, the bezel round the screen. --sky is the sky where the notes sit, at its darkest. */
+  --sky-hi: #fff6e4;
+  --sky: #fde6bf;
+  --sky-lo: #f8c98c;
+  --sun-hi: #ffd166;
+  --sun: #f6a53f;
+  --sun-lo: #e8792e;
+  --menu: 60, 36, 14;
   --lens: #1d2733;
   --lens-rim: #2c3a48;
   --notch-edge: #5a5a5e;
   --bezel: #0e0e10;
-  --glow: rgba(229, 160, 58, 0.3);
   /* A terminal of the time: warm black, a header a step lighter, one waiting in red. */
   --term-bg: #16120f;
   --term-head: #221c17;

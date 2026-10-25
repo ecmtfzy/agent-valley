@@ -5,12 +5,12 @@ import { createContext, useEffect, useLayoutEffect, useRef, useState } from 'rea
 // The picture's words follow it: open, the panel; shut, the bar. Once the Halloween row has its
 // answer (trick-or-treat.tsx), nobody waits any more.
 const TOLD = {
-  open: 'The top of a MacBook screen. The AgentValley panel is open under the notch: one session needs you, another is working with two sub-agents. Below, the crew stands in the valley.',
-  shut: 'The top of a MacBook screen. Beside the notch, a waving programmer and a red 1: an agent needs you. Below, the crew stands in the valley.',
+  open: 'The top of a MacBook screen. The AgentValley panel is open under the notch: one session needs you, another is working with two sub-agents.',
+  shut: 'The top of a MacBook screen. Beside the notch, a waving programmer and a red 1: an agent needs you.',
 };
 const TOLD_ANSWERED = {
-  open: 'The top of a MacBook screen. The AgentValley panel is open under the notch: four agents are working, and nobody needs you. Below, the crew stands in the valley.',
-  shut: 'The top of a MacBook screen. Beside the notch, a working programmer: nobody needs you. Below, the crew stands in the valley.',
+  open: 'The top of a MacBook screen. The AgentValley panel is open under the notch: four agents are working, and nobody needs you.',
+  shut: 'The top of a MacBook screen. Beside the notch, a working programmer: nobody needs you.',
 };
 
 // What the panel's own parts may know of the picture: open or shut, and the Halloween row's answer.

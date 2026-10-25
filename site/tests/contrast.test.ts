@@ -30,8 +30,8 @@ const PAIRS = [
   ['primary-foreground', 'primary'], ['on-amber', 'amber'],
   ['type', 'paper'], ['type', 'greenbar'], ['term-fg', 'term-bg'], ['app-fg', 'ink'], ['app-dim', 'ink'],
   ['term-dim', 'term-head'], ['red-text', 'term-head'], ['app-tab', 'app-fill'], ['app-dim', 'app-card'],
-  // Halloween: the spider's note on the hero's wallpaper.
-  ['amber', 'wall'],
+  // The notes in pen on the hero's sky: the notch's, and the spider's at Halloween.
+  ['accent-text', 'sky'],
   // Halloween: the band over the top bar.
   ['hw-fg', 'hw-bg'], ['hw-dim', 'hw-bg'],
 ];
