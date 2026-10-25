@@ -79,7 +79,7 @@ When an agent asks a question or waits for permission, a red count appears besid
 
 Open History from the chart button at the top of the panel. Pick a day, a week or a month, at API prices. It stays on your Mac, even after Claude Code clears its old files. Export PDF writes a statement of work: every project for you, or one project for your team or a client.
 
-<p align="center"><img src="docs/report-motion.gif" alt="The History page in the notch panel. Export PDF prints a statement of work for every project, then the panel picks shop-web and prints one for that project alone. Each page opens with its total." width="544"></p>
+<p align="center"><img src="docs/history.png" alt="The History page in the notch panel: October 2026 comes to $1,712.84 at API prices, with a bar for each day, the split by model and by agent, and four projects. A pen arrow runs from Export PDF to the first page of a statement of work coming out from under the panel: September 2026, all projects, $1,414.66." width="544"></p>
 
 ### The crew in your terminal too
 

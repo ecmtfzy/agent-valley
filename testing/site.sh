@@ -24,8 +24,11 @@
 #   testing/site.sh report    Draws the report motion from the app: the History page and the two
 #                             PDFs of a made-up September (ReportMotionAssetsTests), their totals
 #                             in site/motion; then, with Remotion, the first page's head that the
-#                             site shows, on nothing (site/public/report-sheet.webp), and docs/report-motion.gif
-#                             for the README. Remotion fetches its Chrome on its first render.
+#                             site shows, on nothing (site/public/report-sheet.webp). Remotion fetches
+#                             its Chrome on its first render.
+#   testing/site.sh history   Builds the site and writes docs/history.png for the README: the site's
+#                             History panel with the PDF's first page coming out from under it, and
+#                             a pen arrow from Export PDF to the page, on the page's cream.
 #   testing/site.sh needs-you Draws the needs-you motion's pictures from the app: the panel shut
 #                             while three made-up sessions work, shut with the red 1, open on the
 #                             request and open once it is allowed (NeedsYouMotionAssetsTests), as
@@ -191,21 +194,62 @@ PY
         --props='{"loop":false,"bare":true}' --public-dir="$work/public" --log=error)
     python3 -I -c 'import sys; from PIL import Image; i = Image.open(sys.argv[1]).convert("RGBA"); i.crop(i.getchannel("A").getbbox()).save(sys.argv[2], quality=86, alpha_quality=90, method=6)' \
         "$work/still.png" site/public/report-sheet.webp
-    # As a video first, then a GIF with one palette for the whole loop and each rest kept as one long
-    # frame, so each frame stores only what changed: under 5 MB at 768 wide and 12 frames a second,
-    # since the camera's looks at the panel change every pixel. Remotion's own ffmpeg lacks the filters for it.
-    (cd site && npx remotion render motion/index.tsx ReportMotion "$work/report.mp4" --codec=h264 --crf=1 --scale=0.64 \
-        --props='{"loop":true}' --public-dir="$work/public" --log=error)
-    command -v ffmpeg >/dev/null || { echo "Needs ffmpeg: brew install ffmpeg" >&2; exit 1; }
-    (ffmpeg -loglevel error -y -i "$work/report.mp4" -fps_mode vfr \
-        -vf 'fps=12,mpdecimate,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle' \
-        docs/report-motion.gif)
-    ls -l site/public/report-sheet.webp site/motion/report-totals.json docs/report-motion.gif
-    sips -g pixelWidth -g pixelHeight site/public/report-sheet.webp docs/report-motion.gif | grep pixel
-    if [ "$(stat -f %z docs/report-motion.gif)" -gt 5242880 ]; then
-        echo "docs/report-motion.gif is over 5 MB: lower its --scale." >&2
-        exit 1
-    fi
+    ls -l site/public/report-sheet.webp site/motion/report-totals.json
+    sips -g pixelWidth -g pixelHeight site/public/report-sheet.webp | grep pixel
+    ;;
+history)
+    # At twice its size on the page's cream with round corners, as docs/row-notes.png: it reads on
+    # GitHub's dark theme too. The panel and the sheet are the site's own, set out on a card.
+    npm --prefix site run build >/dev/null
+    serve_out 8766 >/dev/null 2>&1 &
+    server=$!
+    disown "$server"
+    work=$(mktemp -d)
+    trap 'kill $server; rm -rf "$work"' EXIT
+    sleep 1
+    (cd site && OUT="$work/history.png" node --input-type=module - <<'JS'
+import { chromium } from '@playwright/test';
+const browser = await chromium.launch({ channel: 'chrome' });
+const page = await browser.newPage({ viewport: { width: 1280, height: 1000 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+await page.goto('http://127.0.0.1:8766/');
+const sheet = page.locator('#report img');
+await sheet.evaluate((img) => { img.loading = 'eager'; });
+await page.waitForFunction(() => document.querySelector('#report img').complete);
+await page.evaluate(() => document.fonts.ready);
+// The panel 470 wide, its top 60 down to leave room for the arrow; the sheet behind it, 414 wide,
+// its head 56 under the panel's foot; the card ends where the sheet has faded out.
+const height = await page.evaluate(() => {
+  const card = Object.assign(document.createElement('div'), { id: 'card' });
+  card.style.cssText = 'position:fixed;inset:0 auto auto 0;width:620px;overflow:hidden;background:var(--background);z-index:9999';
+  const panel = document.querySelector('section.costs .hist').cloneNode(true);
+  panel.style.cssText = 'position:absolute;left:28px;top:60px;width:470px;z-index:1';
+  const sheet = document.querySelector('#report img').cloneNode(true);
+  card.append(panel, sheet);
+  document.body.append(card);
+  const top = panel.getBoundingClientRect().bottom - 56;
+  sheet.style.cssText = `position:absolute;left:186px;top:${top}px;width:414px;height:auto`;
+  card.insertAdjacentHTML('beforeend', `<svg width="620" height="${top + 80}" style="position:absolute;inset:0;z-index:2;overflow:visible" fill="none" stroke="var(--pen)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 268 52 C 290 16, 420 10, 520 20 C 600 30, 612 120, 606 260 C 602 ${top - 120}, 598 ${top - 40}, 586 ${top + 20}"/>
+    <path d="M 573 ${top + 6} L 586 ${top + 23} L 599 ${top + 7}"/></svg>`);
+  const height = Math.ceil(top + 414 * 975 / 1500 + 8);
+  card.style.height = `${height}px`;
+  return height;
+});
+await page.screenshot({ path: process.env.OUT, clip: { x: 0, y: 0, width: 620, height } });
+await browser.close();
+JS
+    )
+    python3 -I - "$work/history.png" docs/history.png <<'PY'
+import sys
+from PIL import Image, ImageDraw
+picture = Image.open(sys.argv[1]).convert('RGBA')
+corners = Image.new('L', picture.size, 0)
+ImageDraw.Draw(corners).rounded_rectangle((0, 0, *picture.size), radius=36, fill=255)
+picture.putalpha(corners)
+picture.save(sys.argv[2], optimize=True)
+PY
+    ls -l docs/history.png
+    sips -g pixelWidth -g pixelHeight docs/history.png | tail -2
     ;;
 needs-you)
     work=$(mktemp -d)
