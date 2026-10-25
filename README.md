@@ -92,6 +92,9 @@ Claude Code's status line gets the face of whoever runs the session, with the mo
 
 - **Plan limits.** Your Claude 5-hour and weekly limits, with time left until reset. Off until you turn it on. When one runs out we go fishing, or take the van for the weekly one, and a sign says when we're back.
 - **Token use.** Tokens for the last 5 hours and today, with a 12-hour chart.
+- **Another display.** MacBook off to the side, big screen in front? Settings › General › Display moves us to the top of the big one, on any display plugged into your Mac. Unplug it and we go back to the notch. Asked for in [issue #1](https://github.com/morsechimwai/agent-valley/issues/1).
+
+<p align="center"><img src="docs/display.gif" alt="A big display with a MacBook in front of it. The notch, with one of us in it, lifts off the MacBook, glides to the top of the big display and settles there, then glides back." width="360"></p>
 
 ## Meet the crew
 

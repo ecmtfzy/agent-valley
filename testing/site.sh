@@ -34,6 +34,10 @@
 #   testing/site.sh crew      Builds the site and, with Remotion, draws the crew at work: the stills
 #                             the site shows where nothing moves, wide and tall (site/public/crew),
 #                             and docs/crew.gif on the page's cream for the README.
+#   testing/site.sh display   With Remotion, the notch gliding between a MacBook and a big display:
+#                             the still the site shows where nothing moves (site/public/display),
+#                             docs/display.gif for the README and docs/distribution/display-motion.mp4
+#                             for posts.
 #   testing/site.sh check     Installs, tests and builds the site; every line of the spec's copy is
 #                             on the page, every file it points to is there, nothing is loaded
 #                             from another site, and the browser tests pass.
@@ -277,6 +281,29 @@ PY
     sips -g pixelWidth -g pixelHeight site/public/crew/*.webp docs/crew.gif | grep pixel
     if [ "$(stat -f %z docs/crew.gif)" -gt 5242880 ]; then
         echo "docs/crew.gif is over 5 MB: lower its --scale." >&2
+        exit 1
+    fi
+    ;;
+display)
+    # The notch gliding between a MacBook and a big display (site/motion/display-motion.tsx).
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    mkdir -p "$work/public/mascots" site/public/display docs/distribution
+    cp site/node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2 "$work/public/"
+    cp site/public/mascots/*.svg "$work/public/mascots/"
+    # Settled at the top of the big display (BEATS.away and back), on nothing.
+    (cd site && npx remotion still motion/index.tsx DisplayMotion "$work/still.png" --frame=200 \
+        --props='{"base":""}' --public-dir="$work/public" --log=error)
+    python3 -I -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).save(sys.argv[2], quality=88, alpha_quality=90, method=6)' \
+        "$work/still.png" site/public/display/still.webp
+    (cd site && npx remotion render motion/index.tsx DisplayMotion ../docs/display.gif --codec=gif --every-nth-frame=2 --scale=0.75 \
+        --props='{"base":"","paper":"#f4ecd9"}' --public-dir="$work/public" --log=error --overwrite)
+    # For X and Bluesky; docs/distribution stays out of the public repo (publish.sh).
+    (cd site && npx remotion render motion/index.tsx DisplayMotion ../docs/distribution/display-motion.mp4 --codec=h264 --crf=16 --scale=2 \
+        --props='{"base":"","paper":"#f4ecd9"}' --public-dir="$work/public" --log=error --overwrite)
+    ls -l site/public/display docs/display.gif docs/distribution/display-motion.mp4
+    if [ "$(stat -f %z docs/display.gif)" -gt 5242880 ]; then
+        echo "docs/display.gif is over 5 MB: lower its --scale." >&2
         exit 1
     fi
     ;;
