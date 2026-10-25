@@ -252,7 +252,7 @@ html{scroll-padding-top:80px}
 
 /* History as the app draws it, with made-up numbers on the reader's own calendar to click through */
 
-.hist{display:grid;grid-template-columns:minmax(0,1fr);gap:.75em;padding:1.1em;border-radius:18px;background:var(--ink);color:var(--app-fg);font:400 .875rem/1.5 var(--app)}
+.hist{display:grid;grid-template-columns:minmax(0,1fr);gap:.75em;padding:1.1em;border-radius:18px;background:var(--ink);color:var(--app-fg);font:400 .8125rem/1.25 var(--app)}
 :where(.hist) button{all:unset;box-sizing:border-box;cursor:pointer}
 .hist button:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
 .hist button:disabled{cursor:default}
@@ -274,7 +274,7 @@ html{scroll-padding-top:80px}
 .h-title{min-width:0;font-weight:700;line-height:1.4}
 .h-total{display:grid;flex:none;justify-items:end;margin-left:auto}
 .h-total b{font-size:1.23em;line-height:1.2}
-.h-small,.h-split span{color:var(--app-soft);font-size:.86em}
+.h-small,.h-split span{color:var(--app-soft);font-size:.77em}
 .h-bars{display:flex;align-items:flex-end;gap:2px;height:5em}
 .h-bars.hours{height:2.6em}
 .h-bars>*{display:flex;flex:1;align-items:flex-end;height:100%}
@@ -287,12 +287,12 @@ html{scroll-padding-top:80px}
 .h-pick{display:flex;align-items:center;color:var(--pick)}
 /* Its target starts where the words end, so a press on them does nothing. */
 .h-clear{display:grid;flex:none;place-items:center;width:44px;height:44px;margin:-10px 0;border:1px solid transparent}
-.h-axis{display:flex;justify-content:space-between;margin-top:-.5em;color:var(--app-soft);font-size:.8em}
+.h-axis{display:flex;justify-content:space-between;margin-top:-.5em;color:var(--app-soft);font-size:.7em}
 .h-split{display:grid;gap:.25em}
 .h-split p{display:flex;gap:1px;height:.46em;overflow:hidden;border-radius:.23em}
-.h-head{margin-top:.3em;color:var(--app-soft);font:600 .86em/1.5 var(--app);letter-spacing:0}
+.h-head{margin-top:.3em;color:var(--app-soft);font:600 .77em/1.25 var(--app);letter-spacing:0}
 .h-list{display:grid;grid-template-columns:minmax(0,1fr)}
-.h-list>*{display:flex;align-items:center;gap:.45em;margin:0 -.45em;padding:.3em .45em;border-radius:.4em}
+.h-list>*{display:flex;align-items:center;gap:.45em;margin:0 -.45em;padding:.2em .45em;border-radius:.4em}
 .h-list button{min-height:44px;border:1px solid transparent}
 .h-list button:hover{background:var(--app-fill)}
 .h-list b{min-width:0;font-weight:400}
@@ -300,7 +300,17 @@ html{scroll-padding-top:80px}
 .h-list .i{flex:none;align-self:center;width:.7em;opacity:.5}
 .h-name{font-weight:700}
 .h-quiet{color:var(--app-soft)}
-.h-foot{margin-top:.3em;color:var(--app-soft);font-size:.86em}
+.h-foot{margin-top:.3em;color:var(--app-soft);font-size:.77em}
+/* With a mouse, the app's own sizes: 22pt controls, 23pt rows, arrows close to the title. A
+   finger keeps the 44px targets above. */
+@media (pointer:fine){
+  .h-back,.h-pdf{min-height:24px}
+  .h-seg{gap:2px;padding:2px;border-radius:8px}
+  .h-seg button{min-width:0;min-height:22px;padding:0 10px;border-radius:6px}
+  .h-step{width:24px;height:24px;margin:-3px -4px}
+  .h-clear{width:24px;height:24px;margin:-3px 0}
+  .h-list button{min-height:24px}
+}
 
 /* What it reads, printed on continuous-form paper */
 

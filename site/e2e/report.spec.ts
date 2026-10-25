@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-// The PDF section shows the report's first page as one picture: nothing plays and nothing grows.
+// The PDF sits in the costs section, under its words: the report's first page as one picture,
+// nothing plays and nothing grows.
 
-test('the report section sits between costs and the funnies, with the sheet', async ({ page }) => {
+test('the PDF sits in the costs section, just before the funnies, with the sheet', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('section.costs #report')).toHaveCount(1);
   const order = await page.locator('main > section').evaluateAll((all) => all.map((s) => s.className));
-  const at = order.findIndex((c) => c.includes('report'));
-  expect(order[at - 1]).toContain('costs');
+  const at = order.findIndex((c) => c.includes('costs'));
   expect(await page.locator('main > section').nth(at + 1).getAttribute('id')).toBe('funnies');
   await expect(page.getByRole('heading', { name: 'Hand the month over as a PDF.' })).toBeVisible();
   await expect(page.getByRole('img', { name: /^The first page of a statement of work for September 2026, all projects: / })).toBeVisible();
@@ -37,13 +38,16 @@ test('the sheet stands on the page itself, with no box behind it', async ({ page
 test.describe('where the page may move', () => {
   test.use({ viewport: { width: 1280, height: 800 }, reducedMotion: 'no-preference' });
 
-  test('the section is as tall as its content, and plays nothing', async ({ page }) => {
+  test('the PDF sits beside the panel, and plays nothing', async ({ page }) => {
     await page.goto('/');
-    await page.locator('section.report').scrollIntoViewIfNeeded();
+    await page.locator('#report').scrollIntoViewIfNeeded();
     await page.waitForLoadState('networkidle');
-    expect(await page.locator('section.report').evaluate((s: HTMLElement) => s.offsetHeight / innerHeight)).toBeLessThan(1.5);
+    expect(await page.locator('section.costs').evaluate((s: HTMLElement) => s.offsetHeight / innerHeight)).toBeLessThan(1.5);
+    const panel = (await page.locator('section.costs figure').boundingBox())!;
+    const pdf = (await page.locator('#report').boundingBox())!;
+    expect(pdf.x).toBeGreaterThan(panel.x + panel.width);
     // The needs-you section above plays its motion; this one holds the one picture.
-    expect(await page.locator('section.report img').count()).toBe(1);
-    expect(await page.locator('section.report [inert]').count()).toBe(0);
+    expect(await page.locator('#report img').count()).toBe(1);
+    expect(await page.locator('#report [inert]').count()).toBe(0);
   });
 });

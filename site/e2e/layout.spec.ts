@@ -29,10 +29,10 @@ test('a flipped section gives its picture the wide column', async ({ page }) => 
   }
 });
 
-test('the short side of Trust and Costs stays in view while the long side scrolls', async ({ page }) => {
+test('the short side of Trust stays in view while the long side scrolls', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  for (const name of ['trust', 'costs']) {
+  for (const name of ['trust']) {
     const section = page.locator(`section.${name}`);
     await section.evaluate((el) => scrollTo(0, el.getBoundingClientRect().top + scrollY + 300));
     await page.waitForTimeout(100);

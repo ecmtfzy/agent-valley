@@ -32,10 +32,10 @@ test('the top row is the app\'s: back to the agents, Export PDF, and the spans',
   const hist = await open(page);
   await expect(hist.getByRole('link', { name: 'Agents' })).toHaveAttribute('href', '#top');
   await expect(hist.getByRole('link', { name: 'Export PDF' })).toHaveAttribute('href', '#report');
-  await expect(page.locator('section#report')).toHaveCount(1);
+  await expect(page.locator('section.costs #report')).toHaveCount(1);
   const top = (name: string) => hist.getByRole(name === 'Month' ? 'button' : 'link', { name }).evaluate((el) => Math.round(el.getBoundingClientRect().top));
   expect(await top('Export PDF')).toBe(await top('Agents'));
-  // The arrows hug the title, as in the app, and each is still a 44px target on top of it.
+  // The arrows hug the title, as in the app, and each is still a 24px target on top of it.
   const title = (await hist.locator('.h-title').boundingBox())!;
   const [earlier, later] = await hist.locator('.h-step svg').all();
   const left = title.x - ((await earlier.boundingBox())!.x + (await earlier.boundingBox())!.width);
@@ -47,7 +47,7 @@ test('the top row is the app\'s: back to the agents, Export PDF, and the spans',
   await hist.locator('.h-stretch').evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
   for (const step of await hist.locator('.h-step').all()) {
     const box = (await step.boundingBox())!;
-    expect([box.width, box.height]).toEqual([44, 44]);
+    expect([box.width, box.height]).toEqual([24, 24]);
     const hit = await step.evaluate((el) => {
       const r = el.getBoundingClientRect();
       return [r.left + 2, r.right - 2].map((x) => el.contains(document.elementFromPoint(x, r.top + r.height / 2)));
@@ -124,4 +124,15 @@ test('the arrows keep the keyboard', async ({ page }) => {
 test('the built page holds no History numbers', async ({ request }) => {
   const html = await (await request.get('/')).text();
   expect(html).not.toContain('h-total');
+});
+
+test.describe('under a finger', () => {
+  test.use({ hasTouch: true });
+  test('every control of History is a 44px target', async ({ page }) => {
+    const hist = await open(page);
+    for (const control of await hist.locator('.h-back, .h-pdf, .h-seg button, .h-step, .h-list button').all()) {
+      const box = (await control.boundingBox())!;
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+    }
+  });
 });

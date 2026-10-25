@@ -103,7 +103,9 @@
   /* Geist for the page; the Mac's own monospace for the app's parts, as the app is set. */
   --sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
-  --app: ui-monospace, "SF Mono", Menlo, monospace;
+  /* Chrome and Firefox have no ui-monospace and cannot reach SF Mono: Geist Mono is its nearest
+     look-alike, where Menlo was not. */
+  --app: ui-monospace, "SF Mono", var(--font-geist-mono), Menlo, monospace;
   --hand: var(--font-hand), "Bradley Hand", "Segoe Print", cursive;
   /* Halloween's band over the top bar: a night-purple terminal, pumpkin output, lilac prompt. */
   --hw-bg: #1d0b2e;
