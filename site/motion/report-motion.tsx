@@ -160,7 +160,7 @@ export const ReportMotion: React.FC<ReportMotionProps> = ({ loop, bare = false }
   const zoomA = interpolate(f, B.zoomA, [0, 1, 1, 0], { ...clamp, easing: swing });
   const zoomB = interpolate(f, B.zoomB, [0, 1, 1, 0], { ...clamp, easing: swing });
   const on = zoomB > 0 ? sheetB : sheetA;
-  const focus = { x: on.x + 848 * SHEET_SCALE, y: on.y + 260 * SHEET_SCALE };
+  const focus = { x: on.x + 848 * SHEET_SCALE, y: on.y + 470 * SHEET_SCALE };
   const zoom = Math.max(zoomA, zoomB);
   const look = Math.max(interpolate(f, B.lookA, [0, 1, 1, 0], { ...clamp, easing: swing }), interpolate(f, B.lookB, [0, 1, 1, 0], { ...clamp, easing: swing }));
   // On the projects for shop-web, then along with the pointer back up to Export PDF.

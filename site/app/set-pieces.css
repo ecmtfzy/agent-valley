@@ -438,8 +438,56 @@ a.w:hover{text-decoration-style:solid}
 }
 }
 
-/* The PDF report's first page, on the page itself; its foot, which the picture cuts, fades out. */
+/* The costs section as one scene: the heading beside its words across the top, then the History
+   panel with the bill out from behind its right edge, under its Export PDF link. How far out is
+   --t on the bill's slot, 0 behind the panel to 1 all the way out, as far as the page has
+   scrolled (components/bill-scroll.tsx; 1 without it). The panel sits over the bill, so the bill
+   never covers its list. On a phone the bill comes down from under the panel's foot instead. */
+.c-scene{display:grid;grid-template-columns:minmax(0,1fr);margin-top:72px}
+.c-panel{position:relative;z-index:2;min-width:0}
+.c-panel>figure{display:grid;min-width:0;gap:12px}
+.costs .report{position:relative;z-index:1;min-width:0}
+.costs .report>*+*{margin-top:16px}
+/* The slot the bill slides out of; its foot, which the picture cuts, fades out. */
+.r-slot{--t:1;display:block;overflow:hidden}
 .r-sheet{display:block;width:100%;height:auto;mask-image:linear-gradient(to bottom,#000 78%,transparent)}
+/* The pen of the row's notes on the panel's top edge: Caveat in the page's orange, the arrow in
+   pen. Its head (at 56 of the arrow's 72) lands on the link: --in is how far in from the panel's
+   right edge the link's middle sits, measured by components/bill-scroll.tsx, and until then the
+   span buttons' width and the panel's padding with the page's own fonts. */
+.c-note{--in:236px;position:absolute;right:calc(var(--in) - 9px);bottom:calc(100% + 2px);display:flex;align-items:flex-start;gap:4px;color:var(--accent-text);font:600 1.5rem/1 var(--hand);white-space:nowrap;pointer-events:none}
+.c-note svg{width:40px;height:44px;margin-top:.45em;overflow:visible}
+.c-note path{fill:none;stroke:var(--pen);stroke-width:2.2px;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+@media (min-width:900px){
+  .c-head{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:64px;align-items:start}
+  .c-scene{grid-template-columns:minmax(0,59fr) minmax(0,41fr);align-items:start}
+  .c-panel{grid-area:1/1}
+  /* Its left edge tucked behind the panel by a tenth of its column, which hides the paper's edge
+     and none of its words; its top under the panel's top row. The words under it start a little
+     past where the panel ends: the tenth again, of the report's width, eleven tenths of the column. */
+  .costs .report{grid-area:1/2;margin:44px 0 0 -10%}
+  .costs .report>:not(.r-slot){margin-left:calc(100% / 11 + 28px)}
+  .r-sheet{translate:calc((var(--t) - 1) * 100%) 0}
+}
+@media (max-width:899px){
+  .c-head>.stack{margin-top:20px}
+  /* The caption over the panel, so the bill can come out from under the panel's foot. */
+  .c-panel>figure>figcaption{order:-1}
+  .costs .report{margin-top:-24px}
+  .r-sheet{translate:0 calc((var(--t) - 1) * 100%)}
+}
+/* Narrower, the caption stands between the note and the link: no note. */
+@media (max-width:899px){.c-note{display:none}}
+/* With no panel (no script), no note, and the bill stands on its own. */
+html:not(.js) .c-note{display:none}
+html:not(.js) .c-scene{display:block}
+html:not(.js) .costs .report{max-width:640px;margin:0}
+html:not(.js) .costs .report>:not(.r-slot){margin-left:0}
+/* Stopped, still or printed, the bill is all the way out. */
+.still .r-sheet{translate:none}
+@media (prefers-reduced-motion:reduce){.r-sheet{translate:none}}
+@media print{.r-sheet{translate:none}}
+@media screen and (prefers-reduced-motion:no-preference){html.js:not(.still) .r-sheet{transition:translate .12s linear}}
 
 /* The needs-you motion: its still, and over it the player once the page may move. */
 .s-figure{position:relative;margin:0;overflow:hidden;border-radius:14px;background:#f3f2ed}
