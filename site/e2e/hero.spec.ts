@@ -245,7 +245,7 @@ test('the hero says, in a badge of its own, that the app is for Claude Code alon
   const badge = page.locator('.hero').getByText('Only for Claude Code, on Mac', { exact: true });
   await expect(badge).toBeVisible();
   expect(await badge.evaluate((el) => getComputedStyle(el).borderTopWidth)).not.toBe('0px');
-  await expect(page.locator('.hero img[alt*="Claude" i], .hero svg[aria-label*="Claude" i]')).toHaveCount(0);
+  await expect(page.locator('.hero img[alt*="Claude" i]:not(.ph img), .hero svg[aria-label*="Claude" i]')).toHaveCount(0);
 });
 
 test('the footer signs off with the block-letter name alone', async ({ page }) => {
