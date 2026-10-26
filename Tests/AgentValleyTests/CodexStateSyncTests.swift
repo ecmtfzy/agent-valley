@@ -310,6 +310,34 @@ final class CodexStateSyncTests: XCTestCase {
         }
     }
 
+    func testRolloutCarriesPreviousCompletionAlongsideTheNextActiveTurn() throws {
+        try journal { file, store in
+            try append(event("PreToolUse", at: 29, tool: "exec_command", call: "old"), to: file)
+            _ = store.readCards(now: at(29))
+            var next = local(.working, turn: "next", start: 40.016, activity: 41)
+            let row = try XCTUnwrap(next.main)
+            var info = row.info
+            info.codexCompletedTurns = [CodexTurnCompletion(turnID: "first", startedAt: at(0), endedAt: at(40))]
+            next.main = AgentRow(id: row.id, info: info, status: row.status, elapsed: row.elapsed)
+            let result = try XCTUnwrap(store.readCards(now: at(41), reconciling: [next]).first)
+            XCTAssertEqual(result.main?.status, .working)
+            XCTAssertEqual(result.main?.info.codexTurnID, "next")
+            XCTAssertEqual(result.main?.info.codexCompletedTurns, next.main?.info.codexCompletedTurns)
+            XCTAssertTrue(store.pendingApprovalTokens.isEmpty)
+        }
+    }
+
+    func testHookStopReceiptSurvivesAnImmediatelyQueuedPrompt() throws {
+        try journal { file, store in
+            try append(event("UserPromptSubmit", at: 0) + event("Stop", at: 40)
+                + event("UserPromptSubmit", at: 40.016, turn: "next"), to: file)
+            let card = try XCTUnwrap(store.readCards(now: at(41)).first)
+            XCTAssertEqual(card.main?.status, .working)
+            XCTAssertEqual(card.main?.info.codexCompletedTurns,
+                           [CodexTurnCompletion(turnID: "first", startedAt: at(0), endedAt: at(40))])
+        }
+    }
+
     func testRolloutAloneCannotCreateAHookIdentityOrRecoveryToken() throws {
         try journal { _, store in
             XCTAssertTrue(store.readCards(now: at(1), reconciling: [local(.working, activity: 1)]).isEmpty)

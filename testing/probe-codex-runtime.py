@@ -4,7 +4,10 @@
 The installed `codex app-server proxy` is a raw tunnel to the Unix socket, so
 this client performs WebSocket Upgrade and framing before sending JSON-RPC.
 Only initialize, initialized and thread/read or account/rateLimits/read are sent.
-No thread is resumed, approval answered, credit consumed, or limit reset.
+Quota reads can fall back to a temporary stdio app server when the desktop uses
+private stdio instead of publishing a control socket. That owned process accepts
+only initialization and account/rateLimits/read, then is stopped. No thread is
+started or resumed, approval answered, credit consumed, or limit reset.
 """
 import argparse
 import base64
@@ -84,9 +87,13 @@ class RuntimeProbe:
     MAX_MESSAGE = 16 * 1024 * 1024
 
     def __init__(self, codex, timeout):
+        self.start([codex, 'app-server', 'proxy'], timeout)
+
+    def start(self, command, timeout):
         self.timeout = timeout
+        self.deadline = None
         self.process = subprocess.Popen(
-            [codex, 'app-server', 'proxy'], stdin=subprocess.PIPE,
+            command, stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
         )
         self.selector = selectors.DefaultSelector()
@@ -101,6 +108,12 @@ class RuntimeProbe:
                     for sig in (signal.SIGINT, signal.SIGTERM)}
         try:
             self.selector.close()
+            # EOF lets a temporary stdio server leave naturally. Termination and
+            # escalation below still target only the child this probe owns.
+            try:
+                self.process.stdin.close()
+            except OSError:
+                pass
             if self.process.poll() is None:
                 self.process.terminate()
                 try:
@@ -145,6 +158,11 @@ class RuntimeProbe:
         del self.buffer[:count]
         return data
 
+    def read_deadline(self):
+        deadline = time.monotonic() + self.timeout
+        overall = getattr(self, 'deadline', None)
+        return min(deadline, overall) if overall is not None else deadline
+
     def connect(self):
         key = base64.b64encode(os.urandom(16)).decode('ascii')
         self.write((
@@ -152,7 +170,7 @@ class RuntimeProbe:
             'Connection: Upgrade\r\nSec-WebSocket-Key: ' + key + '\r\n'
             'Sec-WebSocket-Version: 13\r\n\r\n'
         ).encode('ascii'))
-        deadline = time.monotonic() + self.timeout
+        deadline = self.read_deadline()
         while b'\r\n\r\n' not in self.buffer:
             self.fill(len(self.buffer) + 1, deadline)
             if len(self.buffer) > 65536:
@@ -229,7 +247,7 @@ class RuntimeProbe:
         self.request_id += 1
         request_id = self.request_id
         self.send({'id': request_id, 'method': method, 'params': params})
-        deadline = time.monotonic() + self.timeout
+        deadline = self.read_deadline()
         while True:
             message = self.receive(deadline)
             # Ignore notifications and server requests; never answer an approval.
@@ -270,6 +288,38 @@ class RuntimeProbe:
         return clean_rate_limits(self.request('account/rateLimits/read', {}))
 
 
+class StdioLimitsProbe(RuntimeProbe):
+    """An owned, short-lived account reader; never a thread or tool transport."""
+    MAX_MESSAGE = 1024 * 1024
+    METHODS = frozenset(('initialize', 'initialized', 'account/rateLimits/read'))
+
+    def __init__(self, codex, timeout):
+        self.start([codex, 'app-server', '--listen', 'stdio://'], timeout)
+
+    def connect(self):
+        self.request('initialize', {'clientInfo': {
+            'name': 'agentvalley_readonly_limits_probe', 'version': '0.1.0'
+        }})
+        self.send({'method': 'initialized', 'params': {}})
+
+    def send(self, message):
+        if message.get('method') not in self.METHODS:
+            raise ProbeError('The temporary account reader rejects this method')
+        self.write(json.dumps(message, separators=(',', ':')).encode('utf-8') + b'\n')
+
+    def receive(self, deadline):
+        while b'\n' not in self.buffer:
+            self.fill(len(self.buffer) + 1, deadline)
+        line, _, rest = self.buffer.partition(b'\n')
+        self.buffer = bytearray(rest)
+        if len(line) > self.MAX_MESSAGE:
+            raise ProbeError('Account response exceeded the probe size limit')
+        try:
+            return json.loads(line)
+        except (ValueError, UnicodeDecodeError) as error:
+            raise ProbeError('The app server returned malformed JSON') from error
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('thread_id', nargs='?')
@@ -298,8 +348,25 @@ def main():
             raise ProbeError('Codex is not on PATH')
         if not 0 < args.timeout <= 60 or not 0 <= args.watch_seconds <= 300 or not 0.2 <= args.interval <= 10:
             raise ProbeError('Probe duration or interval is outside the supported bounds')
-        probe = RuntimeProbe(args.codex, args.timeout)
-        probe.connect()
+        # All quota connection attempts and the read share one budget, including
+        # cleanup before fallback. Ordinary thread polling never starts a server.
+        deadline = time.monotonic() + args.timeout if args.limits else None
+        try:
+            probe = RuntimeProbe(args.codex, args.timeout)
+            probe.deadline = deadline
+            probe.connect()
+        except (ProbeError, OSError, UnicodeError, ValueError):
+            if not args.limits:
+                raise
+            if probe is not None:
+                probe.close()
+                probe = None
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            probe = StdioLimitsProbe(args.codex, remaining)
+            probe.deadline = deadline
+            probe.connect()
         if args.limits:
             print(json.dumps(probe.read_limits(), sort_keys=True), flush=True)
             return 0

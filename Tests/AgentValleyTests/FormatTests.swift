@@ -175,7 +175,7 @@ final class FormatTests: XCTestCase {
     func testCodexLimitsMessagesNameItsOwnAccountAndTimeout() {
         XCTAssertEqual(Format.limitsProvider(.claude), "Claude")
         XCTAssertEqual(Format.limitsProvider(.codex), "Codex")
-        XCTAssertEqual(Format.limitsReason(.offline, provider: .codex), "Codex account limits are unavailable. Keep Codex running on this Mac. It tries again every 5 minutes.")
+        XCTAssertEqual(Format.limitsReason(.offline, provider: .codex), "Codex account limits are unavailable. Open Codex to check your account. It tries again every 5 minutes.")
         XCTAssertEqual(Format.limitsReason(.noAnswer, provider: .codex), "Codex did not respond. It tries again every 5 minutes.")
         for failure in [LimitsFailure.noLogin, .loginExpired, .offline, .refused(500), .unreadable, .noAnswer] {
             let reason = Format.limitsReason(failure, provider: .codex)
@@ -183,7 +183,7 @@ final class FormatTests: XCTestCase {
             XCTAssertFalse(reason.contains("anthropic"))
             XCTAssertFalse(reason.contains("Keychain"))
         }
-        XCTAssertEqual(Format.codexLimitsCaption, "Reads plan usage from the local Codex app server using the account already signed in to Codex. Keep Codex running on this Mac.")
+        XCTAssertEqual(Format.codexLimitsCaption, "Reads plan usage using your existing Codex login on this Mac.")
     }
 
     // Old numbers say how old they are; dimming them only made them hard to read.

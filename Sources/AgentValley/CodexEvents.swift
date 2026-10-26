@@ -358,6 +358,11 @@ final class CodexEventStore {
             }
             session.children[id] = row
         case "Stop", "Interrupt":
+            if event.kind == "Stop", let turn = session.turn {
+                let receipt = CodexTurnCompletion(turnID: turn, startedAt: session.main.info.turnStartedAt,
+                                                  endedAt: event.at)
+                session.main.info.codexCompletedTurns = CodexTurnCompletion.recording(receipt, in: session.main.info.codexCompletedTurns)
+            }
             session.main.finish(at: event.at)
             session.clearPermissions()
             session.retire(event.turn ?? session.turn)
@@ -455,6 +460,12 @@ final class CodexEventStore {
                   now.timeIntervalSince(at) < AgentStore.forgetAfter else { continue }
             let id = String(card.id.dropFirst(6))
             guard var session = sessions[id] else { continue }
+            // A new turn can already be active while the previous completion is still
+            // unobserved by the UI. Carry verified receipts independently of current status.
+            for receipt in row.info.codexCompletedTurns where receipt.endedAt <= now && Self.isID(receipt.turnID) {
+                session.main.info.codexCompletedTurns = CodexTurnCompletion.recording(receipt, in: session.main.info.codexCompletedTurns)
+            }
+            sessions[id] = session
             let turn = row.info.codexTurnID.flatMap { Self.isID($0) ? $0 : nil }
             let finished = row.status == .done && row.info.turnEnded
             let active = row.status == .working || (row.status == .quiet && row.calledBusy)

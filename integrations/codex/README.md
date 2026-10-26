@@ -19,8 +19,9 @@ the existing model label identifies the model in use.
 - A Codex CLI with command hooks and `app-server proxy` support. The integration
   was tested against `0.164.0-alpha.11.1`; hook and app-server compatibility should
   be checked when upgrading Codex.
-- For live runtime status, metadata and account limits, a running local Codex
-  desktop daemon. Exact-thread navigation currently verifies the desktop bundle
+- For live runtime status and metadata, a running local Codex desktop daemon.
+  Account limits can also use a temporary official CLI app server over stdio.
+  Exact-thread navigation currently verifies the desktop bundle
   at `/Applications/ChatGPT.app`, its `com.openai.codex` bundle identifier, and its
   registered `codex` URL scheme. A differently packaged installation may need an
   adapter update.
@@ -97,7 +98,7 @@ absolute-path override and must agree with the hook's `--events` path.
 In AgentValley Settings, turn on **Answer from the notch** to use Allow/Deny.
 **Token use**, **Claude plan limits**, and **Codex plan limits** retain their own
 switches. Enabling Codex plan limits does not enable Claude limits or request
-Claude credentials. Keep Codex running for metadata and quota reads.
+Claude credentials. Keep Codex running for live daemon metadata.
 
 ## Shared interface and adapters
 
@@ -133,11 +134,13 @@ permission prompt must not block all sessions. Branch names come from daemon met
 Checkout/worktree relationships are not inferred by opening project directories;
 when the daemon does not provide them, grouping uses the existing path-name fallback
 and no worktree marker is invented.
-The runtime helper connects to the already-running local daemon with
+For thread reads, the runtime helper connects to the already-running local daemon with
 `codex app-server proxy`; it does not start another daemon. This connection sends
 only `initialize`, `initialized`, and `thread/read` with `includeTurns: false`
 for session status. With Codex plan limits enabled, a separate bounded fetch uses
-`account/rateLimits/read`. Neither mode approves a request or resumes a session.
+`account/rateLimits/read`; if the proxy cannot connect, this quota-only fetch may
+use a temporary `app-server --listen stdio://` process and stop it afterward.
+Neither mode approves a request or starts or resumes a session.
 
 Some desktop runtimes keep their active conversation outside that shared daemon
 and do not deliver command hooks for it. When the journal has opted the app into
@@ -147,6 +150,11 @@ to populate the same cards. It never writes synthetic hook events. Partial hooks
 are reconciled with local lifecycle records by session and turn identity: an
 explicit completion ends the matching turn even when its Stop hook is missing.
 The card retains hook tool summaries, child rows, and real permission requests.
+Successful turn receipts are retained across polling intervals, so a queued new
+turn cannot hide the previous completion from the shared sound player. Only turns
+observed at work can sound, using their actual start time and the same 30-second
+minimum as Claude. Startup history, interruptions, and duplicate final events do
+not play completion sounds.
 Archived files and subagent rollouts are not added as independent cards. A daemon
 response of `notLoaded` does not erase local evidence of an active turn.
 
@@ -241,9 +249,13 @@ This is usage history, not the user's actual subscription bill.
 
 ## Codex plan limits
 
-The independent Codex plan-limits switch reads the already-running local Codex
-daemon using `account/rateLimits/read`. It does not read auth files or Keychain
-credentials, launch a second daemon, log in or out, buy credits, or consume a reset.
+The independent Codex plan-limits switch prefers the local Codex daemon using
+`account/rateLimits/read`. If its control socket is unavailable, the helper runs
+the official CLI's temporary stdio app server using the existing Codex login.
+Both attempts share one timeout budget. The stdio transport permits only
+initialization and this account read, then closes and reaps its owned process.
+AgentValley never parses auth files or Keychain credentials for Codex, logs in or
+out, starts a persistent daemon or conversation, buys credits, or consumes a reset.
 The helper retains only the Codex bucket, usage percentages, window durations,
 reset timestamps and the minimal availability metadata; account identifiers,
 credit balances and reset-credit details are discarded.
@@ -402,8 +414,8 @@ upstream pull request. Track Codex-adapter work in this fork.
   accept the corresponding answer are not presented as working option buttons;
   answer those in Codex. General asynchronous questions still need a separate
   supported lifecycle contract.
-- Codex plan limits need the local shared daemon and a supported ChatGPT account
-  quota response. Only the Codex bucket and 5h/7d windows are displayed. Unknown
+- Codex plan limits need a compatible installed CLI, an existing login, and a
+  supported ChatGPT account quota response. Only the Codex bucket and 5h/7d windows are displayed. Unknown
   windows or missing data are unavailable rather than fabricated. No purchase or
   quota-reset actions are exposed.
 - Usage import covers tracked plain `.jsonl` rollouts, not a full-account backfill

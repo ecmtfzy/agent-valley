@@ -160,13 +160,54 @@ class ProbeRoutingTests(unittest.TestCase):
             runtime.close.assert_called_once_with()
 
     def test_limits_error_is_bounded_and_still_closes(self):
-        with patch.object(probe, 'RuntimeProbe') as runtime_class:
+        with patch.object(probe, 'RuntimeProbe') as runtime_class, \
+                patch.object(probe, 'StdioLimitsProbe') as fallback:
             runtime = runtime_class.return_value
             runtime.read_limits.side_effect = probe.ProbeError('Read-only RPC failed with code -32601')
             result, output = self.run_main(['--limits', '--codex', '/fake/codex'], runtime_class)
             self.assertEqual(result, 1)
             self.assertEqual(json.loads(output), {'error': 'Read-only RPC failed with code -32601'})
             runtime.close.assert_called_once_with()
+            fallback.assert_not_called()
+
+    def test_missing_proxy_uses_only_remaining_quota_budget(self):
+        clock = [10.0]
+        with patch.object(probe, 'RuntimeProbe') as runtime_class, \
+                patch.object(probe, 'StdioLimitsProbe') as fallback, \
+                patch.object(probe.time, 'monotonic', side_effect=lambda: clock[0]):
+            runtime = runtime_class.return_value
+            def unavailable():
+                clock[0] += 2
+                raise probe.ProbeError('Proxy unavailable')
+            def close():
+                clock[0] += 0.25
+            runtime.connect.side_effect = unavailable
+            runtime.close.side_effect = close
+            fallback.return_value.read_limits.return_value = probe.clean_rate_limits({})
+            result, _ = self.run_main(['--limits', '--codex', '/fake/codex', '--timeout', '8'], runtime_class)
+            self.assertEqual(result, 0)
+            runtime.close.assert_called_once_with()
+            fallback.assert_called_once_with('/fake/codex', 5.75)
+            self.assertEqual(fallback.return_value.deadline, 18)
+            fallback.return_value.read_limits.assert_called_once_with()
+            fallback.return_value.read.assert_not_called()
+            fallback.return_value.close.assert_called_once_with()
+
+    def test_thread_connection_failure_never_starts_a_server(self):
+        with patch.object(probe, 'RuntimeProbe') as runtime_class, \
+                patch.object(probe, 'StdioLimitsProbe') as fallback:
+            runtime_class.return_value.connect.side_effect = probe.ProbeError('Proxy unavailable')
+            result, _ = self.run_main(['test-thread', '--codex', '/fake/codex'], runtime_class)
+            self.assertEqual(result, 1)
+            fallback.assert_not_called()
+
+    def test_temporary_reader_rejects_thread_and_auth_operations(self):
+        runtime = object.__new__(probe.StdioLimitsProbe)
+        with patch.object(runtime, 'write') as write:
+            for method in ('thread/read', 'thread/start', 'thread/resume', 'account/login/start', 'account/logout'):
+                with self.subTest(method=method), self.assertRaises(probe.ProbeError):
+                    runtime.send({'id': 1, 'method': method, 'params': {}})
+            write.assert_not_called()
 
     def test_status_and_details_routing_are_unchanged(self):
         for details in (False, True):
@@ -277,6 +318,81 @@ while True:
 
     def test_limits_sigterm_reaps_owned_proxy(self):
         self.start(30, limits=True)
+        began = time.monotonic()
+        self.process.terminate()
+        output, _ = self.process.communicate(timeout=1)
+        self.assertEqual(self.process.returncode, 128 + signal.SIGTERM)
+        self.assertLess(time.monotonic() - began, 0.5)
+        self.assertEqual(output, b'')
+        self.assert_proxy_reaped()
+
+
+class StdioFallbackTests(ProbeCleanupTests):
+    # Reuse owned-process cleanup helpers, without running the proxy-only cases.
+    test_timeout_kills_and_reaps_a_proxy_that_ignores_term = None
+    test_sigterm_unwinds_and_reaps_proxy_within_outer_cleanup_window = None
+    test_limits_timeout_reaps_owned_proxy = None
+    test_limits_sigterm_reaps_owned_proxy = None
+
+    def setUp(self):
+        super().setUp()
+        self.requests = Path(str(self.pid_file) + '.requests')
+        self.fake.write_text('''#!/usr/bin/python3
+import json, os, signal, sys, time
+if sys.argv[1:] == ['app-server', 'proxy']:
+    sys.exit(1)
+if sys.argv[1:] != ['app-server', '--listen', 'stdio://']:
+    sys.exit(2)
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+path = os.environ['AGENTVALLEY_PROBE_TEST_PID_FILE']
+with open(path, 'w') as output:
+    output.write(str(os.getpid()))
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request['method']
+    with open(path + '.requests', 'a') as output:
+        output.write(method + '\\n')
+    if method == 'initialized':
+        continue
+    if method == 'initialize':
+        result = {'userAgent': 'fixture'}
+    elif method == 'account/rateLimits/read':
+        if os.environ.get('AGENTVALLEY_PROBE_TEST_HANG'):
+            while True:
+                time.sleep(60)
+        result = {'accountId': 'PRIVATE_ACCOUNT', 'ordinaryUsageAllowed': True,
+                  'rateLimits': {'limitId': 'codex', 'credits': {'balance': 'PRIVATE_CREDITS'},
+                                 'primary': {'usedPercent': 17, 'windowDurationMins': 10080, 'resetsAt': 1900000000}}}
+    else:
+        sys.exit(3)
+    print(json.dumps({'id': request['id'], 'result': result}), flush=True)
+''')
+
+    def test_fallback_reads_only_account_limits_and_reaps_process(self):
+        self.start(2, limits=True)
+        output, _ = self.process.communicate(timeout=3)
+        self.assertEqual(self.process.returncode, 0)
+        result = json.loads(output)
+        self.assertEqual(result['rateLimits']['primary']['usedPercent'], 17)
+        self.assertTrue(result['ordinaryUsageAllowed'])
+        self.assertNotIn(b'PRIVATE_', output)
+        self.assertEqual(self.requests.read_text().splitlines(),
+                         ['initialize', 'initialized', 'account/rateLimits/read'])
+        self.assert_proxy_reaped()
+
+    def test_fallback_timeout_reaps_process_within_shared_budget(self):
+        began = time.monotonic()
+        with patch.dict(os.environ, {'AGENTVALLEY_PROBE_TEST_HANG': '1'}):
+            self.start(0.3, limits=True)
+        output, _ = self.process.communicate(timeout=2)
+        self.assertEqual(self.process.returncode, 1)
+        self.assertIn(b'Timed out reading', output)
+        self.assertLess(time.monotonic() - began, 1.2)
+        self.assert_proxy_reaped()
+
+    def test_fallback_sigterm_reaps_owned_process(self):
+        with patch.dict(os.environ, {'AGENTVALLEY_PROBE_TEST_HANG': '1'}):
+            self.start(30, limits=True)
         began = time.monotonic()
         self.process.terminate()
         output, _ = self.process.communicate(timeout=1)

@@ -270,7 +270,7 @@ final class CodexLiveRollouts {
         if let turn, let current = entry.turn, turn != current { return }
         if entry.turn == nil { entry.turn = turn }
         if event == "task_complete" || event == "turn_aborted" {
-            touch(&entry, at: at, done: true)
+            touch(&entry, at: at, done: true, completed: event == "task_complete")
             return
         }
         if event == "item_completed" {
@@ -313,7 +313,7 @@ final class CodexLiveRollouts {
             return
         }
         switch payload["phase"] as? String {
-        case "final", "final_answer": touch(&entry, at: at, done: true)
+        case "final", "final_answer": touch(&entry, at: at, done: true, completed: true)
         case "commentary": activity(&entry, at: at)
         default: break
         }
@@ -334,8 +334,12 @@ final class CodexLiveRollouts {
         touch(&entry, at: at, done: false)
     }
 
-    private func touch(_ entry: inout Entry, at: Date, done: Bool) {
+    private func touch(_ entry: inout Entry, at: Date, done: Bool, completed: Bool = false) {
         guard entry.info.lastActivity.map({ at >= $0 }) ?? true else { return }
+        if completed, let turn = entry.turn {
+            let receipt = CodexTurnCompletion(turnID: turn, startedAt: entry.info.turnStartedAt, endedAt: at)
+            entry.info.codexCompletedTurns = CodexTurnCompletion.recording(receipt, in: entry.info.codexCompletedTurns)
+        }
         entry.info.lastActivity = at
         entry.info.turnStartedAt = entry.info.turnStartedAt ?? at
         entry.info.turnEnded = done

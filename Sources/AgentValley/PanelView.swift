@@ -225,7 +225,7 @@ enum Format {
             switch failure {
             case .noLogin: return "No Codex account limits are available. Sign in with Codex first."
             case .loginExpired: return "The Codex login has expired. Sign in with Codex again."
-            case .offline: return "Codex account limits are unavailable. Keep Codex running on this Mac. \(limitsRetry)"
+            case .offline: return "Codex account limits are unavailable. Open Codex to check your account. \(limitsRetry)"
             case .refused: return "Codex could not read account limits. \(limitsRetry)"
             case .unreadable: return "Codex returned account limits this version does not understand. A newer version of the app may."
             case .noAnswer: return "Codex did not respond. \(limitsRetry)"
@@ -605,7 +605,7 @@ enum Format {
     /// Under the Plan limits switch. What is read is named for what it is: "your login" left
     /// a reader to wonder whether that meant a password.
     static let limitsCaption = "Reads the access token of your Claude Code login from Keychain, and sends it to api.anthropic.com to ask for your usage. It is never stored and never sent anywhere else."
-    static let codexLimitsCaption = "Reads plan usage from the local Codex app server using the account already signed in to Codex. Keep Codex running on this Mac."
+    static let codexLimitsCaption = "Reads plan usage using your existing Codex login on this Mac."
 
     /// The name of the setting for how long what has stopped stays in the list.
     static let keepTitle = "Keep idle and done listed for"

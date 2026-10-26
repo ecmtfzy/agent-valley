@@ -82,7 +82,7 @@ final class Settings: ObservableObject {
         didSet { defaults.set(planLimits, forKey: Key.planLimits) }
     }
 
-    /// Codex account limits use its local daemon and have their own opt-in.
+    /// Codex account limits use its local app server and have their own opt-in.
     @Published var codexPlanLimits: Bool {
         didSet { defaults.set(codexPlanLimits, forKey: Key.codexPlanLimits) }
     }

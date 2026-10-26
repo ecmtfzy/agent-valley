@@ -43,6 +43,7 @@ struct AgentInfo: Equatable {
     var turnStartedAt: Date?
     /// Codex lifecycle sources use the same turn identity to reconcile partial hooks.
     var codexTurnID: String?
+    var codexCompletedTurns: [CodexTurnCompletion] = []
     var steps = 0
     var lastStep = ""
     /// The same step by what it runs, where that is not what it is called: a Bash call's

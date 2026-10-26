@@ -84,8 +84,9 @@ enum CodexPlanLimitsReader {
     }
 }
 
-/// A cancellable, bounded read through the already-running Codex daemon. Nothing
-/// runs until the existing PlanLimitsClient enables and fetches this source.
+/// A cancellable, bounded account read. The helper prefers the existing daemon;
+/// without its control socket it uses an owned, temporary stdio account reader.
+/// Nothing runs until PlanLimitsClient enables and fetches this source.
 final class CodexLimitsSource: PlanLimitsSource {
     static let timeout: TimeInterval = 10
     static let maximumOutputBytes = 32_768

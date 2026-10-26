@@ -25,6 +25,7 @@ struct AgentInfo: Equatable {
     var type = "agent", title = "", model = "", cwd = "", folder = "", entrypoint = "", branch = ""
     var startedAt: Date?, lastActivity: Date?, turnStartedAt: Date?
     var codexTurnID: String?
+    var codexCompletedTurns: [CodexTurnCompletion] = []
     var steps = 0, lastStep = "", lastStepAsRun = "", turnEnded = false, asking = false
     var openTools: [OpenTool] = []
 }
@@ -115,7 +116,7 @@ exit(failed == 0 ? 0 : 1)
     compiler, sdk, environment = swift_toolchain()
     binary = OUT / "live-smoke"
     sources = [ROOT / "Sources/AgentValley" / (name + ".swift")
-               for name in ("CodexEvents", "CodexLiveRollouts", "CodexLiveSessions", "CodexUsageReader", "SafeJSON")]
+               for name in ("CodexTurnCompletion", "CodexEvents", "CodexLiveRollouts", "CodexLiveSessions", "CodexUsageReader", "SafeJSON")]
     command = [compiler, "-sdk", sdk, "-module-cache-path", str(OUT / "module-cache")]
     command += [str(path) for path in sources]
     command += [str(OUT / name) for name in ("Stubs.swift", "Assertions.swift", "Tests.swift", "main.swift")]

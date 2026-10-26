@@ -72,6 +72,124 @@ enum Sound {
         }
         return (finished, going)
     }
+
+    /// A Codex turn can finish and be continued between two UI polls. Only an explicit
+    /// successful completion of a turn observed at work can speak; an ID change alone,
+    /// an interrupt, or history first discovered after launch cannot.
+    struct CodexCompletions {
+        private struct Observation {
+            let firstSeen: Date
+            var startedAt: Date?
+            var children: Set<String> = []
+        }
+        private struct Held {
+            let endedAt: Date
+            let children: Set<String>
+        }
+        private struct Session {
+            var observed: [String: Observation] = [:]
+            /// An assistant final and its task_complete can have different timestamps.
+            /// Remember the completed turn, allowing only a later, explicit continuation.
+            var consumed: [String: Date] = [:]
+            var held: [String: Held] = [:]
+        }
+        private var sessions: [String: Session] = [:]
+
+        mutating func finished(_ cards: [SessionCard], resumed: [String: Date] = [:],
+                               now: Date) -> [Finish] {
+            let cards = Array(cards.filter { $0.id.hasPrefix("codex-") }.prefix(512))
+            let present = Set(cards.map(\.id))
+            sessions = sessions.filter { present.contains($0.key) }
+            var finished: [Finish] = []
+            for card in cards {
+                guard let main = card.main else { continue }
+                var session = sessions[card.id] ?? Session()
+                var latest: Finish?
+                for receipt in main.info.codexCompletedTurns.suffix(CodexTurnCompletion.limit)
+                    .sorted(by: { $0.endedAt < $1.endedAt }) {
+                    guard Self.validID(receipt.turnID), receipt.endedAt.timeIntervalSince1970.isFinite,
+                          receipt.endedAt <= now,
+                          receipt.startedAt.map({ $0.timeIntervalSince1970.isFinite && $0 <= receipt.endedAt }) ?? true else { continue }
+                    let observed = session.observed[receipt.turnID]
+                    let start = receipt.startedAt ?? observed?.startedAt ?? observed?.firstSeen
+                    let previous = session.consumed[receipt.turnID]
+                    if let previous, start.map({ $0 <= previous }) ?? true {
+                        session.consumed[receipt.turnID] = max(previous, receipt.endedAt)
+                        continue
+                    }
+                    let held = session.held[receipt.turnID].flatMap { pending -> Held? in
+                        guard let start, start <= pending.endedAt else { return nil }
+                        return pending
+                    }
+                    guard let observed, let start, receipt.endedAt >= observed.firstSeen,
+                          now.timeIntervalSince(receipt.endedAt) <= Sound.staleFinish || held != nil,
+                          !card.closed else {
+                        session.consumed[receipt.turnID] = receipt.endedAt
+                        session.held[receipt.turnID] = nil
+                        continue
+                    }
+                    // Wait for the crew already observed with this turn, not children of a
+                    // new turn which can start before its predecessor's receipt is read.
+                    let relevant = card.agents.filter {
+                        held?.children.contains($0.id) ?? (observed.children.contains($0.id) || main.info.codexTurnID == receipt.turnID)
+                    }
+                    let children = held?.children ?? Set(relevant.map(\.id))
+                    if relevant.count < children.count || relevant.contains(where: { $0.status != .done }) {
+                        session.held[receipt.turnID] = held ?? Held(endedAt: receipt.endedAt, children: children)
+                        continue
+                    }
+                    guard BackgroundJobs.resting(card.jobs, now: now) else { continue }
+                    let end = max(receipt.endedAt, relevant.compactMap(\.info.lastActivity).max() ?? receipt.endedAt)
+                    session.consumed[receipt.turnID] = receipt.endedAt
+                    session.held[receipt.turnID] = nil
+                    guard end.timeIntervalSince(start) >= Sound.shortTurn else { continue }
+                    latest = Finish(id: card.id, worked: max(0, end.timeIntervalSince(
+                        max(start, resumed[card.id] ?? start))))
+                }
+                // First establish the baseline from receipts above, then remember current work.
+                // An app opened during a turn can therefore sound its future completion.
+                if !card.closed, let turn = main.info.codexTurnID, Self.validID(turn),
+                   main.status == .working || main.status == .needsYou || (main.status == .quiet && main.calledBusy) {
+                    let start = main.info.turnStartedAt.flatMap {
+                        $0 <= now && $0.timeIntervalSince1970.isFinite ? $0 : nil
+                    }
+                    let children = Set(card.agents.filter { $0.status != .done }.prefix(64).map(\.id))
+                    if var previous = session.observed[turn] {
+                        if let start, start > previous.firstSeen {
+                            session.observed[turn] = Observation(firstSeen: now, startedAt: start, children: children)
+                        } else {
+                            if let start { previous.startedAt = start }
+                            previous.children.formUnion(children)
+                            previous.children = Set(previous.children.sorted().prefix(64))
+                            session.observed[turn] = previous
+                        }
+                    } else {
+                        session.observed[turn] = Observation(firstSeen: now, startedAt: start, children: children)
+                    }
+                }
+                if session.observed.count > CodexTurnCompletion.limit {
+                    let keep = Set(session.observed.sorted { $0.value.firstSeen > $1.value.firstSeen }
+                        .prefix(CodexTurnCompletion.limit).map(\.key))
+                    session.observed = session.observed.filter { keep.contains($0.key) }
+                    session.held = session.held.filter { keep.contains($0.key) }
+                }
+                if session.consumed.count > 32 {
+                    let keep = Set(session.consumed.sorted { $0.value > $1.value }.prefix(32).map(\.key))
+                    session.consumed = session.consumed.filter { keep.contains($0.key) }
+                }
+                sessions[card.id] = session
+                if let latest { finished.append(latest) }
+            }
+            return finished
+        }
+
+        private static func validID(_ id: String) -> Bool {
+            (1...128).contains(id.utf8.count) && id.utf8.allSatisfy {
+                (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0)
+                    || [45, 46, 58, 95].contains($0)
+            }
+        }
+    }
 }
 
 /// What a sound is for, least to most pressing: a playing clip is cut off only by the person
@@ -117,6 +235,7 @@ final class SoundPlayer: NSObject, NSSoundDelegate {
     private var waiting: [String: Int]?
     /// When each session that is not idle began.
     private var since: [String: Date] = [:]
+    private var codexCompletions = Sound.CodexCompletions()
     /// When each session last stopped waiting on the person: that time is not work.
     private var resumed: [String: Date] = [:]
     /// Whether the person has looked since someone last started to wait.
@@ -219,6 +338,11 @@ final class SoundPlayer: NSObject, NSSoundDelegate {
             for (id, count) in before where count > 0 && (after[id] ?? 0) == 0 { resumed[id] = now }
         }
         let turn = Sound.finished(cards, since: since, resumed: resumed, now: now)
+        // Codex requires successful lifecycle evidence, including when the next turn is
+        // already working. Keeping it out of the ordinary done path also excludes aborts
+        // and prevents the same completion from sounding twice.
+        let finished = turn.finished.filter { !$0.id.hasPrefix("codex-") }
+            + codexCompletions.finished(cards, resumed: resumed, now: now)
         since = turn.since
         resumed = resumed.filter { since[$0.key] != nil }
         guard let before else { return }
@@ -231,11 +355,11 @@ final class SoundPlayer: NSObject, NSSoundDelegate {
             lastCall = call(for: card, now: now)
             // Seen as it happens: a sound would only say what the person is looking at.
             if !looking { ring(now: now) }
-        } else if !turn.finished.isEmpty, allowed(.finished, now: now) {
+        } else if !finished.isEmpty, allowed(.finished, now: now) {
             // Never on top of a wait's sound: the wait is the one that asks for something.
-            let done = Set(turn.finished.map(\.id))
+            let done = Set(finished.map(\.id))
             let speaker = cards.first { done.contains($0.id) }
-            let worked = turn.finished.first { $0.id == speaker?.id }?.worked ?? 0
+            let worked = finished.first { $0.id == speaker?.id }?.worked ?? 0
             let last = memory.object(forKey: Self.spokeKey) as? Date
             let topic = Barks.doneTopic(group: done.count >= 2 && cards.allSatisfy { $0.isIdle }, worked: worked, hour: hour(now),
                                         first: Barks.firstOfDay(last: last, now: now, calendar: calendar))
