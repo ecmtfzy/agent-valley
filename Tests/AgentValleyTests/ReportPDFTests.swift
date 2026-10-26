@@ -26,6 +26,23 @@ final class ReportPDFTests: XCTestCase {
                                                   home: "/Users/me", printed: date("2026-10-17T08:00:00.000Z")))
     }
 
+    /// One session of `project` in October, an answer of 50,000 tokens out for each agent and model given.
+    private func work(_ answers: [(agent: String, model: String)], project: String = "app") throws -> HistoryDocument {
+        let anchor = date("2026-10-15T12:00:00.000Z")
+        let list = answers.indices.map { index in
+            LedgerAnswer(id: "\(index)", at: date("2026-10-12T10:00:00.000Z").addingTimeInterval(Double(index) * 60),
+                         folder: "/Users/me/\(project)", session: "s0", agent: answers[index].agent, model: answers[index].model, output: 50_000)
+        }
+        let slice = LedgerSlice(answers: list, titles: ["s0": "One"], interval: HistoryReport.interval(of: .month, around: anchor, calendar: utc))
+        return try XCTUnwrap(HistoryDocument.make(slice, pick: HistoryPick(span: .month, anchor: anchor, project: project), calendar: utc,
+                                                  home: "/Users/me", printed: date("2026-10-17T08:00:00.000Z")))
+    }
+
+    private func text(_ document: HistoryDocument, page: Int? = nil) throws -> String {
+        let pdf = try XCTUnwrap(PDFDocument(data: ReportPDF.data(document, calendar: utc)))
+        return try XCTUnwrap(page.map { pdf.page(at: $0)?.string } ?? pdf.string)
+    }
+
     private func pages(_ document: HistoryDocument) -> Int {
         HistoryDocument.pages(lines: document.lines.count, first: ReportPDF.firstRows, later: ReportPDF.laterRows).count
     }
@@ -52,6 +69,98 @@ final class ReportPDFTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(pdf.page(at: 0)?.string).contains("งานปรับหน้า"))
         // Cut on its row, not wrapped onto the next.
         XCTAssertFalse(try XCTUnwrap(pdf.string).contains(long))
+    }
+
+    /// What a client reads, and nothing of the crew: no names, no faces' row, no old labels.
+    func testTheSheetSaysWhatAClientReads() throws {
+        // A sentence that wraps comes out of the PDF with a line break where it wrapped.
+        let text = try text(work([("main", "claude-opus-5-5"), ("Explore", "claude-haiku-5-5"), ("Plan", "claude-sonnet-5-5")]))
+            .replacingOccurrences(of: "\n", with: " ")
+        // `Caps` writes its labels in capitals, so labels are looked for without case.
+        for word in ["Statement of work", "Total at API prices", "By agent", "Main sessions", "Explore", "Plan", "By model",
+                     "Oct 1 – 31, 2026", "October 2026",
+                     "Amounts are what Anthropic's API would charge for the same tokens, at API prices of \(Pricing.checkedOn). Printed Sat, Oct 17, 2026.",
+                     "Page 1 of 1"] {
+            XCTAssertTrue(text.localizedCaseInsensitiveContains(word), word)
+        }
+        // With case: "Printed" stays in the note, the old field label was "PRINTED".
+        for gone in ["Sunny", "Walt", "Norm", "Pearl", "Judy", "Faye", "Felix", "Prepared by the crew", "WHO DID THE WORK", "PRINTED", "PRICED AT"] {
+            XCTAssertFalse(text.contains(gone), gone)
+        }
+    }
+
+    /// The tallest first page a report has: every kind of agent, three models and tokens with no
+    /// price over the chart; then lines enough to fill the later pages too.
+    private func crowded(_ count: Int) throws -> HistoryDocument {
+        let agents = ["main", "general-purpose", "Explore", "Plan", "code-reviewer"]
+        let models = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
+        let anchor = date("2026-10-15T12:00:00.000Z")
+        let start = date("2026-10-12T10:00:00.000Z")
+        var answers = (0..<count).map { index in
+            LedgerAnswer(id: "\(index)", at: start.addingTimeInterval(Double(index) * 60), folder: "/Users/me/app", session: "s\(index)",
+                         agent: agents[index % agents.count], model: models[index % models.count], output: 1_000 * (count - index + 1))
+        }
+        answers.append(LedgerAnswer(id: "u", at: start, folder: "/Users/me/app", session: "s0", model: "claude-made-up-1", output: 10))
+        let slice = LedgerSlice(answers: answers, titles: Dictionary(uniqueKeysWithValues: (0..<count).map { ("s\($0)", String(format: "Task %03d", $0 + 1)) }),
+                                interval: HistoryReport.interval(of: .month, around: anchor, calendar: utc))
+        return try XCTUnwrap(HistoryDocument.make(slice, pick: HistoryPick(span: .month, anchor: anchor, project: "app"), calendar: utc,
+                                                  home: "/Users/me", printed: date("2026-10-17T08:00:00.000Z")))
+    }
+
+    /// On every page the last row ends above the foot's note, full pages too, and the total is on
+    /// the last page.
+    func testFootDoesNotCoverAnyRow() throws {
+        let document = try crowded(ReportPDF.firstRows + 2 * ReportPDF.laterRows)
+        XCTAssertEqual(document.crew.count, 5)
+        XCTAssertEqual(document.models.count, 3)
+        XCTAssertGreaterThan(document.unpriced, 0)
+        let pdf = try XCTUnwrap(PDFDocument(data: ReportPDF.data(document, calendar: utc)))
+        let ranges = HistoryDocument.pages(lines: document.lines.count, first: ReportPDF.firstRows, later: ReportPDF.laterRows)
+        // The first two pages are full; the total goes over to a page of its own.
+        XCTAssertEqual(ranges.map(\.count), [ReportPDF.firstRows, ReportPDF.laterRows, ReportPDF.laterRows, 0])
+        XCTAssertEqual(pdf.pageCount, ranges.count)
+        // Full or not, every page keeps the margins of a sheet with one line on it: a page too
+        // full spills over both edges.
+        func words(_ page: PDFPage) throws -> CGRect {
+            try XCTUnwrap(page.selection(for: page.bounds(for: .mediaBox))).bounds(for: page)
+        }
+        let short = try XCTUnwrap(PDFDocument(data: ReportPDF.data(try work([("main", "claude-opus-5-5")]), calendar: utc))?.page(at: 0))
+        let margins = try words(short)
+        for index in ranges.indices {
+            let all = try words(try XCTUnwrap(pdf.page(at: index)))
+            XCTAssertGreaterThanOrEqual(all.minY, margins.minY - 1, "page \(index + 1)")
+            XCTAssertLessThanOrEqual(all.maxY, margins.maxY + 1, "page \(index + 1)")
+        }
+        for (index, range) in ranges.enumerated() where !range.isEmpty {
+            let page = try XCTUnwrap(pdf.page(at: index))
+            func box(_ words: String) throws -> CGRect {
+                try XCTUnwrap(pdf.findString(words, withOptions: []).first { $0.pages.contains(page) }, words).bounds(for: page)
+            }
+            let last = try box(document.lines[range.upperBound - 1].name)
+            let note = try box("Amounts are what")
+            // PDF space grows upwards.
+            XCTAssertGreaterThan(last.minY, note.maxY + 4, "page \(index + 1)")
+            XCTAssertTrue(try XCTUnwrap(page.string).contains(Format.pageLabel(index + 1, of: ranges.count)), "page \(index + 1)")
+        }
+        XCTAssertTrue(try XCTUnwrap(pdf.page(at: ranges.count - 1)?.string).contains("Total"))
+    }
+
+    /// A project's name too long for its row is cut there, and the period beside it stays whole.
+    func testALongThaiProjectNameLeavesThePeriod() throws {
+        let project = String(repeating: "โปรเจกต์ร้านค้าออนไลน์ของลูกค้า ", count: 6).trimmingCharacters(in: .whitespaces)
+        let first = try text(work([("main", "claude-opus-5-5")], project: project), page: 0)
+        XCTAssertTrue(first.contains("Oct 1 – 31, 2026"))
+        XCTAssertTrue(first.contains("โปรเจกต์ร้านค้า"))
+        XCTAssertFalse(first.contains(project))
+    }
+
+    func testUnpricedTokensAreStillSaid() throws {
+        XCTAssertTrue(try text(work([("main", "claude-opus-5-5"), ("main", "claude-made-up-1")])).contains("tokens with no price"))
+    }
+
+    func testPageLabel() {
+        XCTAssertEqual(Format.pageLabel(1, of: 1), "Page 1 of 1")
+        XCTAssertEqual(Format.pageLabel(2, of: 3), "Page 2 of 3")
     }
 
     func testAPeriodAsAStatementGivesIt() {

@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { TrickOrTreat } from '@/components/trick-or-treat';
 import { Word } from '@/components/word';
 
-// Product Hunt's #4 of the day badge (24 Oct 2026), their own file kept here: the rank is final, so
-// the page loads nothing from them. At the top of the hero, over both columns, so the picture still
-// stands level with the heading. Pixel sparkles take turns around it and a gleam crosses it now and then.
+// Product Hunt's #4 of the day badge (24 Oct 2026), their embed code as they give it, image from
+// their server (vercel.json lets it in). At the top of the hero, over both columns, so the picture
+// still stands level with the heading. Pixel sparkles take turns around it and a gleam crosses it now and then.
 function PhBadge() {
   return (
-    <a className="ph min-[900px]:[grid-area:badge]" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-agentvalley">
-      <img src="/product-hunt.svg" alt="#4 Product of the Day on Product Hunt" width="250" height="54" />
+    <a className="ph min-[900px]:[grid-area:badge]" href="https://www.producthunt.com/products/agentvalley?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-agentvalley" target="_blank" rel="noopener noreferrer">
+      <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1286641&theme=light&period=daily" alt="AgentValley - Every Claude Code agent, at a glance, in your Mac's notch | Product Hunt" style={{ width: 250, height: 54 }} width="250" height="54" />
       {['s1', 's2', 's3', 's4'].map((s) => (
         <svg key={s} className={`spark ${s}`} viewBox="0 0 7 7" aria-hidden="true">
           <path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z" />

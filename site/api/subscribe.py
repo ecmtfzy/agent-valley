@@ -18,6 +18,7 @@ import hmac
 import html
 import json
 import os
+import random
 import re
 import time
 import urllib.error
@@ -37,14 +38,36 @@ BOXES: dict[str, list[float]] = {}
 SPACING = 600
 PER_BOX = 3
 
+# What the mailroom page says in each case: its heading and the line under it. {email} only where the link has
+# vouched for the address.
 SAID = {
-    "sent": "Check your inbox. One click there and you're on the list.",
-    "full": "We've sent all the mail we can for today. Try again tomorrow.",
-    "failed": "That one got away from us. Try again in a minute.",
-    "ask": "One more press and you're on the list.",
-    "in": "You're on the list. See you at the next version.",
-    "old": "That link has run out. Ask again on the page and we'll send a fresh one.",
+    "ask": ("One more press.", "Press it and <b>{email}</b> goes on the list. We write when a new version is out. Nothing else."),
+    "in": ("You're on the list.", "Sunny filed your letter. See you at the next version."),
+    "old": ("That link has run out.", "Links last 7 days. Ask again on the page and Sunny brings a fresh one."),
+    "failed": ("That one got away from us.", "Try again in a minute."),
+    "sent": ("Check your inbox.", "One click there and you're on the list."),
+    "full": ("That's all the mail for today.", "We've sent all the mail we can for today. Try again tomorrow."),
 }
+DMG = "https://github.com/morsechimwai/agent-valley/releases/latest/download/AgentValley.dmg"
+try:
+    ROOM = (Path(__file__).resolve().parent / "_mailroom.html").read_text()
+except OSError:
+    # ponytail: without the room the words still show, on a plain page.
+    ROOM = '<!doctype html><meta charset="utf-8"><title>Get updates · AgentValley</title><body data-said="{{said}}"><h1>{{title}}</h1><p>{{words}}</p>{{action}}'
+
+
+def confetti() -> str:
+    """Paper squares in the crew's shirt colours, falling once over the room when an address goes on the list."""
+    rng = random.Random(7)
+    colours = ["#f6a53f", "#4a78c2", "#d9a521", "#e9778f", "#9a62c9", "#2f8f8a", "#fff6e4", "#c22a1c"]
+    return "".join(
+        f'<i style="--x:{rng.uniform(0, 100):.1f}%;--s:{rng.choice((8, 10, 12))}px;--c:{rng.choice(colours)};'
+        f'--t:{rng.uniform(2.2, 3.6):.2f}s;--d:{rng.uniform(.2, 1.4):.2f}s;--r:{rng.choice((-1, 1)) * rng.randint(180, 720)}deg"></i>'
+        for _ in range(48)
+    )
+
+
+CONFETTI = confetti()
 
 # The plain words, for mail apps that show no HTML; the HTML is emails/templates/confirm.tsx, rendered by
 # `npm run emails` into emails/out with {{link}} and {{days}} left to fill. Neither says the address:
@@ -71,7 +94,7 @@ def letter(**fill: str) -> str:
     return re.sub(r"\{\{(\w+)\}\}", lambda m: html.escape(fill.get(m[1], m[0])), LETTER)
 
 
-def resend(path: str, body: dict) -> tuple[int, str]:
+def resend(path: str, body: dict, method: str = "POST") -> tuple[int, str]:
     request = urllib.request.Request(
         f"https://api.resend.com{path}",
         data=json.dumps(body).encode(),
@@ -80,7 +103,7 @@ def resend(path: str, body: dict) -> tuple[int, str]:
             "Content-Type": "application/json",
             "User-Agent": "agentvalley.app",
         },
-        method="POST",
+        method=method,
     )
     try:
         with urllib.request.urlopen(request, timeout=8) as response:
@@ -143,15 +166,39 @@ def add(email: str) -> bool:
     if os.environ.get("RESEND_SEGMENT_ID"):
         body["segments"] = [{"id": os.environ["RESEND_SEGMENT_ID"]}]
     status, answer = resend("/contacts", body)
-    # Already on the list counts as on the list.
-    return 200 <= status < 300 or "already exist" in answer.lower()
+    created = 200 <= status < 300
+    if not created and "already exist" not in answer.lower():
+        return False
+    # Someone already a contact may have left the list once; their yes from the mailbox puts them back.
+    # Sent every time, since Resend does not say whether creating an existing contact changes it.
+    status, _ = resend(f"/contacts/{urllib.parse.quote(email, safe='@')}", {"unsubscribed": False}, "PATCH")
+    return created or 200 <= status < 300
 
 
-def page(words: str, form: str = "") -> str:
-    return f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Get updates · AgentValley</title>
-<style>body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#f9f8f4;color:#1a1915;font:17px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}}main{{max-width:30rem;padding:24px 16px}}button{{min-height:48px;padding:0 20px;border:0;border-radius:8px;background:#1a1915;color:#f9f8f4;font:600 1rem ui-monospace,Menlo,monospace;cursor:pointer}}a{{color:#7a3d00}}:focus-visible{{outline:2px solid #7a3d00;outline-offset:3px}}</style>
-<main><p>{html.escape(words)}</p>{form}<p><a href="/#updates">Back to AgentValley</a></p></main></html>"""
+def page(said: str, email: str = "", fields: dict | None = None) -> str:
+    """The mailroom saying `said`. With `fields` (e, x, t from a link that vouched for `email`) it holds the button."""
+    title, words = SAID[said]
+    if said == "ask":
+        hidden = "".join(f'<input type="hidden" name="{k}" value="{html.escape(fields[k][0])}">' for k in ("e", "x", "t"))
+        action = f'<div class="actions"><form class="yes" method="post" action="/api/subscribe">{hidden}<button class="btn" type="submit">Yes, send me updates</button></form></div>'
+    elif said == "in":
+        action = (
+            '<div class="stamp" aria-hidden="true">On the list</div>'
+            f'<div class="actions"><a class="btn" href="{DMG}">Download for Mac</a><a class="link" href="/">Back to AgentValley</a></div>'
+            '<p class="note">Have the app already? It looks for a new version once a day by itself.</p>'
+        )
+    elif said == "old":
+        action = '<div class="actions"><a class="btn" href="/#updates">Get a fresh link</a><a class="link" href="/">Back to AgentValley</a></div>'
+    else:
+        action = '<div class="actions"><a class="link" href="/">Back to AgentValley</a></div>'
+    fill = {
+        "said": said,
+        "title": html.escape(title),
+        "words": words.replace("{email}", html.escape(email)),
+        "action": action,
+        "confetti": CONFETTI if said == "in" else "",
+    }
+    return re.sub(r"\{\{(\w+)\}\}", lambda m: fill.get(m[1], ""), ROOM)
 
 
 class handler(BaseHTTPRequestHandler):
@@ -159,10 +206,8 @@ class handler(BaseHTTPRequestHandler):
         fields = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
         email = proven(fields) if "RESEND_API_KEY" in os.environ else None
         if not email:
-            return self.answer(400, "text/html; charset=utf-8", page(SAID["old"]))
-        hidden = "".join(f'<input type="hidden" name="{k}" value="{html.escape(fields[k][0])}">' for k in ("e", "x", "t"))
-        button = f'<form method="post" action="/api/subscribe">{hidden}<button type="submit">Yes, send me updates</button></form>'
-        self.answer(200, "text/html; charset=utf-8", page(f"{SAID['ask']} ({email})", button))
+            return self.answer(400, "text/html; charset=utf-8", page("old"))
+        self.answer(200, "text/html; charset=utf-8", page("ask", email, fields))
 
     def do_POST(self):
         size = int(self.headers.get("Content-Length") or 0)
@@ -186,7 +231,7 @@ class handler(BaseHTTPRequestHandler):
         if "application/json" in (self.headers.get("Accept") or ""):
             self.answer(200 if ok else 502, "application/json", json.dumps({"ok": ok, "said": said}))
         else:
-            self.answer(200 if ok else 502, "text/html; charset=utf-8", page(SAID[said]))
+            self.answer(200 if ok else 502, "text/html; charset=utf-8", page(said))
 
     def answer(self, status: int, kind: str, text: str):
         data = text.encode()

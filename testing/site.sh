@@ -217,7 +217,7 @@ await sheet.evaluate((img) => { img.loading = 'eager'; });
 await page.waitForFunction(() => document.querySelector('#report img').complete);
 await page.evaluate(() => document.fonts.ready);
 // The panel 470 wide, its top 60 down to leave room for the arrow; the sheet behind it, 414 wide,
-// its head 56 under the panel's foot; the card ends where the sheet has faded out.
+// its head 28 under the panel's foot; the card ends where the sheet has faded out.
 const height = await page.evaluate(() => {
   const card = Object.assign(document.createElement('div'), { id: 'card' });
   card.style.cssText = 'position:fixed;inset:0 auto auto 0;width:620px;overflow:hidden;background:var(--background);z-index:9999';
@@ -226,12 +226,12 @@ const height = await page.evaluate(() => {
   const sheet = document.querySelector('#report img').cloneNode(true);
   card.append(panel, sheet);
   document.body.append(card);
-  const top = panel.getBoundingClientRect().bottom - 56;
+  const top = panel.getBoundingClientRect().bottom - 28;
   sheet.style.cssText = `position:absolute;left:186px;top:${top}px;width:414px;height:auto`;
   card.insertAdjacentHTML('beforeend', `<svg width="620" height="${top + 80}" style="position:absolute;inset:0;z-index:2;overflow:visible" fill="none" stroke="var(--pen)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
     <path d="M 268 52 C 290 16, 420 10, 520 20 C 600 30, 612 120, 606 260 C 602 ${top - 120}, 598 ${top - 40}, 586 ${top + 20}"/>
     <path d="M 573 ${top + 6} L 586 ${top + 23} L 599 ${top + 7}"/></svg>`);
-  const height = Math.ceil(top + 414 * 975 / 1500 + 8);
+  const height = Math.ceil(top + 414 * sheet.naturalHeight / sheet.naturalWidth + 8);
   card.style.height = `${height}px`;
   return height;
 });

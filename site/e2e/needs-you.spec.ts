@@ -82,7 +82,7 @@ test.describe('where the page may move', () => {
   test('the player breaks no part of the page policy and asks nothing of other sites', async ({ page }) => {
     const outside: string[] = [];
     page.on('request', (r) => {
-      if (!r.url().startsWith('http://127.0.0.1:4321')) outside.push(r.url());
+      if (!r.url().startsWith('http://127.0.0.1:4321') && !r.url().startsWith('https://api.producthunt.com/widgets/')) outside.push(r.url());
     });
     await page.addInitScript(() =>
       document.addEventListener('securitypolicyviolation', (e) => {

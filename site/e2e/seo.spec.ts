@@ -6,7 +6,7 @@ const TITLE = 'AgentValley — Every Claude Code agent in your notch';
 const DESCRIPTION =
   'A free, open-source Mac app that shows every Claude Code agent, sub-agents too, in your notch. See who is working, on which model, and who needs you.';
 const CSP =
-  "default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'";
+  "default-src 'self'; img-src 'self' https://api.producthunt.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'";
 
 test('the head carries the old title, description, canonical, preview image and policy', async ({ page }) => {
   await page.goto('/');
@@ -36,10 +36,10 @@ test('robots.txt points at the sitemap, and the sitemap lists the page', async (
   expect(await (await request.get('/sitemap.xml')).text()).toContain('<loc>https://agentvalley.app/</loc>');
 });
 
-test('nothing is fetched from another site', async ({ page, baseURL }) => {
+test("nothing is fetched from another site but Product Hunt's badge", async ({ page, baseURL }) => {
   const elsewhere: string[] = [];
   page.on('request', (r) => {
-    if (!r.url().startsWith(baseURL!)) elsewhere.push(r.url());
+    if (!r.url().startsWith(baseURL!) && !r.url().startsWith('https://api.producthunt.com/widgets/')) elsewhere.push(r.url());
   });
   await page.goto('/', { waitUntil: 'networkidle' });
   expect(elsewhere).toEqual([]);

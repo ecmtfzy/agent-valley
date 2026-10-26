@@ -117,6 +117,15 @@ test("only the hero's pictures load ahead", async ({ page }) => {
   expect(ahead).toEqual([]);
 });
 
+// Once, not on a loop: a gleam every few seconds pulled the eye off the heading and the download.
+test("the gleam crosses Product Hunt's badge once, and the sparkles keep on", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  const badge = page.locator('.ph');
+  expect(await badge.evaluate((el) => getComputedStyle(el, '::after').animationIterationCount)).toBe('1');
+  expect(await badge.locator('.spark').first().evaluate((el) => getComputedStyle(el).animationIterationCount)).toBe('infinite');
+});
+
 test("the footer's lamps rest while it is off the screen", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
