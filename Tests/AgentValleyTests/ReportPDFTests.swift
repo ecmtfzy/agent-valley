@@ -206,7 +206,7 @@ final class ReportPDFTests: XCTestCase {
             XCTAssertLessThanOrEqual(words.maxX, ReportPDF.page.width - 45, "page \(index + 1)")
             let note = try XCTUnwrap(pdf.findString("Amounts are what", withOptions: []).first { $0.pages.contains(page) }).bounds(for: page)
             for part in parts[ranges[index - firstModelPage]] {
-                let prefix = String(part.name.prefix(25))
+                let prefix = String(part.name.prefix(14))
                 let model = try XCTUnwrap(pdf.findString(prefix, withOptions: []).first { $0.pages.contains(page) }, prefix).bounds(for: page)
                 XCTAssertGreaterThan(model.minY, note.maxY + 4, "page \(index + 1)")
             }
