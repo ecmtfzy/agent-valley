@@ -35,6 +35,32 @@ if CommandLine.arguments.count > 1, CommandLine.arguments[1] == "codex-live-stat
     exit(0)
 }
 
+// Exercise both read-only sources with the same lifecycle reconciliation used by the store.
+if CommandLine.arguments.count > 1, CommandLine.arguments[1] == "codex-session-status" {
+    guard CommandLine.arguments.count == 4, CommandLine.arguments[2].hasPrefix("/"),
+          CommandLine.arguments[3].hasPrefix("/") else {
+        fputs("Usage: AgentValley codex-session-status /absolute/path/codex-home /absolute/path/events.jsonl\n", stderr)
+        exit(2)
+    }
+    let journal = URL(fileURLWithPath: CommandLine.arguments[3])
+    let reader = CodexLiveRollouts(home: URL(fileURLWithPath: CommandLine.arguments[2]), journal: journal)
+    let hooks = CodexEventStore(path: journal.path)
+    let now = Date()
+    var cards: [SessionCard] = []
+    for _ in 0..<8 {
+        let local = reader.readCards(now: now, visibleFor: AgentStore.forgetAfter)
+        let observed = hooks.readCards(now: now, reconciling: local)
+        let fallback = local.filter { card in
+            guard !hooks.observedSessionIDs.contains(card.id), let row = card.main else { return false }
+            return row.status != .done || now.timeIntervalSince(row.info.lastActivity ?? .distantPast) < AgentStore.defaultVisibleFor
+        }
+        cards = observed + fallback
+    }
+    if let data = try? JSONSerialization.data(withJSONObject: CodexEventStore.diagnostic(cards), options: [.prettyPrinted, .sortedKeys]),
+       let text = String(data: data, encoding: .utf8) { print(text) }
+    exit(0)
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = Settings()
     private let store = AgentStore(roster: CrewSetup.folder(FileManager.default.homeDirectoryForCurrentUser)

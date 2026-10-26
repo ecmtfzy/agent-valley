@@ -41,6 +41,8 @@ struct AgentInfo: Equatable {
     var lastActivity: Date?
     /// When the person last sent a prompt: where the turn under way began. A session can be days old.
     var turnStartedAt: Date?
+    /// Codex lifecycle sources use the same turn identity to reconcile partial hooks.
+    var codexTurnID: String?
     var steps = 0
     var lastStep = ""
     /// The same step by what it runs, where that is not what it is called: a Bash call's

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the real live-rollout reader and original tests against temporary fixtures only.
 
-Compiles CodexLiveRollouts, CodexLiveSessions, CodexUsageReader and SafeJSON. Only UI model types,
+Compiles CodexEvents, CodexLiveRollouts, CodexLiveSessions, CodexUsageReader and SafeJSON. Only UI model types,
 the ledger answer carrier, formatting, and XCTest assertions are local stand-ins.
 No real session, daemon, user configuration, Git directory or account is read.
 """
@@ -15,15 +15,16 @@ from codex_test_toolchain import swift_toolchain
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build/codex-prototype/live-smoke"
-TEST_CLASSES = ("CodexLiveRolloutsTests", "CodexLiveSessionsTests")
+TEST_CLASSES = ("CodexLiveRolloutsTests", "CodexLiveSessionsTests", "CodexStateSyncTests")
 
 STUBS = r'''
 import Foundation
 enum AgentStatus: Equatable { case working, quiet, needsYou, done }
 struct OpenTool: Equatable { let id: String; let tool: String; let input: NSDictionary }
 struct AgentInfo: Equatable {
-    var type = "agent", title = "", model = "", cwd = "", folder = "", entrypoint = ""
+    var type = "agent", title = "", model = "", cwd = "", folder = "", entrypoint = "", branch = ""
     var startedAt: Date?, lastActivity: Date?, turnStartedAt: Date?
+    var codexTurnID: String?
     var steps = 0, lastStep = "", lastStepAsRun = "", turnEnded = false, asking = false
     var openTools: [OpenTool] = []
 }
@@ -36,11 +37,20 @@ struct SessionCard: Equatable {
     let id: String, project: String, branch: String
     var main: AgentRow?; var agents: [AgentRow]; let startedAt: Date
     var title = "", repo = ""
+    var closed = false
+    var name: String { title.isEmpty ? project : title }
+    var rows: [AgentRow] { [main].compactMap { $0 } + agents }
+    var isIdle: Bool { !rows.isEmpty && rows.allSatisfy { $0.status == .done } }
     var asShown: SessionCard {
         var card = self
-        if let row = main, row.status == .working, row.quietFor >= AgentStore.stuckAfter {
-            card.main = AgentRow(id: row.id, info: row.info, status: .quiet, elapsed: row.elapsed,
-                                 quietFor: row.quietFor, calledBusy: true)
+        let busy = rows.filter { $0.status == .working }
+        if !busy.isEmpty && busy.allSatisfy({ $0.quietFor >= AgentStore.stuckAfter }) {
+            func quiet(_ row: AgentRow) -> AgentRow {
+                row.status == .working ? AgentRow(id: row.id, info: row.info, status: .quiet, elapsed: row.elapsed,
+                                                  quietFor: row.quietFor, calledBusy: true) : row
+            }
+            card.main = main.map(quiet)
+            card.agents = agents.map(quiet)
         }
         return card
     }
@@ -49,22 +59,18 @@ enum AgentStore {
     static let defaultVisibleFor: TimeInterval = 600
     static let stuckAfter: TimeInterval = 600
     static let forgetAfter: TimeInterval = 86400
+    static let askingVisibleFor: TimeInterval = 3600
 }
-enum CodexEventStore {
-    static func configuredJournal(environment: [String: String], home: URL) -> URL? {
-        if let path = environment["AGENTVALLEY_CODEX_EVENTS"] {
-            return path.hasPrefix("/") ? URL(fileURLWithPath: path) : nil
-        }
-        let path = home.appendingPathComponent("Library/Application Support/AgentValley/codex/events.jsonl")
-        return FileManager.default.fileExists(atPath: path.path) ? path : nil
-    }
-}
+enum Projects { static func name(of path: String, home: String) -> String { (path as NSString).lastPathComponent } }
 enum Format { static func model(_ value: String) -> String { value } }
 enum TranscriptReader {
     static let openToolLimit = 16
     static func clipped(_ value: String, limit: Int = 120) -> String { String(value.prefix(limit)) }
     static func date(from value: String) -> Date? {
         try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(value)
+    }
+    static func stepLabel(tool: String, input: [String: Any], asRun: Bool = false) -> String {
+        tool + ((input["command"] as? String).map { " " + $0 } ?? "")
     }
 }
 struct LedgerAnswer {
@@ -109,7 +115,7 @@ exit(failed == 0 ? 0 : 1)
     compiler, sdk, environment = swift_toolchain()
     binary = OUT / "live-smoke"
     sources = [ROOT / "Sources/AgentValley" / (name + ".swift")
-               for name in ("CodexLiveRollouts", "CodexLiveSessions", "CodexUsageReader", "SafeJSON")]
+               for name in ("CodexEvents", "CodexLiveRollouts", "CodexLiveSessions", "CodexUsageReader", "SafeJSON")]
     command = [compiler, "-sdk", sdk, "-module-cache-path", str(OUT / "module-cache")]
     command += [str(path) for path in sources]
     command += [str(OUT / name) for name in ("Stubs.swift", "Assertions.swift", "Tests.swift", "main.swift")]

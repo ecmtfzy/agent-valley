@@ -143,15 +143,18 @@ Some desktop runtimes keep their active conversation outside that shared daemon
 and do not deliver command hooks for it. When the journal has opted the app into
 Codex monitoring, `CodexLiveRollouts` also discovers indexed local plain rollouts.
 It verifies the session identity, then reads bounded lifecycle and model metadata
-to populate the same cards. It never writes synthetic hook events. Existing hook
-cards take priority for the same ID; archived files and subagent rollouts are not
-added as independent cards. A daemon response of `notLoaded` does not erase this
-local evidence of an active turn.
+to populate the same cards. It never writes synthetic hook events. Partial hooks
+are reconciled with local lifecycle records by session and turn identity: an
+explicit completion ends the matching turn even when its Stop hook is missing.
+The card retains hook tool summaries, child rows, and real permission requests.
+Archived files and subagent rollouts are not added as independent cards. A daemon
+response of `notLoaded` does not erase local evidence of an active turn.
 
 Discovery and incremental reads run on a separate serial worker. Each refresh
 reads at most 4 MiB of rollout data across 128 candidates; initial reads use a
 1 MiB tail instead of replaying a large conversation. The shared session store
-uses the last snapshot and still applies current hook exclusions and expiry.
+uses the last snapshot. Completed-turn evidence is retained for 24 hours even
+after the idle card's display period expires, so stale hooks cannot revive it.
 
 The local fallback retains no prompt or tool-output text and creates no approval
 requests or message route. Allow/Deny and Stop-hook messages still require the

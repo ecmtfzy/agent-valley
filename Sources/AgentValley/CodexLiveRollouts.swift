@@ -103,6 +103,7 @@ final class CodexLiveRollouts {
                   now.timeIntervalSince(at) < AgentStore.forgetAfter,
                   entry.status != .done || now.timeIntervalSince(at) < max(0, visibleFor) else { return nil }
             var info = entry.info
+            info.codexTurnID = entry.turn
             info.title = titles["codex-" + source.id] ?? ""
             let id = "codex-" + source.id
             let project = TranscriptReader.clipped((info.cwd as NSString).lastPathComponent)

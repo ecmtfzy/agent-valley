@@ -164,8 +164,15 @@ final class CodexEventStore {
     private var pending = Data()
     private var skippingLongLine = false
     private var sessions: [String: Session] = [:]
+    /// Parsed metadata only. A partial hook stream cannot establish a different turn,
+    /// but its permission request must survive until the prompt or rollout confirms it.
+    private var deferred: [Event] = []
 
     init(path: String) { self.path = path }
+
+    /// Includes finished sessions during their 24-hour lifetime, after their cards hide.
+    /// A lagging rollout snapshot must not revive one as a fallback card.
+    var observedSessionIDs: Set<String> { Set(sessions.keys.map { "codex-" + $0 }) }
 
     /// Each new request invalidates any live-status evidence about an older approval.
     /// Tool progress does not change this token; concurrent results must not re-arm a wait.
@@ -192,8 +199,13 @@ final class CodexEventStore {
 
     /// Reads a bounded amount per tick. Incomplete final lines wait for the next read; malformed
     /// records are skipped. Replacement or truncation starts a fresh view of that journal.
-    func readCards(now: Date = Date(), visibleFor: TimeInterval = AgentStore.defaultVisibleFor) -> [SessionCard] {
+    func readCards(now: Date = Date(), visibleFor: TimeInterval = AgentStore.defaultVisibleFor,
+                   reconciling local: [SessionCard] = []) -> [SessionCard] {
+        reconcile(local, now: now)
+        replayDeferred(now: now)
         read(now: now)
+        reconcile(local, now: now)
+        replayDeferred(now: now)
         sessions = sessions.filter { now.timeIntervalSince($0.value.movedAt) < AgentStore.forgetAfter }
         return sessions.compactMap { id, session in
             let allDone = session.main.status == .done && session.children.values.allSatisfy { $0.status == .done }
@@ -230,6 +242,7 @@ final class CodexEventStore {
             pending = Data()
             skippingLongLine = false
             sessions = [:]
+            deferred = []
         }
         guard lseek(descriptor, off_t(offset), SEEK_SET) >= 0 else { return }
         var remaining = Self.maxReadBytes
@@ -264,7 +277,7 @@ final class CodexEventStore {
         }
     }
 
-    private func apply(_ event: Event) {
+    private func apply(_ event: Event, deferUnknownTurn: Bool = true) {
         var session = sessions[event.session] ?? Session(main: Row(at: event.at))
         if session.main.info.startedAt == nil {
             session.main.info.startedAt = event.at
@@ -273,8 +286,12 @@ final class CodexEventStore {
         }
         // Turn ids outrank arrival order for delayed callbacks from a completed or replaced turn.
         let childLifecycle = event.kind == "SubagentStart" || event.kind == "SubagentStop"
+        // Journal replay may lag behind a turn already confirmed by a rollout. This
+        // includes old session endings or callbacks without an ID, not just prompts.
+        if !childLifecycle, let start = session.main.info.turnStartedAt, event.at < start { return }
         if let turn = event.turn, session.retiredTurns.contains(turn),
-           event.kind != "SessionEnd", event.kind != "UserPromptSubmit", !childLifecycle { return }
+           !(event.kind == "SessionEnd" && session.turn == turn),
+           event.kind != "UserPromptSubmit", !childLifecycle { return }
         if event.kind == "UserPromptSubmit" {
             if session.turn != event.turn || session.main.status == .done {
                 if session.turn != event.turn { session.retire(session.turn) }
@@ -286,7 +303,13 @@ final class CodexEventStore {
             // An explicit new prompt is authoritative, including continuation of the same turn.
             session.retiredTurns.removeAll { $0 == event.turn }
         } else if let turn = event.turn, !childLifecycle {
-            if let current = session.turn, current != turn, event.kind != "SessionEnd" { return }
+            if let current = session.turn, current != turn {
+                if deferUnknownTurn, event.at >= session.main.at {
+                    deferred.append(event)
+                    if deferred.count > Self.maxSessions { deferred.removeFirst(deferred.count - Self.maxSessions) }
+                }
+                return
+            }
             if session.turn == nil { session.turn = turn }
         }
         if session.closed && event.kind != "SessionStart" && event.kind != "UserPromptSubmit" { return }
@@ -415,10 +438,107 @@ final class CodexEventStore {
                 session.main.info.lastStepAsRun = session.waitingStepAsRun
             }
         }
+        session.main.info.codexTurnID = session.turn
         sessions[event.session] = session
         if sessions.count > Self.maxSessions,
            let oldest = sessions.min(by: { ($0.value.movedAt, $0.key) < ($1.value.movedAt, $1.key) })?.key {
             sessions[oldest] = nil
+        }
+    }
+
+    /// Rollouts supplement an existing hook session's lifecycle only. They never create
+    /// a hook session, a request, or a send route, and cannot finish its child agents.
+    private func reconcile(_ cards: [SessionCard], now: Date) {
+        for card in cards {
+            guard card.id.hasPrefix("codex-"), let row = card.main,
+                  let at = row.info.lastActivity, at <= now,
+                  now.timeIntervalSince(at) < AgentStore.forgetAfter else { continue }
+            let id = String(card.id.dropFirst(6))
+            guard var session = sessions[id] else { continue }
+            let turn = row.info.codexTurnID.flatMap { Self.isID($0) ? $0 : nil }
+            let finished = row.status == .done && row.info.turnEnded
+            let active = row.status == .working || (row.status == .quiet && row.calledBusy)
+            guard finished || active else { continue }
+            var newTurn = false
+            if let current = session.turn {
+                guard let turn else { continue }
+                if current != turn {
+                    // Tool timestamps describe hook delivery. A late callback from the old
+                    // turn cannot move its known start past the next real prompt.
+                    let previousStart = session.main.info.turnStartedAt ?? session.main.at
+                    guard !session.retiredTurns.contains(turn), let start = row.info.turnStartedAt,
+                          start > previousStart, at >= start, at >= session.main.at else { continue }
+                    session.retire(current)
+                    newTurn = true
+                } else {
+                    // A real prompt can explicitly resume the same ID. Its old completion
+                    // cannot stop that continuation, even though late tool callbacks can.
+                    guard session.main.info.turnStartedAt.map({ at >= $0 }) ?? true else { continue }
+                    if !finished && (session.main.status == .done || at < session.main.at) { continue }
+                    if finished && session.main.status == .done && at < session.main.at { continue }
+                }
+            } else {
+                // Without a hook turn ID there is no safe identity-based override of time.
+                guard at >= session.main.at else { continue }
+                if session.main.status == .done && !finished {
+                    guard turn != nil, let start = row.info.turnStartedAt,
+                          start > session.main.at, at >= start else { continue }
+                    newTurn = true
+                }
+            }
+            if newTurn {
+                session.closed = false
+                session.main.info.turnStartedAt = row.info.turnStartedAt
+                session.main.info.turnEnded = false
+                session.main.info.asking = false
+                session.main.info.openTools = []
+                session.main.info.lastStep = ""
+                session.main.info.lastStepAsRun = ""
+                session.toolSteps = [:]
+                session.clearPermissions()
+                session.main.status = .working
+            }
+            session.turn = turn ?? session.turn
+            session.main.info.codexTurnID = session.turn
+            if session.main.info.turnStartedAt == nil { session.main.info.turnStartedAt = row.info.turnStartedAt }
+            if (newTurn || session.main.info.model.isEmpty) && !row.info.model.isEmpty {
+                session.main.info.model = row.info.model
+            }
+            if session.main.info.cwd.isEmpty { session.main.info.cwd = row.info.cwd }
+            if session.main.info.folder.isEmpty || newTurn { session.main.info.folder = row.info.folder }
+            if session.main.info.lastStep.isEmpty {
+                session.main.info.lastStep = row.info.lastStep
+                session.main.info.lastStepAsRun = row.info.lastStepAsRun
+            }
+            if finished {
+                // A delayed tool hook's delivery time must not postpone actual completion
+                // or restart the visible retention window on every reconciliation tick.
+                session.main.at = at
+                session.main.info.lastActivity = at
+                session.main.finish(at: at)
+                session.clearPermissions()
+                session.retire(session.turn)
+            } else if session.main.status != .needsYou {
+                session.main.touch(at)
+                session.main.status = .working
+                session.main.info.turnEnded = false
+            }
+            sessions[id] = session
+        }
+    }
+
+    private func replayDeferred(now: Date) {
+        let pending = deferred
+        deferred = []
+        for event in pending {
+            guard now.timeIntervalSince(event.at) < AgentStore.forgetAfter,
+                  let session = sessions[event.session], let turn = event.turn,
+                  !session.retiredTurns.contains(turn) else { continue }
+            if session.turn == turn {
+                apply(event, deferUnknownTurn: false)
+            } else {
+                deferred.append(event)
+            }
         }
     }
 

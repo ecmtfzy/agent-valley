@@ -1022,13 +1022,20 @@ final class AgentStore: ObservableObject {
         // ponytail: the disk is asked again for every card on every publish, a stat or two each; keep the answers by folder if that ever shows.
         let claude = Self.cards(from: files, now: now, visibleFor: visibleFor, states: states, owners: owners, worktree: Self.isWorktree, git: Self.gitPlace(of:),
                     running: keepsRecords ? runningSince : nil)
-        let hookCards = codexEvents?.readCards(now: now, visibleFor: visibleFor) ?? []
+        // Keep terminal rollout evidence beyond display retention: a partial hook stream
+        // must not bring a finished card back after its idle row has been hidden.
+        let local = codexRollouts?.cards(now: now, visibleFor: Self.forgetAfter, excluding: []) ?? []
+        let hookCards = codexEvents?.readCards(now: now, visibleFor: visibleFor, reconciling: local) ?? []
         codexHookCardIDs = Set(hookCards.map(\.id))
         let codex = codexRuntime.adjust(
             cards: hookCards,
             tokens: codexEvents?.pendingApprovalTokens ?? [:])
-        let local = codexRollouts?.cards(now: now, visibleFor: visibleFor, excluding: codexHookCardIDs) ?? []
-        return (claude + codexMetadata.enrich(cards: codex + local)).sorted { ($0.startedAt, $0.id) > ($1.startedAt, $1.id) }
+        let observedHooks = codexEvents?.observedSessionIDs ?? []
+        let fallback = local.filter { card in
+            guard !observedHooks.contains(card.id), let row = card.main else { return false }
+            return row.status != .done || now.timeIntervalSince(row.info.lastActivity ?? .distantPast) < max(0, visibleFor)
+        }
+        return (claude + codexMetadata.enrich(cards: codex + fallback)).sorted { ($0.startedAt, $0.id) > ($1.startedAt, $1.id) }
     }
 
     /// Hands the cards to the main thread. Only called on `queue`, and by tests.
