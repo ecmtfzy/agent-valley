@@ -1,12 +1,14 @@
 # Get updates end to end against a fake Resend: ask, the mail (HTML and plain), the link, the button,
-# forged and expired links, spacing per inbox, another site, bots, a full day, escaping.
+# forged and expired links, spacing per inbox, another site, bots, a full day, escaping, and a contact
+# who left the list once coming back.
 # Run from site/: python3 tests/subscribe_check.py
 import io, json, os, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'api'))
 import subscribe as s
 from http.server import HTTPServer
 real = urllib.request.urlopen
-mails, contacts, quota = [], [], {'full': False}
+mails, contacts, patches, quota = [], [], [], {'full': False}
+known = {'exists': False, 'patch_fails': False}
 class R:
     def __init__(self, body): self.status, self.body = 200, body
     def read(self): return self.body
@@ -17,6 +19,11 @@ def fake(req, timeout=0):
     if req.full_url.endswith('/emails'):
         if quota['full']: raise urllib.error.HTTPError(req.full_url, 429, 'x', {}, io.BytesIO(b'{"name":"daily_quota_exceeded"}'))
         mails.append(body); return R(b'{"id":"m"}')
+    if req.get_method() == 'PATCH':
+        patches.append((req.full_url, body))
+        if known['patch_fails']: raise urllib.error.HTTPError(req.full_url, 500, 'x', {}, io.BytesIO(b'{}'))
+        return R(b'{"id":"c"}')
+    if known['exists']: raise urllib.error.HTTPError(req.full_url, 422, 'x', {}, io.BytesIO(b'{"message":"Contact already exists"}'))
     contacts.append(body); return R(b'{"id":"c"}')
 s.urllib.request.urlopen = fake
 os.environ['RESEND_API_KEY'] = 're_test'
@@ -59,6 +66,15 @@ form = urllib.parse.urlencode({k: v[0] for k, v in q.items()})
 st, b = call('/api/subscribe', form, accept='text/html', site='same-origin'); assert st == 200 and 'on the list. See you' in b and contacts[-1]['email'] == 'reader@example.com'
 fq = urllib.parse.parse_qs(urllib.parse.urlsplit(forged).query)
 st, b = call('/api/subscribe', urllib.parse.urlencode({k: v[0] for k, v in fq.items()}), accept='text/html'); assert st == 502 and 'run out' in b and len(contacts) == 1
+# a yes always marks the contact subscribed again, in case they left the list once
+assert patches[-1] == ('https://api.resend.com/contacts/reader@example.com', {'unsubscribed': False}), patches
+# already a contact: the yes still counts, and puts them back on the list
+known['exists'] = True; n = len(patches)
+st, b = call('/api/subscribe', form, accept='text/html'); assert st == 200 and 'on the list. See you' in b and len(contacts) == 1 and len(patches) == n + 1
+# already a contact, and Resend cannot put them back: say try again, not "on the list"
+known['patch_fails'] = True
+st, b = call('/api/subscribe', form, accept='text/html'); assert st == 502 and 'got away' in b
+known.update(exists=False, patch_fails=False)
 # another site, bots, bad addresses, a full day
 assert json.loads(call('/api/subscribe', 'email=x%40example.com', site='cross-site')[1])['said'] == 'failed' and len(mails) == 1
 assert json.loads(call('/api/subscribe', 'email=bot%40example.com&website=spam')[1])['said'] == 'sent' and len(mails) == 1

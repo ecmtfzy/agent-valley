@@ -71,7 +71,7 @@ def letter(**fill: str) -> str:
     return re.sub(r"\{\{(\w+)\}\}", lambda m: html.escape(fill.get(m[1], m[0])), LETTER)
 
 
-def resend(path: str, body: dict) -> tuple[int, str]:
+def resend(path: str, body: dict, method: str = "POST") -> tuple[int, str]:
     request = urllib.request.Request(
         f"https://api.resend.com{path}",
         data=json.dumps(body).encode(),
@@ -80,7 +80,7 @@ def resend(path: str, body: dict) -> tuple[int, str]:
             "Content-Type": "application/json",
             "User-Agent": "agentvalley.app",
         },
-        method="POST",
+        method=method,
     )
     try:
         with urllib.request.urlopen(request, timeout=8) as response:
@@ -143,8 +143,13 @@ def add(email: str) -> bool:
     if os.environ.get("RESEND_SEGMENT_ID"):
         body["segments"] = [{"id": os.environ["RESEND_SEGMENT_ID"]}]
     status, answer = resend("/contacts", body)
-    # Already on the list counts as on the list.
-    return 200 <= status < 300 or "already exist" in answer.lower()
+    created = 200 <= status < 300
+    if not created and "already exist" not in answer.lower():
+        return False
+    # Someone already a contact may have left the list once; their yes from the mailbox puts them back.
+    # Sent every time, since Resend does not say whether creating an existing contact changes it.
+    status, _ = resend(f"/contacts/{urllib.parse.quote(email, safe='@')}", {"unsubscribed": False}, "PATCH")
+    return created or 200 <= status < 300
 
 
 def page(words: str, form: str = "") -> str:
