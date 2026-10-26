@@ -192,6 +192,7 @@ struct HistoryPage: View {
         if report.unpriced > 0 {
             Text(verbatim: Format.unpricedChartNote)
                 .font(.system(size: 10, design: .monospaced)).foregroundStyle(.white.opacity(0.6))
+                .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
         }
         if pick.project == nil ? report.projects.isEmpty : report.sessions.isEmpty {
@@ -274,6 +275,7 @@ struct HistoryPage: View {
             if line.unpriced > 0 {
                 Text(verbatim: Format.unpricedTokens(line.unpriced))
                     .font(.system(size: 10, design: .monospaced)).foregroundStyle(.white.opacity(0.6))
+                    .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -481,6 +483,8 @@ private struct SplitLine: View {
                 Text(verbatim: Format.splitLine(lines))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.6))
+                    // Override the panel's one-line default so every model stays visible.
+                    .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .ignore)
