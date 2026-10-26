@@ -377,16 +377,17 @@ a.w:hover{text-decoration-style:solid}
 
 @layer components {
 /* Product Hunt's badge at the top of the hero: four pixel sparkles twinkle in turn around it, a
-   frame at a time like the crew, and an amber gleam crosses it every few seconds. */
+   frame at a time like the crew, and an amber gleam crosses it once, soon after the page opens: a
+   gleam every few seconds pulled the eye from the heading and the download. */
 .ph{position:relative;display:block;width:fit-content;border-radius:10px}
 .ph img{display:block;max-width:100%;height:auto}
-.ph::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;mix-blend-mode:multiply;background:linear-gradient(110deg,transparent 44%,rgba(255,176,0,.55) 50%,transparent 56%) 150% 0/250% 100% no-repeat;animation:gleam 4.2s ease-in-out infinite}
+.ph::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;mix-blend-mode:multiply;background:linear-gradient(110deg,transparent 44%,rgba(255,176,0,.55) 50%,transparent 56%) 150% 0/250% 100% no-repeat;animation:gleam 1.5s ease-in-out .8s both}
 .ph .spark{position:absolute;width:14px;height:14px;fill:var(--amber);shape-rendering:crispEdges;pointer-events:none;transform:scale(0);animation:twinkle 2.8s steps(1) infinite}
 .ph .s1{top:-8px;left:-8px}
 .ph .s2{top:-8px;right:30px;fill:var(--red);animation-delay:.7s}
 .ph .s3{bottom:-8px;right:-8px;animation-delay:1.4s}
 .ph .s4{bottom:-8px;left:64px;fill:var(--red);animation-delay:2.1s}
-@keyframes gleam{0%{background-position:150% 0}35%,100%{background-position:-50% 0}}
+@keyframes gleam{from{background-position:150% 0}to{background-position:-50% 0}}
 @keyframes twinkle{0%,24%,100%{transform:scale(0)}6%,18%{transform:scale(.5)}12%{transform:scale(1)}}
 .idle .ph::after,.idle .ph .spark,.still .ph::after,.still .ph .spark{animation-play-state:paused}
 
