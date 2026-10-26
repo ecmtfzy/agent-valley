@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Get updates · AgentValley</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+/* The mailroom: the page subscribe.py answers with, from the link in the confirm mail. Sunny holds out the
+   letter behind the counter; once the address is on the list, the rest of the crew pops up behind it and the
+   memo gets its stamp. Pictures in public/mailroom; the crew cut-outs are placed in fractions of the room,
+   so they stay where they stand however the room is cropped. */
+@font-face{font-family:Geist;src:url(/email/fonts/Geist-Regular.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:Geist;src:url(/email/fonts/Geist-SemiBold.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Geist Mono";src:url(/email/fonts/GeistMono-Regular.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Geist Mono";src:url(/email/fonts/GeistMono-SemiBold.woff2) format("woff2");font-weight:600;font-display:swap}
+:root{
+  color-scheme:light;
+  /* The memo's paper and type reach 7:1 with each other (dim 7.2, pen 7.7, ink 7.7); cream on the wood 8.4; the
+     foot's words on the counter 8.1. */
+  --paper:#f4ecd9;--type:#2a2118;--dim:#5b4a36;--pen:#723a00;--ink:#8f1a14;
+  --wood:#7a3417;--wood-lo:#3d1f10;--cream:#fff6e4;--counter:#582521;--on-counter:#e9cdb3;
+  --sans:Geist,-apple-system,"Segoe UI",sans-serif;--mono:"Geist Mono",ui-monospace,Menlo,monospace;
+  /* The room's width: it covers the window. */
+  --bw:max(100vw,177.78vh);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--counter);color:var(--type);font:17px/1.55 var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden}
+a{color:var(--pen);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--pen);outline-offset:3px;border-radius:4px}
+
+.room{position:fixed;inset:0;overflow:hidden}
+.box{position:absolute;left:50%;top:50%;width:var(--bw);aspect-ratio:16/9;transform:translate(-50%,-50%);overflow:hidden}
+.box img{position:absolute;display:block;height:auto;user-select:none;-webkit-user-drag:none}
+.box .wall{inset:0;width:100%;height:100%}
+.box .counter{left:0;top:57.487%;width:100%;z-index:5}
+.who{z-index:var(--z);transform:translateY(105%)}
+.who.sunny{transform:none}
+.sunny{left:56.18%;width:18.4%;bottom:15.67%;--z:3}
+.pearl{left:35.39%;width:9.43%;bottom:36%;--z:0;--at:.45s}
+.faye{left:39.39%;width:15.18%;bottom:42.5%;--z:1;--at:.6s}
+.walt{left:47.44%;width:13.8%;bottom:35.5%;--z:2;--at:.75s}
+.felix{left:68.5%;width:12.5%;bottom:33.5%;--z:1;--at:.9s}
+.judy{left:75.81%;width:11.28%;bottom:40%;--z:0;--at:1.05s}
+.norm{left:82.74%;width:10.42%;bottom:36%;--z:1;--at:1.2s}
+
+.memo{position:absolute;z-index:10;left:clamp(20px,3.5vw,64px);top:clamp(20px,10vh,120px);width:clamp(330px,27vw,420px);
+  padding:34px 30px 30px;background:var(--paper);border-radius:3px;transform:rotate(-1.2deg);
+  box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 18px 40px rgba(30,15,5,.38),0 2px 6px rgba(30,15,5,.2)}
+.pin{position:absolute;top:12px;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#ff9b8a,#c22a1c 55%,#6d120c);box-shadow:0 3px 3px rgba(30,15,5,.35)}
+.mark{display:inline-block;margin-top:6px}
+.mark img{display:block;width:176px;height:24px;image-rendering:pixelated}
+.eyebrow{margin:20px 0 0;color:var(--pen);font:600 .8125rem/1.5 var(--mono);letter-spacing:.08em;text-transform:uppercase}
+h1{margin:6px 0 0;font:600 clamp(1.875rem,2.5vw,2.375rem)/1.08 var(--sans);letter-spacing:-.03em;text-wrap:balance}
+h1:focus{outline:none}
+.words{margin:14px 0 0}
+.words b{font-weight:600;overflow-wrap:anywhere}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px 22px;margin-top:24px}
+.actions form{margin:0}
+.btn{display:inline-flex;align-items:center;min-height:48px;padding:0 22px;border:0;border-radius:8px;background:var(--wood);color:var(--cream);
+  font:600 1rem/1 var(--mono);text-decoration:none;cursor:pointer;
+  box-shadow:0 4px 0 var(--wood-lo),0 8px 18px rgba(30,15,5,.3);transition:transform .08s,box-shadow .08s,background-color .15s}
+.btn:hover{background:var(--wood-lo)}
+.btn:active,.btn[disabled]{transform:translateY(3px);box-shadow:0 1px 0 var(--wood-lo),0 3px 8px rgba(30,15,5,.3)}
+.btn[disabled]{cursor:progress}
+.link{font:1rem/1.5 var(--mono)}
+.note{margin:18px 0 0;color:var(--dim);font-size:.9375rem}
+.foot{position:absolute;z-index:9;left:0;right:0;bottom:18px;margin:0;padding:0 16px;color:var(--on-counter);font:.8125rem/1.5 var(--mono);text-align:center}
+.foot a{color:inherit}
+
+/* On the list: the stamp comes down on the memo, the memo takes the knock, the crew pops up one by one. */
+.stamp{position:absolute;top:68px;right:18px;padding:6px 12px;border:3px solid var(--ink);border-radius:4px;color:var(--ink);
+  font:600 1.0625rem/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;box-shadow:0 0 0 2px var(--paper) inset,0 0 0 4px var(--ink) inset;
+  transform:rotate(-9deg);opacity:.9;mix-blend-mode:multiply;animation:stamp .3s .15s cubic-bezier(.6,0,.9,.4) both}
+[data-said="in"] .memo{animation:knock .25s .42s ease-out}
+[data-said="in"] .who:not(.sunny){animation:pop .6s var(--at) cubic-bezier(.2,.8,.3,1) both}
+@keyframes stamp{from{opacity:0;transform:scale(2.4) rotate(-16deg)}}
+@keyframes knock{30%{transform:rotate(-1.2deg) translate(1px,3px)}60%{transform:rotate(-1.4deg) translate(-1px,-1px)}}
+@keyframes pop{from{transform:translateY(105%)}65%{transform:translateY(-7%)}to{transform:none}}
+.confetti{position:fixed;inset:0;z-index:8;pointer-events:none;overflow:hidden;display:none}
+[data-said="in"] .confetti{display:block}
+.confetti i{position:absolute;top:0;left:var(--x);width:var(--s);height:var(--s);background:var(--c);animation:fall var(--t) var(--d) linear both}
+@keyframes fall{from{transform:translateY(-6vh) rotate(0)}to{transform:translateY(106vh) rotate(var(--r))}}
+
+/* A phone, a tablet upright, a squarish window: the room on top, cropped round the crew, and the memo laid on the
+   counter under it. */
+@media (max-aspect-ratio:29/20),(max-width:899px){
+  body{overflow:auto}
+  .room{position:relative;inset:auto;height:auto;overflow:visible;padding-bottom:32px}
+  /* On a phone the room is no taller than the window is wide, so Pearl and Norm keep their faces at either end. */
+  .room{--h:clamp(300px,min(52vh,96vw),600px)}
+  .scene{position:relative;height:var(--h);overflow:hidden}
+  .box{--w:max(100vw,calc(var(--h)*1.7778));top:0;width:var(--w);height:100%;
+    left:clamp(calc(100vw - var(--w)),calc(50vw - .64*var(--w)),0px);transform:none}
+  .memo{position:relative;left:auto;top:auto;width:min(100% - 32px,520px);margin:calc(var(--h)*-.28) auto 0;transform:rotate(-.8deg)}
+  .foot{position:static;margin-top:28px}
+}
+@media (prefers-reduced-motion:reduce){
+  .stamp,[data-said="in"] .memo,[data-said="in"] .who:not(.sunny){animation:none}
+  [data-said="in"] .who{transform:none}
+  [data-said="in"] .confetti{display:none}
+}
+</style>
+</head>
+<body data-said="{{said}}">
+<main class="room">
+  <div class="scene">
+    <div class="box">
+      <img class="wall" src="/mailroom/room-1440.webp" srcset="/mailroom/room-1440.webp 1440w, /mailroom/room-2880.webp 2880w" sizes="max(100vw, 177.78vh)" width="2880" height="1607" alt="The AgentValley mailroom in the 1970s: a long wooden counter, a cork board, pigeonholes full of letters, a wall clock and sun through the blinds.">
+      <img class="who sunny" src="/mailroom/sunny.webp" width="618" height="1107" alt="Sunny stands behind the counter holding out a sealed letter and waves.">
+      <img class="who pearl" src="/mailroom/pearl.webp" width="362" height="528" alt="" fetchpriority="low">
+      <img class="who faye" src="/mailroom/faye.webp" width="634" height="693" alt="" fetchpriority="low">
+      <img class="who walt" src="/mailroom/walt.webp" width="576" height="660" alt="" fetchpriority="low">
+      <img class="who felix" src="/mailroom/felix.webp" width="538" height="761" alt="" fetchpriority="low">
+      <img class="who judy" src="/mailroom/judy.webp" width="433" height="597" alt="" fetchpriority="low">
+      <img class="who norm" src="/mailroom/norm.webp" width="400" height="555" alt="" fetchpriority="low">
+      <img class="counter" src="/mailroom/counter-1440.webp" srcset="/mailroom/counter-1440.webp 1440w, /mailroom/counter-2880.webp 2880w" sizes="max(100vw, 177.78vh)" width="2880" height="683" alt="">
+    </div>
+  </div>
+  <section class="memo" aria-labelledby="said">
+    <span class="pin" aria-hidden="true"></span>
+    <a class="mark" href="/"><img src="/email/wordmark.png" width="176" height="24" alt="AgentValley"></a>
+    <p class="eyebrow">Get updates</p>
+    <h1 id="said" tabindex="-1">{{title}}</h1>
+    <p class="words">{{words}}</p>
+    {{action}}
+  </section>
+  <p class="foot">The crew in your notch · <a href="/">agentvalley.app</a> · Not affiliated with Anthropic.</p>
+  <div class="confetti" aria-hidden="true">{{confetti}}</div>
+</main>
+<script>
+// With scripts, the yes is sent from here and the answer page's memo takes this one's place, so the room stays
+// and the crew pops up in it. Without them the form posts and the same page comes back whole.
+document.addEventListener('submit', async (event) => {
+  const form = event.target;
+  if (!form.matches('.yes')) return;
+  event.preventDefault();
+  const button = form.querySelector('button');
+  button.disabled = true;
+  button.textContent = 'Filing it';
+  let next;
+  try {
+    const res = await fetch(form.action, { method: 'POST', headers: { Accept: 'text/html' }, body: new URLSearchParams(new FormData(form)) });
+    next = new DOMParser().parseFromString(await res.text(), 'text/html');
+  } catch {}
+  const memo = next && next.querySelector('.memo');
+  if (!memo) {
+    button.disabled = false;
+    button.textContent = 'Try again';
+    return;
+  }
+  document.querySelector('.memo').replaceWith(document.importNode(memo, true));
+  document.querySelector('.confetti').replaceWith(document.importNode(next.querySelector('.confetti'), true));
+  document.body.dataset.said = next.body.dataset.said;
+  document.getElementById('said').focus();
+});
+</script>
+</body>
+</html>
