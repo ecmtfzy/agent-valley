@@ -305,6 +305,12 @@ final class CodexLiveRollouts {
     }
 
     private func message(_ payload: [String: Any], entry: inout Entry, at: Date) {
+        // Desktop async question cards also use final_answer. They complete a message,
+        // not the running turn; retain only activity, never the question or an approval.
+        if let questions = payload["questions"] as? [Any], !questions.isEmpty {
+            activity(&entry, at: at)
+            return
+        }
         switch payload["phase"] as? String {
         case "final", "final_answer": touch(&entry, at: at, done: true)
         case "commentary": activity(&entry, at: at)

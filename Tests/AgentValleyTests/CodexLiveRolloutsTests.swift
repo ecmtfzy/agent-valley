@@ -272,4 +272,47 @@ final class CodexLiveRolloutsTests: XCTestCase {
         let (_, _, invalid) = try fixture(future)
         XCTAssertTrue(invalid.readCards(now: epoch).isEmpty)
     }
+
+    func testAsyncQuestionFinalMessageDoesNotFinishTheTurnOrInventApproval() throws {
+        let question: [String: Any] = ["type": "AgentMessage", "phase": "final_answer", "delivery": "async",
+                                      "questions": [["title": "PRIVATE QUESTION", "options": ["PRIVATE OPTION"]]]]
+        let (_, file, reader) = try fixture(meta() + event("task_started")
+            + line("response_item", ["type": "custom_tool_call", "name": "exec", "call_id": "first", "input": "PRIVATE"])
+            + line("event_msg", ["type": "item_completed", "thread_id": id, "turn_id": "turn-1", "item": question], at: 1))
+        let card = try XCTUnwrap(reader.readCards(now: epoch.addingTimeInterval(1)).first)
+        XCTAssertEqual(card.main?.status, .working)
+        XCTAssertEqual(card.main?.step, "Bash")
+        XCTAssertFalse(card.main?.info.turnEnded ?? true)
+        XCTAssertFalse(card.main?.info.asking ?? true)
+        XCTAssertEqual(card.main?.info.openTools.first?.input, [:])
+        try append(line("response_item", ["type": "function_call", "name": "apply_patch", "call_id": "next"], at: 2), to: file, at: 2)
+        let continued = try XCTUnwrap(reader.readCards(now: epoch.addingTimeInterval(2)).first)
+        XCTAssertEqual(continued.main?.status, .working)
+        XCTAssertEqual(continued.main?.step, "Edit")
+        try append(event("task_complete", at: 3), to: file, at: 3)
+        XCTAssertEqual(reader.readCards(now: epoch.addingTimeInterval(3)).first?.main?.status, .done)
+    }
+
+    func testOrdinaryAsyncFinalWithNoQuestionsStillFinishes() throws {
+        for questions: Any in [NSNull(), [Any]()] {
+            let final: [String: Any] = ["type": "AgentMessage", "phase": "final_answer", "delivery": "async", "questions": questions]
+            let (_, _, reader) = try fixture(meta() + event("task_started")
+                + line("event_msg", ["type": "item_completed", "thread_id": id, "turn_id": "turn-1", "item": final], at: 1))
+            XCTAssertEqual(reader.readCards(now: epoch.addingTimeInterval(1)).first?.main?.status, .done)
+        }
+        let (_, _, reader) = try fixture(meta() + event("task_started")
+            + line("event_msg", ["type": "item_completed", "thread_id": id, "turn_id": "turn-1",
+                                 "item": ["type": "AgentMessage", "phase": "final_answer", "delivery": "async"]], at: 1))
+        XCTAssertEqual(reader.readCards(now: epoch.addingTimeInterval(1)).first?.main?.status, .done)
+    }
+
+    func testQuestionCardDoesNotReviveATurnAfterItsTaskComplete() throws {
+        let question: [String: Any] = ["type": "AgentMessage", "phase": "final_answer", "delivery": "async",
+                                      "questions": [["title": "PRIVATE", "options": []]]]
+        let (_, _, reader) = try fixture(meta() + event("task_started") + event("task_complete", at: 1)
+            + line("event_msg", ["type": "item_completed", "thread_id": id, "turn_id": "turn-1", "item": question], at: 2))
+        let card = try XCTUnwrap(reader.readCards(now: epoch.addingTimeInterval(2)).first)
+        XCTAssertEqual(card.main?.status, .done)
+        XCTAssertEqual(card.main?.info.lastActivity, epoch.addingTimeInterval(1))
+    }
 }
