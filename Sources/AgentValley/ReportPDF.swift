@@ -7,9 +7,11 @@ import SwiftUI
 enum ReportPDF {
     static let page = CGSize(width: 595, height: 842)
     /// Lines of the table on the first page, under the summary, and on each page after it. Rows
-    /// are one line each and all as tall, so this is known before anything is drawn.
-    static let firstRows = 19
-    static let laterRows = 42
+    /// are one line each and all as tall, so this is known before anything is drawn: the most
+    /// that keep a page inside its margins with every By agent and model row in the summary
+    /// (tested; one more and the page spills over its top and bottom edges).
+    static let firstRows = 23
+    static let laterRows = 43
     static let row: CGFloat = 16
 
     /// Where the words over the costliest bar sit: from the bar rightwards in the first quarter of
@@ -65,7 +67,6 @@ private enum Ink {
     static let dim = rgb(0x6B6052)
     static let faint = rgb(0x9A8F80)
     static let rule = rgb(0xD8CDB8)
-    static let greenbar = rgb(0xE3ECD4)
     /// The costliest bar: the guru's shirt, as what is picked on the panel.
     static let peak = rgb(0xE07B39)
     /// A split's parts by place: amber glass, a darker cream for paper, warm grey.
@@ -75,7 +76,6 @@ private enum Ink {
 private extension Font {
     static let paperText = Font.system(size: 9)
     static let figure = Font.system(size: 9, design: .monospaced)
-    static let small = Font.system(size: 7.5)
 }
 
 /// A small label in capitals, as on a form.
@@ -129,15 +129,6 @@ private struct Wordmark: View {
     }
 }
 
-private struct Face: View {
-    let person: Person
-    let size: CGFloat
-
-    var body: some View {
-        Pixels(cells: person.rows.map(Array.init), size: size, colour: person.colour)
-    }
-}
-
 // MARK: - A page
 
 private struct ReportPage: View {
@@ -167,72 +158,59 @@ private struct ReportPage: View {
 
     // MARK: The first page
 
+    /// What the client looks for first: whose work, which month, how much. The period keeps its
+    /// room; a name too long for the rest is cut in the middle.
     @ViewBuilder private var summary: some View {
-        HStack(alignment: .bottom) {
-            Wordmark(height: 15)
-            Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
+        HStack(alignment: .bottom, spacing: 16) {
+            VStack(alignment: .leading, spacing: 5) {
                 Caps("Statement of work")
-                Text(verbatim: title).font(.system(size: 11, weight: .bold, design: .monospaced))
+                Text(verbatim: subject).font(.system(size: 22, weight: .bold)).tracking(-0.3).lineLimit(1).truncationMode(.middle)
             }
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(verbatim: title).font(.system(size: 11, weight: .bold, design: .monospaced))
+                Text(verbatim: Format.reportPeriod(document.interval, calendar: calendar))
+                    .font(.system(size: 8, design: .monospaced))
+                    .foregroundStyle(Ink.dim)
+            }
+            .fixedSize()
+            .layoutPriority(1)
         }
         .padding(.bottom, 12)
         Rule(weight: 1.5, color: Ink.type)
 
         HStack(alignment: .bottom, spacing: 16) {
-            VStack(alignment: .leading, spacing: 5) {
-                if document.project != nil { Caps("Project") }
-                Text(verbatim: subject).font(.system(size: 22, weight: .bold)).tracking(-0.3).lineLimit(1).truncationMode(.middle)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verbatim: Format.reportFacts(document))
+                if document.unpriced > 0 { Text(verbatim: Format.unpriced(document.unpriced)) }
             }
+            .font(.system(size: 8, design: .monospaced))
+            .foregroundStyle(Ink.dim)
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 5) {
-                Caps("At API prices")
+                Caps("Total at API prices")
                 Text(verbatim: Format.dollars(document.total)).font(.system(size: 26, weight: .bold, design: .monospaced)).fixedSize()
             }
         }
-        .padding(.top, 16)
-        HStack {
-            Text(verbatim: Format.reportFacts(document))
-            Spacer(minLength: 8)
-            if document.unpriced > 0 { Text(verbatim: Format.unpriced(document.unpriced)) }
-        }
-        .font(.system(size: 8, design: .monospaced))
-        .foregroundStyle(Ink.dim)
-        .padding(.top, 5)
-        .padding(.bottom, 10)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
         Rule()
 
-        HStack(alignment: .top, spacing: 12) {
-            field("Period", Format.reportPeriod(document.interval, calendar: calendar))
-            field("Printed", Format.date("EEE, MMM d, yyyy", document.printed, calendar))
-            field("Priced at", "API prices of \(Pricing.checkedOn)")
-        }
-        .padding(.vertical, 9)
-
         Chart(document: document, calendar: calendar)
-            .padding(.top, 14)
+            .padding(.top, 20)
             .padding(.bottom, 16)
 
         HStack(alignment: .top, spacing: 24) {
-            CrewTable(crew: document.crew).frame(maxWidth: .infinity, alignment: .leading)
+            AgentTable(crew: document.crew).frame(maxWidth: .infinity, alignment: .leading)
             ModelTable(models: document.models).frame(width: 196)
         }
         .padding(.bottom, 18)
-    }
-
-    private func field(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Caps(label)
-            Text(verbatim: value).font(.system(size: 8.5))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Later pages
 
     @ViewBuilder private var runningHead: some View {
         HStack(alignment: .center, spacing: 10) {
-            Wordmark(height: 9)
             Text(verbatim: subject).font(.system(size: 9, weight: .semibold)).lineLimit(1)
             Spacer()
             Caps("Statement of work · \(title)")
@@ -244,24 +222,24 @@ private struct ReportPage: View {
 
     // MARK: The foot of every page
 
-    /// Sunny, Walt, Norm, Pearl, Judy, Faye and Felix.
-    private static let crew: [Person] = [.guru, .walrus, .engineer, .pearls, .coder, .afro, .beatnik]
-
+    /// The note on the amounts, in type a client reads, and the block-letter mark over the page
+    /// number in the corner.
     private var foot: some View {
         VStack(spacing: 0) {
             Rule()
-            HStack(alignment: .bottom, spacing: 14) {
-                HStack(spacing: 2) {
-                    ForEach(Self.crew.indices, id: \.self) { index in Face(person: Self.crew[index], size: 18) }
-                }
-                Text(verbatim: Format.reportCrewNote)
-                    .font(.small)
+            HStack(alignment: .bottom, spacing: 24) {
+                Text(verbatim: Format.reportNote(printed: document.printed, calendar: calendar))
+                    .font(.system(size: 8))
                     .foregroundStyle(Ink.dim)
                     .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
-                Text(verbatim: "\(number) / \(of)")
-                    .font(.system(size: 7, design: .monospaced))
-                    .foregroundStyle(Ink.faint)
+                Spacer(minLength: 0)
+                VStack(alignment: .trailing, spacing: 5) {
+                    Wordmark(height: 9)
+                    Text(verbatim: Format.pageLabel(number, of: of))
+                        .font(.system(size: 7, design: .monospaced))
+                        .foregroundStyle(Ink.faint)
+                }
+                .fixedSize()
             }
             .padding(.top, 10)
         }
@@ -313,27 +291,24 @@ private struct Chart: View {
     }
 }
 
-private struct CrewTable: View {
+/// By agent: a line for each kind of agent, its rows level with By model's beside it, under that
+/// table's bar.
+private struct AgentTable: View {
     let crew: [HistoryCrewLine]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Caps("Who did the work").padding(.bottom, 7)
+            Caps("By agent").padding(.bottom, 18)
             ForEach(crew.indices, id: \.self) { index in
-                let line = crew[index]
-                HStack(spacing: 8) {
-                    Face(person: line.kind.person, size: 22)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(verbatim: line.name).font(.system(size: 9, weight: .semibold))
-                        Text(verbatim: line.detail + " · " + Format.counted(line.answers, "answer", "answers"))
-                            .font(.small)
-                            .foregroundStyle(Ink.dim)
+                VStack(spacing: 0) {
+                    HStack {
+                        Text(verbatim: crew[index].name).lineLimit(1)
+                        Spacer(minLength: 8)
+                        Text(verbatim: Format.dollars(crew[index].cost)).font(.figure)
                     }
-                    .lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text(verbatim: Format.dollars(line.cost)).font(.figure)
+                    .frame(height: 18)
+                    Rule()
                 }
-                .frame(height: 26)
             }
         }
     }
@@ -374,8 +349,8 @@ private struct ModelTable: View {
 
 // MARK: - The lines
 
-/// The lines of the statement on one page, costliest first, banded every three rows as
-/// continuous-form paper is; on the last page, the total under them.
+/// The lines of the statement on one page, costliest first, a thin rule under each; on the last
+/// page, the total under them.
 private struct LineTable: View {
     let document: HistoryDocument
     let calendar: Calendar
@@ -399,7 +374,7 @@ private struct LineTable: View {
                         : Text(verbatim: Format.count(line.sessions)).font(.figure).foregroundStyle(Ink.type),
                     answers: Text(verbatim: Format.count(line.answers)).font(.figure),
                     amount: Text(verbatim: Format.dollars(line)).font(.figure))
-                    .background(index % 6 < 3 ? Ink.greenbar : .clear)
+                    .overlay(alignment: .bottom) { Rule() }
             }
             if last {
                 Rule(weight: 1, color: Ink.type)
@@ -426,7 +401,14 @@ private struct LineTable: View {
 }
 
 extension Format {
-    static let reportCrewNote = "Prepared by the crew in the notch. Amounts are what Anthropic's API would charge for the same tokens."
+    /// "Page 2 of 3".
+    static func pageLabel(_ number: Int, of count: Int) -> String { "Page \(number) of \(count)" }
+
+    /// The foot's note: what the amounts are, the prices they come from, and the day printed.
+    static func reportNote(printed: Date, calendar: Calendar) -> String {
+        "Amounts are what Anthropic's API would charge for the same tokens, at API prices of \(Pricing.checkedOn). "
+            + "Printed \(date("EEE, MMM d, yyyy", printed, calendar))."
+    }
 
     /// The whole stretch, as a statement gives its period: "Oct 1 – 31, 2026", "Oct 12 – 18, 2026",
     /// "Sep 28 – Oct 4, 2026", "Mon, Oct 12, 2026".

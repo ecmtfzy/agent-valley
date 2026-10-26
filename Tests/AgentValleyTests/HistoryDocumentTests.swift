@@ -51,17 +51,9 @@ final class HistoryDocumentTests: XCTestCase {
         XCTAssertEqual(document.interval, october)
         XCTAssertNil(document.project)
         XCTAssertEqual(document.crew.map(\.who), [.leads, .others, .felix, .faye, .judy])
-        XCTAssertEqual(document.crew.map(\.name), ["The session leads", "Felix in other shirts", "Felix", "Faye", "Judy"])
-        XCTAssertEqual(document.crew[0].detail, "Sunny, Walt, Norm and Pearl")
+        XCTAssertEqual(document.crew.map(\.name), ["Main sessions", "Other agents", "general-purpose", "Explore", "Plan"])
         XCTAssertEqual(document.crew[0].cost, 10, accuracy: 1e-9)
-        XCTAssertEqual(document.crew[1].detail, "persona-tester and 1 more")
-        XCTAssertEqual(document.crew[1].answers, 2)
         XCTAssertEqual(document.crew[1].cost, 6, accuracy: 1e-9)
-        XCTAssertEqual(document.crew[1].kind, MascotKind(type: "persona-tester"))
-        XCTAssertEqual(document.crew[2].detail, "general-purpose")
-        XCTAssertEqual(document.crew[3].detail, "Explore")
-        XCTAssertEqual(document.crew[4].detail, "Plan")
-        XCTAssertEqual(document.crew[4].kind, .plan)
     }
 
     func testAProjectReportHoldsNothingOfAnother() throws {
@@ -73,7 +65,7 @@ final class HistoryDocumentTests: XCTestCase {
         XCTAssertEqual(document.sessions, 2)
         XCTAssertEqual(document.bars.map(\.cost).reduce(0, +), 8, accuracy: 1e-9)
         XCTAssertEqual(document.crew.map(\.who), [.others, .faye, .judy])
-        let words = document.lines.map(\.name) + document.crew.flatMap { [$0.name, $0.detail] } + document.models.map(\.name)
+        let words = document.lines.map(\.name) + document.crew.map(\.name) + document.models.map(\.name)
             + [Format.reportFacts(document)]
         for other in ["api", "Rate limits", "Search filters"] {
             XCTAssertFalse(words.contains { $0.contains(other) }, other)

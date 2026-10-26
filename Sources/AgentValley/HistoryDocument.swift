@@ -1,15 +1,11 @@
 import Foundation
 
-/// One row of who did the work in a report: a person of the crew, and what their answers cost.
+/// One row of By agent in a report: a kind of agent, by the name Claude Code gives it, and what
+/// its answers cost.
 struct HistoryCrewLine: Equatable {
     enum Who: Hashable { case leads, felix, faye, judy, others }
     let who: Who
     let name: String
-    /// Under the name: the agent types it stands for.
-    var detail: String
-    /// Whose face is drawn.
-    let kind: MascotKind
-    var answers = 0
     var cost = 0.0
 }
 
@@ -53,29 +49,23 @@ struct HistoryDocument: Equatable {
                                lines: pick.project == nil ? report.projects : report.sessions)
     }
 
-    /// The agent types put together by the person drawn for them. Every type Claude Code does not
-    /// ship is the general-purpose person in another shirt, so they share one row.
+    /// The agent types as a client can read them: each one Claude Code ships on its own row, and
+    /// every type it does not ship on one row of other agents.
     static func crew(_ scope: [HistoryReport.Priced]) -> [HistoryCrewLine] {
         var rows: [HistoryCrewLine.Who: HistoryCrewLine] = [:]
-        var others: [String] = []
         for type in HistoryReport.lines(scope, by: { HistoryReport.agentName($0.answer.agent) }) {
-            let kind = MascotKind(type: type.id)
             let row: HistoryCrewLine
-            switch kind {
-            case .lead: row = HistoryCrewLine(who: .leads, name: "The session leads", detail: "Sunny, Walt, Norm and Pearl", kind: kind)
-            case .general: row = HistoryCrewLine(who: .felix, name: "Felix", detail: "general-purpose", kind: kind)
-            case .explore: row = HistoryCrewLine(who: .faye, name: "Faye", detail: "Explore", kind: kind)
-            case .plan: row = HistoryCrewLine(who: .judy, name: "Judy", detail: "Plan", kind: kind)
-            case .other:
-                others.append(type.id)
-                row = HistoryCrewLine(who: .others, name: "Felix in other shirts", detail: type.id, kind: kind)
+            switch MascotKind(type: type.id) {
+            case .lead: row = HistoryCrewLine(who: .leads, name: "Main sessions")
+            case .general: row = HistoryCrewLine(who: .felix, name: "general-purpose")
+            case .explore: row = HistoryCrewLine(who: .faye, name: "Explore")
+            case .plan: row = HistoryCrewLine(who: .judy, name: "Plan")
+            case .other: row = HistoryCrewLine(who: .others, name: "Other agents")
             }
             var sum = rows[row.who] ?? row
-            sum.answers += type.answers
             sum.cost += type.cost
             rows[row.who] = sum
         }
-        if others.count > 1 { rows[.others]?.detail = "\(others[0]) and \(others.count - 1) more" }
         return rows.values.sorted { $0.cost != $1.cost ? $0.cost > $1.cost : $0.name < $1.name }
     }
 

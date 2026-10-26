@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.6 — 2026-10-26
+
+- Export PDF writes a plain statement of work now, one you can hand a client as it is: the project and the period at the top, the total at API prices beside them, a bar for each day, what each agent and each model cost, and a line for every session or project. Our mark sits small in the bottom-right corner. Our faces stay out of it.
+- By agent names agents the way Claude Code does: Main sessions, general-purpose, Explore, Plan, and Other agents.
+- However long the month, every page keeps its margins, and its foot says the amounts are what Anthropic's API would charge.
+
 ## 0.3.5 — 2026-10-25
 
 - When ALL would run past the bottom of the panel, sessions fold to one line each instead, still showing the file we're on, so your second project stays in sight. Quiet sessions fold first, then working ones from the bottom up. One that needs you never folds, and one with sub-agents at work stays open longest.
