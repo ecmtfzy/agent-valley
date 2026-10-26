@@ -24,9 +24,9 @@ final class SessionSenderTests: XCTestCase {
 
     private var senders: [SessionSender] = []   // the sender is held weakly by its own callbacks
 
-    private func makeSender(limit: Int = 1000) -> SessionSender {
+    private func makeSender(limit: Int = 1000, withoutProcess: Bool = false) -> SessionSender {
         let sender = SessionSender(
-            reach: { [unowned self] _ in route.map { SessionReach(process: process, route: $0, waitingOnPerson: false) } },
+            reach: { [unowned self] _ in route.map { SessionReach(process: withoutProcess ? nil : process, route: $0, waitingOnPerson: false) } },
             asking: { [unowned self] _ in asking },
             holdsTab: { [unowned self] _, place in guardPlaces.append(place); return holds },
             type: { [unowned self] text, _, check in
@@ -68,6 +68,22 @@ final class SessionSenderTests: XCTestCase {
         wait { lastStatus(m.id) == .sent }
         XCTAssertFalse(statusSessions.isEmpty)
         XCTAssertTrue(statusSessions.allSatisfy { $0 == "s1" })
+    }
+
+    func testDaemonSessionUsesTheExistingStopHookWithoutATerminalProcess() {
+        route = .stopHook
+        desk.awayOn = true
+        desk.holds = { $0 == "s1" }
+        let sender = makeSender(withoutProcess: true)
+        let m = message("Continue this task")
+        sender.send(m)
+        XCTAssertEqual(lastStatus(m.id), .waitingForTurnEnd)
+        var reply: Data?
+        desk.arrived(StopWait(session: "s1", lastMessage: "")) { reply = $0; return true }
+        XCTAssertEqual(lastStatus(m.id), .sent)
+        XCTAssertEqual(reply.flatMap(SafeJSON.object)?["reason"] as? String, "Continue this task")
+        XCTAssertTrue(typed.isEmpty)
+        XCTAssertTrue(guardPlaces.isEmpty)
     }
 
     func testTheSameMessageTwiceIsTypedOnce() {

@@ -55,6 +55,7 @@ struct StatusRow: View {
     let quiet: Int
     var needsYou = 0
     let display: PlanLimitsClient.Display
+    var provider: PlanLimitsProvider? = nil
     let now: Date
     /// Leads to the settings, where the limits' switch is. nil when they are already open.
     let openSettings: (() -> Void)?
@@ -102,6 +103,31 @@ struct StatusRow: View {
             // Wide enough that a full line gives up a reset time before the counts and the
             // limits run together.
             Spacer(minLength: 24)
+            if let provider {
+                Text(verbatim: Format.limitsProvider(provider))
+                    .foregroundStyle(.white.opacity(0.6)).fixedSize()
+                    .padding(.trailing, 8)
+            }
+            PlanLimitsReadout(display: display, now: now, openSettings: openSettings)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: NotchGeometry.statusRowHeight)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+        }
+    }
+
+}
+
+/// The same quota text and meters in the status row and the additional account row.
+/// The caller names the account; this view never chooses or substitutes a source.
+struct PlanLimitsReadout: View {
+    let display: PlanLimitsClient.Display
+    let now: Date
+    var openSettings: (() -> Void)? = nil
+
+    var body: some View {
+        Group {
             if let notice = Format.limitsNotice(display), openSettings == nil {
                 Text(verbatim: notice).foregroundStyle(.white.opacity(0.6))
             } else if let notice = Format.limitsNotice(display), let openSettings {
@@ -145,11 +171,6 @@ struct StatusRow: View {
                     }
                 }
             }
-        }
-        .padding(.horizontal, 14)
-        .frame(height: NotchGeometry.statusRowHeight)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
         }
     }
 

@@ -308,6 +308,12 @@ final class AgentStore: ObservableObject {
     @Published private(set) var loaded = false
 
     let root: String
+    /// Experimental, explicitly supplied journal. Codex events never enter Claude's parsers,
+    /// approval transport, process records, or cost ledger.
+    private let codexEvents: CodexEventStore?
+    private let codexRuntime = CodexRuntimeStatus()
+    private let codexMetadata = CodexSessionMetadata()
+    var codexEnabled: Bool { codexEvents != nil }
     /// Where Claude Code keeps a record of each live session.
     let sessionsFolder: String
     private(set) var files: [String: TrackedFile] = [:]
@@ -355,7 +361,9 @@ final class AgentStore: ObservableObject {
          processStart: @escaping (Int32) -> Date? = AgentStore.startTime(ofProcess:),
          owner: @escaping (Int32) -> OwnerApp? = AgentStore.ownerApp(ofProcess:),
          tab: @escaping (Int32, OwnerApp) -> TabPlace? = AgentStore.tabPlace(ofProcess:in:),
-         roster: URL? = nil) {
+         roster: URL? = nil,
+         codexEvents: URL? = nil) {
+        self.codexEvents = codexEvents.map { CodexEventStore(path: $0.path) }
         self.rosterFile = roster
         self.roster = roster.map(Roster.load) ?? Roster()
         self.owner = owner
@@ -1006,8 +1014,12 @@ final class AgentStore: ObservableObject {
     /// The cards as of `now`, from everything the store has read. Only called on `queue`.
     func cards(now: Date) -> [SessionCard] {
         // ponytail: the disk is asked again for every card on every publish, a stat or two each; keep the answers by folder if that ever shows.
-        Self.cards(from: files, now: now, visibleFor: visibleFor, states: states, owners: owners, worktree: Self.isWorktree, git: Self.gitPlace(of:),
+        let claude = Self.cards(from: files, now: now, visibleFor: visibleFor, states: states, owners: owners, worktree: Self.isWorktree, git: Self.gitPlace(of:),
                     running: keepsRecords ? runningSince : nil)
+        let codex = codexRuntime.adjust(
+            cards: codexEvents?.readCards(now: now, visibleFor: visibleFor) ?? [],
+            tokens: codexEvents?.pendingApprovalTokens ?? [:])
+        return (claude + codexMetadata.enrich(cards: codex)).sorted { ($0.startedAt, $0.id) > ($1.startedAt, $1.id) }
     }
 
     /// Hands the cards to the main thread. Only called on `queue`, and by tests.
@@ -1018,13 +1030,22 @@ final class AgentStore: ObservableObject {
         let byRecords = !records.isEmpty
         let listed = cards(now: now)
         let atWork = Set(listed.filter { !$0.isIdle }.map(AnswerStore.sessionID(of:)))
+        let codexPresent = Set(listed.filter { $0.id.hasPrefix("codex-") && !$0.closed }.map(AnswerStore.sessionID(of:)))
         let before = roster
-        let cards = roster.seat(listed, busy: { [runningSince] in byRecords ? runningSince[$0] != nil : atWork.contains($0) }, now: now)
+        let cards = roster.seat(listed, busy: { [runningSince] in
+            codexPresent.contains($0) || (byRecords ? runningSince[$0] != nil : atWork.contains($0))
+        }, now: now)
         if roster != before, let rosterFile { try? roster.save(rosterFile) }
         let looks = roster.looks
-        let missing = !FileManager.default.fileExists(atPath: root)
+        let missing = !codexEnabled && !FileManager.default.fileExists(atPath: root)
         let scanned = scanned
-        let reach = reachNow
+        var reach = reachNow
+        for card in cards where card.id.hasPrefix("codex-") && !card.closed
+            && card.owner != nil && codexMetadata.canReceiveMessages(for: card.id) {
+            reach[AnswerStore.sessionID(of: card)] = SessionReach(
+                process: nil, route: .stopHook,
+                waitingOnPerson: card.rows.contains { $0.status == .needsYou })
+        }
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if self.reach != reach { self.reach = reach }

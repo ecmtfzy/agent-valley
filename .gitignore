@@ -17,3 +17,7 @@ site/*.tsbuildinfo
 .DS_Store
 __pycache__/
 .claude/worktrees/
+
+# Machine-local agent settings and authentication must not be published.
+.codex/
+.claude/settings.local.json

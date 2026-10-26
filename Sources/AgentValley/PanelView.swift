@@ -71,7 +71,7 @@ enum Format {
     /// What is known of it and no more. A session Claude Code calls busy is the least likely to
     /// have a prompt up, and a sub-agent has no terminal of its own.
     static func quietHint(main: Bool, calledBusy: Bool) -> String {
-        if calledBusy { return "Claude Code says it is busy, but nothing has been written. It may be stuck." }
+        if calledBusy { return "The session is busy, but nothing has been written. It may be stuck." }
         return main ? "No activity. It may be waiting for you in its terminal." : "No activity. It may be waiting, or stuck."
     }
 
@@ -170,14 +170,13 @@ enum Format {
     /// Before any of that, what the panel is for: the one sentence that said so stood on the
     /// last page of the settings, and people handed the app went looking for it.
     static func intro(shortcut: ShortcutKey?) -> String {
-        "This panel shows what your Claude Code agents are doing, and when one needs you. It opened by itself this once: point at it, then move away, and it closes. To open it again, point at the mascot at the top of the screen\(shortcut.map { ", or press \(Format.shortcut($0))" } ?? ""). The ? above explains the symbols."
+        "This panel shows what your agents are doing, and when one needs you. It opened by itself this once: point at it, then move away, and it closes. To open it again, point at the mascot at the top of the screen\(shortcut.map { ", or press \(Format.shortcut($0))" } ?? ""). The ? above explains the symbols."
     }
 
     /// What an empty panel says, or nil when there is something to show or nothing has been read yet.
     static func emptyState(loaded: Bool, rootMissing: Bool, isEmpty: Bool) -> String? {
         guard loaded else { return nil }
-        if rootMissing { return "Can't find ~/.claude/projects. Run Claude Code once and agents appear here." }
-        return isEmpty ? "No agents running. Start Claude Code in a terminal and they appear here." : nil
+        return isEmpty ? "No agents running. Start a session and they appear here." : nil
     }
 
     /// What stands in for the limits when there are no numbers, or nil when there is nothing to say.
@@ -221,7 +220,17 @@ enum Format {
     }
 
     /// What to tell the person under the Plan limits switch: the cause, and what they can do.
-    static func limitsReason(_ failure: LimitsFailure) -> String {
+    static func limitsReason(_ failure: LimitsFailure, provider: PlanLimitsProvider = .claude) -> String {
+        if provider == .codex {
+            switch failure {
+            case .noLogin: return "No Codex account limits are available. Sign in with Codex first."
+            case .loginExpired: return "The Codex login has expired. Sign in with Codex again."
+            case .offline: return "Codex account limits are unavailable. Keep Codex running on this Mac. \(limitsRetry)"
+            case .refused: return "Codex could not read account limits. \(limitsRetry)"
+            case .unreadable: return "Codex returned account limits this version does not understand. A newer version of the app may."
+            case .noAnswer: return "Codex did not respond. \(limitsRetry)"
+            }
+        }
         switch failure {
         case .noLogin: return "No Claude Code login in Keychain. Sign in with Claude Code first."
         case .loginExpired: return "The Claude Code login has expired. Use Claude Code once to renew it."
@@ -230,6 +239,10 @@ enum Format {
         case .unreadable: return "api.anthropic.com sent an answer this version does not understand. A newer version of the app may."
         case .noAnswer: return "No answer after a minute. It will try again."
         }
+    }
+
+    static func limitsProvider(_ provider: PlanLimitsProvider) -> String {
+        provider == .codex ? "Codex" : "Claude"
     }
 
     /// What happens next after a check that failed: the cause alone left the person to guess.
@@ -265,7 +278,7 @@ enum Format {
         case .answered(.deny): return "Denied"
         case .answered(.option): return "Answered"
         // Skip sends word to Claude Code, where Hide sends none: the two looked alike.
-        case .answered(.skip): return "Skipped. Claude Code was told."
+        case .answered(.skip): return "Skipped. The agent was told."
         case .inTerminal: return "Answered in the terminal"
         case .notTaken: return "Not delivered. Answer in the terminal."
         }
@@ -309,9 +322,9 @@ enum Format {
     /// affair. Nothing for an option, whose row already says it in the request's words.
     static func answerHelp(_ answer: Answer) -> String? {
         switch answer {
-        case .allow: return "Lets Claude Code do this, this one time."
-        case .deny: return "Refuses this. Claude Code is told it was denied from the notch."
-        case .skip: return "Leaves the question unanswered. Claude Code is told you chose not to answer."
+        case .allow: return "Allows this, this one time."
+        case .deny: return "Refuses this. The agent is told it was denied from the notch."
+        case .skip: return "Leaves the question unanswered. The agent is told you chose not to answer."
         case .option: return nil
         }
     }
@@ -359,7 +372,7 @@ enum Format {
         case .off:
             return nil
         case .listening(nil):
-            return "Listening for the plugin, on this Mac only. Nothing has arrived yet. Only sessions that you start after installing the plugin send their prompts here."
+            return "Listening for session hooks, on this Mac only. Nothing has arrived yet. Start a session after setting up its hooks to send requests here."
         case .listening(let last?):
             let minutes = Int(now.timeIntervalSince(last)) / 60
             return minutes < 1 ? "Listening. Last request just now." : "Listening. Last request \(minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h") ago."
@@ -467,7 +480,7 @@ enum Format {
         return "\(part("Last 5 hours", summary.fiveHours)). \(part("Today", summary.today)). Bars: tokens out in each of the last 12 hours."
     }
 
-    static let usageCaption = "Tokens used in the last 5 hours and today, and the History page. Counted from Claude Code's files on this Mac, and kept in AgentValley's own folder so History goes back further than Claude Code keeps its files. Nothing is sent anywhere."
+    static let usageCaption = "Tokens used in the last 5 hours and today, and the History page. Counted from session files on this Mac, and kept in AgentValley's own folder so History can outlast the original files. Nothing is sent anywhere."
 
     /// Which app this is, for someone it was handed to.
     static func about(name: String?, version: String?) -> String {
@@ -492,7 +505,7 @@ enum Format {
     /// named, and each is off until its switch is turned on.
     /// `updates`: this copy checks for new versions, which a release does from the start.
     static func readOnly(updates: Bool) -> String {
-        "Reads Claude Code's files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does."
+        "Reads session files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does."
             + (updates ? " It asks GitHub once a day if there's a new version; that switch starts on." : "")
     }
     static let updatesTitle = "Check for updates"
@@ -504,7 +517,7 @@ enum Format {
     static let moveMessage = "Out here we can't update ourselves, and the plugin loses track of us when you quit."
     static let moveButton = "Move to Applications"
     static let notNow = "Not now"
-    static let awayHelpOff = "Going away? Claude waits for your phone when it finishes."
+    static let awayHelpOff = "Going away? The session waits for your phone when it finishes."
     static let awayHelpOn = "Away. Click when you're back."
     static let awayBandTitle = "Away. Your phone has it."
     static let awayBandNote = "Touch the Mac when you're back."
@@ -592,6 +605,7 @@ enum Format {
     /// Under the Plan limits switch. What is read is named for what it is: "your login" left
     /// a reader to wonder whether that meant a password.
     static let limitsCaption = "Reads the access token of your Claude Code login from Keychain, and sends it to api.anthropic.com to ask for your usage. It is never stored and never sent anywhere else."
+    static let codexLimitsCaption = "Reads plan usage from the local Codex app server using the account already signed in to Codex. Keep Codex running on this Mac."
 
     /// The name of the setting for how long what has stopped stays in the list.
     static let keepTitle = "Keep idle and done listed for"
@@ -602,7 +616,7 @@ enum Format {
 
     /// Under the switch that turns answering on. Once it is on, how to install is right below.
     static func answersCaption(on: Bool) -> String {
-        "Shows Claude Code's permission prompts and questions here, with buttons to answer. The terminal still asks too. You can allow a request here only when the panel can show all of it, such as a short command." + (on ? "" : " Needs a plugin that comes with this app: switch on to read what it does and how to install it.")
+        "Shows permission prompts and questions here, with buttons to answer. You can allow a request here only when the panel can show all of it, such as a short command." + (on ? "" : " Needs a plugin that comes with this app: switch on to read what it does and how to install it.")
     }
     static let barMascotCaption = "The mascot on the bar is the agent to look at first."
     /// Past this many sub-agents in the list, each takes one line: at two lines each, a dozen
@@ -613,7 +627,7 @@ enum Format {
     static let shortcutCaption = "Opens the panel from any app. ↑ ↓ move between sessions, return goes to the session's app, ⌘return and ⌘delete answer a request, esc closes. The ? lists every key."
     static let barCaption = "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet."
     static let waitCaption = "Once an agent has waited a minute for you, the longest wait shows in red where the ring is."
-    static let ringCaption = "The ring shows how much of your 5-hour limit is used. It turns yellow at 80%. It is shown only when Plan limits is on."
+    static let ringCaption = "The ring shows how much of your 5-hour limit is used. It turns yellow at 80%. It is shown when that account's plan limits are on and the sessions use one provider."
 
     /// The ring on the bar, read out: it has no room for a word of its own.
     static func ringLabel(_ ring: LimitRing) -> String {
@@ -748,6 +762,7 @@ struct PanelView: View {
     @ObservedObject var state: NotchState
     @ObservedObject var settings: Settings
     @ObservedObject var limits: PlanLimitsClient
+    @ObservedObject var codexLimits = PlanLimitsClient(source: CodexLimitsSource())
     @ObservedObject var answers: AnswerStore
     /// Makes the app's sounds. Not observed: nothing is drawn from what it remembers.
     let sound: SoundPlayer
@@ -793,6 +808,8 @@ struct PanelView: View {
     @State private var arrived = Date.distantPast
     /// Whether the person has opened the panel since then. Once they have, the beating stops.
     @State private var watch = WaitWatch()
+    /// A source change starts a new sound baseline; it is not an account running out or resetting.
+    @State private var soundedLimitsProvider: PlanLimitsProvider?
     /// How wide the tabs at the bar's left end are: the crowd behind the mascot stops short of them.
     @State private var tabsWidth: CGFloat = 84
     /// How far each one of the crowd stands from the one in front: a little less than half a person.
@@ -800,6 +817,25 @@ struct PanelView: View {
     /// Ticks at the pace of those beats. Kept here, made once: a timer made in `body` would
     /// start over on every redraw and never fire.
     private let beat = Timer.publish(every: Motion(reduced: false).waitingBeat ?? 3, on: .main, in: .common).autoconnect()
+
+    private var limitsScope: PlanLimitsScope {
+        PlanLimitsScope(sessionIDs: store.sessions.map(\.id), claudeEnabled: settings.planLimits,
+                        codexEnabled: settings.codexPlanLimits)
+    }
+
+    private func limitsDisplay(for provider: PlanLimitsProvider?) -> PlanLimitsClient.Display {
+        PlanLimitsScope.display(for: provider, claude: limits.display, codex: codexLimits.display)
+    }
+
+    private var globalLimitsDisplay: PlanLimitsClient.Display { limitsDisplay(for: limitsScope.global) }
+
+    private var openLimitsSettings: (() -> Void)? {
+        guard !state.showingSettings || state.settingsTab != .general else { return nil }
+        return {
+            state.settingsTab = .general
+            state.showingSettings = true
+        }
+    }
 
     var body: some View {
         let motion = Motion(reduced: reduceMotion)
@@ -931,13 +967,11 @@ struct PanelView: View {
                 // Redrawn twice a minute so the times until reset keep counting down while open.
                 TimelineView(.periodic(from: .now, by: 30)) { timeline in
                     StatusRow(working: AgentStore.count(.working, in: sessions), quiet: AgentStore.count(.quiet, in: sessions),
-                              needsYou: AgentStore.count(.needsYou, in: sessions), display: limits.display, now: timeline.date,
+                              needsYou: AgentStore.count(.needsYou, in: sessions), display: limitsDisplay(for: limitsScope.primary),
+                              provider: limitsScope.primary, now: timeline.date,
                               // To the page that says why the limits are missing. A link to the
                               // page already open would go nowhere.
-                              openSettings: state.showingSettings && state.settingsTab == .general ? nil : {
-                                  state.settingsTab = .general
-                                  state.showingSettings = true
-                              },
+                              openSettings: openLimitsSettings,
                               jump: jumpToWaiting, arrivals: arrivals)
                 }
                     .frame(width: open.width)
@@ -1086,7 +1120,7 @@ struct PanelView: View {
                             // Five from the end, 18 of coffee, a gap of three and a screen of 17:
                             // 43 of the wing's 44, and nothing may run under the notch.
                             HStack(spacing: 3) {
-                                if let out = limits.display.runOut(now: context.date) {
+                                if let out = globalLimitsDisplay.runOut(now: context.date) {
                                     if out.weekly { Van(size: 18) } else { Fish(size: 18) }
                                 } else {
                                     Mug(size: 18)
@@ -1230,10 +1264,11 @@ struct PanelView: View {
                         .opacity(state.expanded ? 0 : 1)
                         .animation(motion.reveal(index: 0), value: state.expanded)
                         .accessibilityLabel(Text(verbatim: Format.waitedAloud(wait)))
-                } else if let ring = limits.display.ring {
+                } else if let ring = globalLimitsDisplay.ring {
                     // How much of the 5-hour limit is used, when that is known. Gone with the panel
                     // open, as the number is: the line under the bar has both limits in full.
                     LimitRingView(ring: ring)
+                        .help(limitsScope.global.map { Format.limitsProvider($0) + ": " + Format.ringLabel(ring) } ?? Format.ringLabel(ring))
                         .opacity(state.expanded ? 0 : 1)
                         .animation(motion.reveal(index: 0), value: state.expanded)
                 }
@@ -1367,7 +1402,14 @@ struct PanelView: View {
             if bar.waiting > 0, !watch.seen(looks: state.looks), motion.beats(sinceArrival: Date().timeIntervalSince(arrived)) { beats += 1 }
             // The same tick carries the reminder, and the sound a locked screen held back.
             sound.beat(sessions, looks: state.looks)
-            sound.limits(limits.display.runOut(now: Date()), known: limits.display.hasNumbers)
+            let provider = limitsScope.global
+            if provider != soundedLimitsProvider {
+                sound.limits(nil, known: false)
+                soundedLimitsProvider = provider
+            }
+            let display = globalLimitsDisplay
+            let now = Date()
+            sound.limits(display.runOut(now: now), known: display.knowsAvailability(now: now), now: now)
         }
         // What the list holds now, for the sounds. Its first reading too, even an empty one:
         // that is where they start from, and it makes none. And once as the bar appears: a
@@ -1473,15 +1515,36 @@ struct PanelView: View {
 
     private func scroll(_ motion: Motion, viewport: CGFloat) -> some View {
         ScrollView {
-            Group {
-                if state.showingSettings {
-                    SettingsView(settings: settings, answers: answers, limits: limits, updates: updates,
-                                 shortcutNote: state.shortcutTaken ? Format.shortcutTaken : nil, displays: state.displays,
-                                 tab: $state.settingsTab) { state.showingSettings = false }
-                } else if state.showingHistory {
-                    HistoryPage(ledger: usage, pick: $state.historyPick) { state.showingHistory = false }
-                } else {
-                    sessions(motion, viewport: viewport)
+            VStack(spacing: 0) {
+                // Measured with the page, so a second account never overlaps the fixed header.
+                // It remains available in settings and history as well as beside the sessions.
+                if let provider = limitsScope.secondary {
+                    TimelineView(.periodic(from: .now, by: 30)) { timeline in
+                        HStack(spacing: 0) {
+                            Text(verbatim: Format.limitsProvider(provider))
+                                .foregroundStyle(.white.opacity(0.6)).fixedSize()
+                            Spacer(minLength: 24)
+                            PlanLimitsReadout(display: limitsDisplay(for: provider), now: timeline.date,
+                                              openSettings: openLimitsSettings)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(height: NotchGeometry.statusRowHeight)
+                        .overlay(alignment: .bottom) {
+                            Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+                        }
+                    }
+                    .modifier(Reveal(shown: state.expanded, index: 0, motion: motion, travels: false))
+                }
+                Group {
+                    if state.showingSettings {
+                        SettingsView(settings: settings, answers: answers, limits: limits, codexLimits: codexLimits, updates: updates,
+                                     shortcutNote: state.shortcutTaken ? Format.shortcutTaken : nil, displays: state.displays,
+                                     tab: $state.settingsTab) { state.showingSettings = false }
+                    } else if state.showingHistory {
+                        HistoryPage(ledger: usage, pick: $state.historyPick) { state.showingHistory = false }
+                    } else {
+                        sessions(motion, viewport: viewport)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1496,6 +1559,7 @@ struct PanelView: View {
         // card; `.hidden` still allows that, `.never` does not. The fade at the bottom edge says
         // the list goes on.
         .scrollIndicators(.never)
+        .onChange(of: limitsScope.secondary) { _, _ in answers.noteLayoutChange() }
     }
 
     private func sessions(_ motion: Motion, viewport: CGFloat) -> some View {
@@ -1574,7 +1638,7 @@ struct PanelView: View {
             }
             // While a plan limit has run out, the crew's sign over the list. It goes when the
             // numbers do: opening the panel fetches them again once they are a minute old.
-            if let out = limits.display.runOut(now: Date()) {
+            if let out = globalLimitsDisplay.runOut(now: Date()) {
                 GoneFishin(out: out, now: Date())
                     .modifier(Reveal(shown: state.expanded, index: 0, motion: motion))
             }
@@ -1805,7 +1869,8 @@ struct PanelView: View {
     /// The sessions to draw as one line: as few as it takes for the list to fit the panel.
     private func foldedRows(_ list: SessionList, headers: [String: String], oneLineAgents: Bool, under: CGFloat) -> Set<String> {
         // Less the list's padding and the lines under it.
-        let room = NotchGeometry.listRoom(screen: state.screenFrame, barHeight: state.barHeight) - ListFit.padding - under
+        let quotaHeight = limitsScope.secondary == nil ? 0 : NotchGeometry.statusRowHeight
+        let room = NotchGeometry.listRoom(screen: state.screenFrame, barHeight: state.barHeight) - ListFit.padding - under - quotaHeight
         let entries = list.cards.map { card in
             let session = AnswerStore.sessionID(of: card)
             return ListFit.Entry(

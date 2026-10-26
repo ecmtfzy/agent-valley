@@ -7,13 +7,28 @@ if CommandLine.arguments.count > 1, CommandLine.arguments[1] == "crew" {
     exit(CrewCommand.run(Array(CommandLine.arguments.dropFirst(2))))
 }
 
+// A read-only diagnostic, before any AppDelegate, settings, socket, or other-copy handling.
+// This proves the event-to-card path without disturbing the installed AgentValley app.
+if CommandLine.arguments.count > 1, CommandLine.arguments[1] == "codex-status" {
+    guard CommandLine.arguments.count == 3, CommandLine.arguments[2].hasPrefix("/") else {
+        fputs("Usage: AgentValley codex-status /absolute/path/events.jsonl\n", stderr)
+        exit(2)
+    }
+    let cards = CodexEventStore(path: CommandLine.arguments[2]).readAllCards()
+    if let data = try? JSONSerialization.data(withJSONObject: CodexEventStore.diagnostic(cards), options: [.prettyPrinted, .sortedKeys]),
+       let text = String(data: data, encoding: .utf8) { print(text) }
+    exit(0)
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = Settings()
     private let store = AgentStore(roster: CrewSetup.folder(FileManager.default.homeDirectoryForCurrentUser)
-        .appendingPathComponent(CrewSetup.rosterName))
+        .appendingPathComponent(CrewSetup.rosterName),
+        codexEvents: CodexEventStore.configuredJournal())
     private let limits = PlanLimitsClient()
+    private let codexLimits = PlanLimitsClient(source: CodexLimitsSource())
     private let answers = AnswerStore()
-    private let usage = UsageLedger()
+    private let usage = UsageLedger(codexUsage: CodexUsageReader.configured())
     private var updates: Updates!
     // Held for the life of the app: the desk's callbacks and the timers reach them weakly.
     private let desk = StopDesk()
@@ -34,6 +49,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &watches)
         settings.$planLimits
             .sink { [limits] on in limits.setEnabled(on) }
+            .store(in: &watches)
+        settings.$codexPlanLimits
+            .sink { [codexLimits] on in codexLimits.setEnabled(on) }
             .store(in: &watches)
         settings.$answers
             .sink { [answers] on in answers.setEnabled(on); answers.checkPlugin() }
@@ -61,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updates = Updates()
         wireSending()
         store.start()
-        notch = NotchWindowController(store: store, settings: settings, limits: limits, answers: answers, sound: SoundPlayer(settings: settings), usage: usage, updates: updates,
+        notch = NotchWindowController(store: store, settings: settings, limits: limits, codexLimits: codexLimits, answers: answers, sound: SoundPlayer(settings: settings), usage: usage, updates: updates,
                                       away: awayWatch, desk: desk)
     }
 }
@@ -83,7 +101,7 @@ extension AppDelegate {
             asking: { [store, answers] session in
                 if answers.pending.contains(where: { $0.ask.session == session }) { return true }
                 guard let reach = store.reach[session] else { return false }
-                return reach.waitingOnPerson || AgentStore.recordWaitsOnPerson(pid: reach.process.pid, sessions: store.sessionsFolder)
+                return reach.waitingOnPerson || (reach.process.map { AgentStore.recordWaitsOnPerson(pid: $0.pid, sessions: store.sessionsFolder) } ?? false)
             },
             holdsTab: { process, place in
                 let facts = AgentStore.facts(ofProcess: process.pid)

@@ -115,8 +115,8 @@ final class FormatTests: XCTestCase {
 
     // An empty panel says what to do next, not only that it is empty.
     func testEmptyStatesSayWhatToDo() {
-        XCTAssertEqual(Format.emptyState(loaded: true, rootMissing: false, isEmpty: true), "No agents running. Start Claude Code in a terminal and they appear here.")
-        XCTAssertEqual(Format.emptyState(loaded: true, rootMissing: true, isEmpty: true), "Can't find ~/.claude/projects. Run Claude Code once and agents appear here.")
+        XCTAssertEqual(Format.emptyState(loaded: true, rootMissing: false, isEmpty: true), "No agents running. Start a session and they appear here.")
+        XCTAssertEqual(Format.emptyState(loaded: true, rootMissing: true, isEmpty: true), "No agents running. Start a session and they appear here.")
         XCTAssertNil(Format.emptyState(loaded: true, rootMissing: false, isEmpty: false))
     }
 
@@ -144,10 +144,10 @@ final class FormatTests: XCTestCase {
     // "It closes when you move away" stood on it meanwhile: four of thirteen testers watched
     // it not close. The line says what the panel does this once, then how to open it again.
     func testTheIntroSaysWhyThePanelIsStillOpen() {
-        XCTAssertEqual(Format.intro(shortcut: nil), "This panel shows what your Claude Code agents are doing, and when one needs you. It opened by itself this once: point at it, then move away, and it closes. To open it again, point at the mascot at the top of the screen. The ? above explains the symbols.")
+        XCTAssertEqual(Format.intro(shortcut: nil), "This panel shows what your agents are doing, and when one needs you. It opened by itself this once: point at it, then move away, and it closes. To open it again, point at the mascot at the top of the screen. The ? above explains the symbols.")
         // What the app is for comes first. It used to be said only on the last page of the
         // settings: five of thirteen testers went through the pages to find out.
-        XCTAssertTrue(Format.intro(shortcut: .a).hasPrefix("This panel shows what your Claude Code agents are doing, and when one needs you."))
+        XCTAssertTrue(Format.intro(shortcut: .a).hasPrefix("This panel shows what your agents are doing, and when one needs you."))
         XCTAssertTrue(Format.intro(shortcut: .a).contains("point at the mascot at the top of the screen, or press ⌃ ⌥ ⌘ A."))
         XCTAssertFalse(Format.intro(shortcut: .a).contains("It closes when you move away."))
     }
@@ -170,6 +170,20 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.limitsReason(.unreadable), "api.anthropic.com sent an answer this version does not understand. A newer version of the app may.")
         XCTAssertEqual(Format.limitsReason(.noAnswer), "No answer after a minute. It will try again.")
         XCTAssertEqual(Format.limitsLoading, "Checking limits…")
+    }
+
+    func testCodexLimitsMessagesNameItsOwnAccountAndTimeout() {
+        XCTAssertEqual(Format.limitsProvider(.claude), "Claude")
+        XCTAssertEqual(Format.limitsProvider(.codex), "Codex")
+        XCTAssertEqual(Format.limitsReason(.offline, provider: .codex), "Codex account limits are unavailable. Keep Codex running on this Mac. It tries again every 5 minutes.")
+        XCTAssertEqual(Format.limitsReason(.noAnswer, provider: .codex), "Codex did not respond. It tries again every 5 minutes.")
+        for failure in [LimitsFailure.noLogin, .loginExpired, .offline, .refused(500), .unreadable, .noAnswer] {
+            let reason = Format.limitsReason(failure, provider: .codex)
+            XCTAssertFalse(reason.contains("Claude"))
+            XCTAssertFalse(reason.contains("anthropic"))
+            XCTAssertFalse(reason.contains("Keychain"))
+        }
+        XCTAssertEqual(Format.codexLimitsCaption, "Reads plan usage from the local Codex app server using the account already signed in to Codex. Keep Codex running on this Mac.")
     }
 
     // Old numbers say how old they are; dimming them only made them hard to read.
@@ -291,7 +305,7 @@ final class FormatTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         XCTAssertNil(Format.answersStatus(.off, now: now))
         // Where it listens: for the plugin, and on this Mac. "Listening." alone left that open.
-        XCTAssertEqual(Format.answersStatus(.listening(lastRequest: nil), now: now), "Listening for the plugin, on this Mac only. Nothing has arrived yet. Only sessions that you start after installing the plugin send their prompts here.")
+        XCTAssertEqual(Format.answersStatus(.listening(lastRequest: nil), now: now), "Listening for session hooks, on this Mac only. Nothing has arrived yet. Start a session after setting up its hooks to send requests here.")
         XCTAssertEqual(Format.answersStatus(.listening(lastRequest: now.addingTimeInterval(-130)), now: now), "Listening. Last request 2m ago.")
         XCTAssertEqual(Format.answersStatus(.listening(lastRequest: now.addingTimeInterval(-20)), now: now), "Listening. Last request just now.")
         XCTAssertEqual(Format.answersStatus(.failed("its folder is open to other accounts"), now: now), "Could not listen: its folder is open to other accounts. Switch it off and on to try again.")
@@ -358,7 +372,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.settledDetail(.answered(.option("Red")), tool: "AskUserQuestion"), "Red")
         // A skipped question says so in the app's word alone: the tool's name adds nothing.
         // And that Claude Code heard of it: Hide, beside it, tells Claude Code nothing.
-        XCTAssertEqual(Format.settled(.answered(.skip)), "Skipped. Claude Code was told.")
+        XCTAssertEqual(Format.settled(.answered(.skip)), "Skipped. The agent was told.")
         XCTAssertNil(Format.settledDetail(.answered(.skip), tool: "AskUserQuestion"))
         // What was allowed or denied: the tool's name, the request's own word, beside the app's.
         XCTAssertEqual(Format.settledDetail(.answered(.allow), tool: "Bash"), "Bash")
@@ -685,7 +699,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.timeHelp, "How long it has been working since it was last given something to do, or how long it has been quiet or waiting")
         // "Used anyway once more than eight are listed."
         // "It allows only what it can show in full": who allows, and how much is in full.
-        XCTAssertEqual(Format.answersCaption(on: true), "Shows Claude Code's permission prompts and questions here, with buttons to answer. The terminal still asks too. You can allow a request here only when the panel can show all of it, such as a short command.")
+        XCTAssertEqual(Format.answersCaption(on: true), "Shows permission prompts and questions here, with buttons to answer. You can allow a request here only when the panel can show all of it, such as a short command.")
         // "Put this away": a phrasal verb.
         XCTAssertEqual(Format.hideRequestHelp, "Removes this from the panel without answering it. It still waits in the terminal.")
         // "once the shortcut has opened the panel" read as "one time".
@@ -703,7 +717,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.barMascotCaption, "The mascot on the bar is the agent to look at first.")
         XCTAssertEqual(Format.barCaption, "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet.")
         XCTAssertEqual(Format.waitCaption, "Once an agent has waited a minute for you, the longest wait shows in red where the ring is.")
-        XCTAssertEqual(Format.ringCaption, "The ring shows how much of your 5-hour limit is used. It turns yellow at 80%. It is shown only when Plan limits is on.")
+        XCTAssertEqual(Format.ringCaption, "The ring shows how much of your 5-hour limit is used. It turns yellow at 80%. It is shown when that account's plan limits are on and the sessions use one provider.")
         XCTAssertEqual(Format.beatCaption, "While an agent waits for you, the bar glows red every few seconds, until you open the panel.")
         // A label that was half a sentence, and "your login", which could have been a password.
         XCTAssertEqual(Format.keepTitle, "Keep idle and done listed for")
@@ -746,7 +760,7 @@ final class FormatTests: XCTestCase {
     // A release checks for updates from the start, with no switch turned on first: the promise
     // says so there, and only there.
     func testReadOnlyMentionsUpdatesOnlyWhenOn() {
-        let old = "Reads Claude Code's files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does."
+        let old = "Reads session files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does."
         XCTAssertEqual(Format.readOnly(updates: false), old)
         XCTAssertEqual(Format.readOnly(updates: true), old + " It asks GitHub once a day if there's a new version; that switch starts on.")
     }
@@ -763,7 +777,7 @@ final class FormatTests: XCTestCase {
     // that reads the Keychain and goes online: six of thirteen testers caught it, one nearly
     // left over it. The promise now holds with every switch on, and names what is behind one.
     func testThePromiseHoldsWithEverySwitchOn() {
-        XCTAssertEqual(Format.readOnly(updates: false), "Reads Claude Code's files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does.")
+        XCTAssertEqual(Format.readOnly(updates: false), "Reads session files, and which Superset workspace a session is in. Never writes to them. Answering requests, checking plan limits online and showing a session's tab stay off until you turn on their switch; each switch says what it does.")
         XCTAssertFalse(Format.readOnly(updates: false).contains("Changes nothing"))
         // Each of those switches does say what it adds.
         XCTAssertTrue(Format.answersCaption(on: false).contains("buttons to answer"))
@@ -777,12 +791,12 @@ final class FormatTests: XCTestCase {
     // Seven of thirteen testers could not tell what a press would send: Skip tells Claude Code
     // the question was refused, and the button said one word. Said to the pointer and read out.
     func testAnAnswerButtonSaysWhatClaudeCodeIsTold() {
-        XCTAssertEqual(Format.answerHelp(.allow), "Lets Claude Code do this, this one time.")
-        XCTAssertEqual(Format.answerHelp(.deny), "Refuses this. Claude Code is told it was denied from the notch.")
-        XCTAssertEqual(Format.answerHelp(.skip), "Leaves the question unanswered. Claude Code is told you chose not to answer.")
+        XCTAssertEqual(Format.answerHelp(.allow), "Allows this, this one time.")
+        XCTAssertEqual(Format.answerHelp(.deny), "Refuses this. The agent is told it was denied from the notch.")
+        XCTAssertEqual(Format.answerHelp(.skip), "Leaves the question unanswered. The agent is told you chose not to answer.")
         // An option's row says what it answers in the request's own words.
         XCTAssertNil(Format.answerHelp(.option("Red")))
-        XCTAssertEqual(Format.answerHint(.skip), "Leaves the question unanswered. Claude Code is told you chose not to answer. By a click, or by its key after the shortcut has opened the panel.")
+        XCTAssertEqual(Format.answerHint(.skip), "Leaves the question unanswered. The agent is told you chose not to answer. By a click, or by its key after the shortcut has opened the panel.")
     }
 
     func testTheShortcutAndItsKeysAreSpelledOut() {
@@ -796,7 +810,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.keysHint(app: nil), "↑ ↓ move · ? keys · esc closes")
         // Under a quiet row: what is known of it, and no more.
         XCTAssertEqual(Format.quietHint(main: true, calledBusy: false), "No activity. It may be waiting for you in its terminal.")
-        XCTAssertEqual(Format.quietHint(main: true, calledBusy: true), "Claude Code says it is busy, but nothing has been written. It may be stuck.")
+        XCTAssertEqual(Format.quietHint(main: true, calledBusy: true), "The session is busy, but nothing has been written. It may be stuck.")
         XCTAssertEqual(Format.quietHint(main: false, calledBusy: false), "No activity. It may be waiting, or stuck.")
     }
 

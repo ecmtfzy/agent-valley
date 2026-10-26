@@ -30,6 +30,7 @@ final class SettingsTests: XCTestCase {
     func testDefaults() {
         let settings = Settings(defaults: defaults)
         XCTAssertFalse(settings.planLimits)
+        XCTAssertFalse(settings.codexPlanLimits)
         XCTAssertEqual(settings.idleSessions, .fold)
         XCTAssertEqual(settings.keepFinishedMinutes, 10)
     }
@@ -62,6 +63,21 @@ final class SettingsTests: XCTestCase {
     func testAStoredChoiceToShowPlanLimitsIsKept() {
         defaults.set(true, forKey: "planLimits")
         XCTAssertTrue(Settings(defaults: defaults).planLimits)
+        XCTAssertFalse(Settings(defaults: defaults).codexPlanLimits)
+    }
+
+    func testCodexLimitsChoicePersistsWithoutEnablingClaude() {
+        let settings = Settings(defaults: defaults)
+        settings.codexPlanLimits = true
+        let reopened = Settings(defaults: defaults)
+        XCTAssertTrue(reopened.codexPlanLimits)
+        XCTAssertFalse(reopened.planLimits)
+        reopened.planLimits = true
+        reopened.codexPlanLimits = false
+        XCTAssertTrue(Settings(defaults: defaults).planLimits)
+        XCTAssertFalse(Settings(defaults: defaults).codexPlanLimits)
+        defaults.set("yes", forKey: "codexPlanLimits")
+        XCTAssertFalse(Settings(defaults: defaults).codexPlanLimits)
     }
 
     // Answering from the notch opens a socket, so it is opted into like the plan limits.

@@ -72,7 +72,7 @@ final class UsageTests: XCTestCase {
         // With less room the word goes: both stretches of time are what the line is for.
         XCTAssertEqual(Format.usageLine(summary, named: false), "last 5h 422.0k in, 96.4k out · today 922.0k in, 233.0k out")
         XCTAssertEqual(Format.usageHelp(summary), "Last 5 hours: 422.0k in, 96.4k out, 3.1M read from cache. Today: 922.0k in, 233.0k out, 7.8M read from cache. Bars: tokens out in each of the last 12 hours.")
-        XCTAssertEqual(Format.usageCaption, "Tokens used in the last 5 hours and today, and the History page. Counted from Claude Code's files on this Mac, and kept in AgentValley's own folder so History goes back further than Claude Code keeps its files. Nothing is sent anywhere.")
+        XCTAssertEqual(Format.usageCaption, "Tokens used in the last 5 hours and today, and the History page. Counted from session files on this Mac, and kept in AgentValley's own folder so History can outlast the original files. Nothing is sent anywhere.")
     }
 
     // Each bar beside the busiest hour's. An hour with none keeps a mark, so twelve places

@@ -1,6 +1,6 @@
 import Foundation
 
-/// One usage window of the Claude plan.
+/// One usage window of an account's plan.
 struct PlanLimit: Equatable {
     enum Level: Equatable {
         case normal, high, critical
@@ -32,16 +32,33 @@ struct PlanLimit: Equatable {
     }
 }
 
+enum PlanLimitsProvider: String, Hashable {
+    case claude, codex
+}
+
 struct PlanLimits: Equatable {
     var fiveHour: PlanLimit?
     var week: PlanLimit?
+    var provider: PlanLimitsProvider = .claude
+    /// Codex's explicit account permission. A percentage or reset time alone must
+    /// not stand in for this value, including when the server omits it.
+    var ordinaryUsageAllowed: Bool? = nil
 
     /// The window that has run out and comes back last, or nil while there is room: Claude Code
     /// waits for it. Out once its meter reads 100%. Past its reset time it is back, whatever the
     /// last numbers said.
     func runOut(now: Date) -> RunOut? {
+        if provider == .codex, ordinaryUsageAllowed != false { return nil }
         let out = [(false, fiveHour), (true, week)].compactMap { weekly, limit -> RunOut? in
-            guard let limit, limit.usedPercent.rounded() >= 100, limit.resetsAt.map({ $0 > now }) ?? true else { return nil }
+            guard let limit else { return nil }
+            if provider == .codex {
+                // Keep a confirmed block until a fresh account response says otherwise.
+                // Crossing the displayed reset time is not proof that Codex can run.
+                guard limit.usedPercent >= 100 else { return nil }
+            } else {
+                guard limit.usedPercent.rounded() >= 100,
+                      limit.resetsAt.map({ $0 > now }) ?? true else { return nil }
+            }
             return RunOut(weekly: weekly, resetsAt: limit.resetsAt)
         }
         return out.max { ($0.resetsAt ?? .distantFuture) < ($1.resetsAt ?? .distantFuture) }
@@ -313,6 +330,15 @@ final class PlanLimitsClient: ObservableObject {
         var hasNumbers: Bool {
             if case .limits = self { return true }
             return false
+        }
+
+        /// A valid percentage does not establish Codex's permission to work.
+        /// Unknown permission, or a block outside the represented quota windows,
+        /// must reset the sound baseline instead of announcing a recovery.
+        func knowsAvailability(now: Date) -> Bool {
+            guard case .limits(let limits, _) = self else { return false }
+            return limits.provider == .claude || limits.ordinaryUsageAllowed == true
+                || limits.runOut(now: now) != nil
         }
 
         func runOut(now: Date) -> RunOut? {

@@ -82,6 +82,11 @@ final class Settings: ObservableObject {
         didSet { defaults.set(planLimits, forKey: Key.planLimits) }
     }
 
+    /// Codex account limits use its local daemon and have their own opt-in.
+    @Published var codexPlanLimits: Bool {
+        didSet { defaults.set(codexPlanLimits, forKey: Key.codexPlanLimits) }
+    }
+
     /// Whether the app listens for the plugin's hook so prompts can be answered from the panel.
     @Published var answers: Bool {
         didSet { defaults.set(answers, forKey: Key.answers) }
@@ -199,6 +204,7 @@ final class Settings: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         planLimits = defaults.object(forKey: Key.planLimits) as? Bool ?? false
+        codexPlanLimits = defaults.object(forKey: Key.codexPlanLimits) as? Bool ?? false
         answers = defaults.object(forKey: Key.answers) as? Bool ?? false
         // On from the start: a way in that nobody knows of helps nobody.
         shortcut = defaults.object(forKey: Key.shortcut) as? Bool ?? true
@@ -231,6 +237,7 @@ final class Settings: ObservableObject {
 
     private enum Key {
         static let planLimits = "planLimits"
+        static let codexPlanLimits = "codexPlanLimits"
         static let answers = "answers"
         static let idleSessions = "idleSessions"
         static let keepFinishedMinutes = "keepFinishedMinutes"

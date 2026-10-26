@@ -51,6 +51,7 @@ final class UsageLedger: ObservableObject {
         CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS files (path TEXT PRIMARY KEY, bytes INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS checkouts (folder TEXT PRIMARY KEY, checkout TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS codex_files (path TEXT PRIMARY KEY, state TEXT NOT NULL);
         PRAGMA user_version = 1;
         """
 
@@ -77,6 +78,7 @@ final class UsageLedger: ObservableObject {
 
     private let root: String
     private let database: URL
+    private let codexUsage: CodexUsageReader?
     /// How much of a transcript is read at a time.
     private let piece: Int
     private let queue = DispatchQueue(label: "agent-valley.ledger", qos: .utility)
@@ -94,9 +96,11 @@ final class UsageLedger: ObservableObject {
     private var fresh: Set<String> = []
 
     init(root: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects"),
-         database: URL = UsageLedger.defaultDatabase, piece: Int = 1 << 20) {
+         database: URL = UsageLedger.defaultDatabase, piece: Int = 1 << 20,
+         codexUsage: CodexUsageReader? = nil) {
         self.root = root.resolvingSymlinksInPath().path
         self.database = database
+        self.codexUsage = codexUsage
         self.piece = max(1, piece)
     }
 
@@ -167,6 +171,31 @@ final class UsageLedger: ObservableObject {
             for gone in bytes.keys where !seen.contains(gone) {
                 bytes[gone] = nil
                 try db.rows("DELETE FROM files WHERE path = ?", [.text(gone)])
+            }
+            if let codexUsage {
+                let snapshot = codexUsage.snapshot()
+                for source in snapshot.sources {
+                    let saved = try db.rows("SELECT state FROM codex_files WHERE path = ?", [.text(source.path)]).first?.first?.text
+                    let previous = CodexUsageReader.State.decode(saved)
+                    let batch = codexUsage.read(source, state: previous)
+                    for answer in batch.answers {
+                        try db.rows(Self.upsert, Self.values(answer))
+                        fresh.insert(answer.folder)
+                        added = true
+                    }
+                    if batch.state != previous, let state = batch.state.json {
+                        try db.rows("INSERT INTO codex_files VALUES (?, ?) ON CONFLICT(path) DO UPDATE SET state = excluded.state",
+                                    [.text(source.path), .text(state)])
+                    }
+                }
+                for (session, title) in snapshot.titles {
+                    let previous = try db.rows("SELECT title FROM sessions WHERE id = ?", [.text(session)]).first?.first?.text
+                    if previous != title {
+                        try db.rows("INSERT INTO sessions VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title",
+                                    [.text(session), .text(title)])
+                        added = true
+                    }
+                }
             }
             try learnCheckouts(db)
             try db.execute("COMMIT")

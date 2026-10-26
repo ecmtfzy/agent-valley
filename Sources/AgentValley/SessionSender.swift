@@ -152,25 +152,25 @@ final class SessionSender {
                 handToDesk(head)
             case .tab(let place):
                 if holdAll(session) { return }
-                guard holdsTab(reach.process, place) else {
+                guard let process = reach.process, holdsTab(process, place) else {
                     fail(head, .claudeNotRunning)
                     continue
                 }
                 start(head, session: session, isSuperset: false) { [type, asking, holdsTab] in
                     type(head.text, place) {
-                        AgentStore.onMain { holdsTab(reach.process, place) && !asking(session) }
+                        AgentStore.onMain { holdsTab(process, place) && !asking(session) }
                     }
                 }
             case .superset(let workspace, let terminal):
                 if holdAll(session) { return }
                 // Superset tells no tab: only that Claude is in front of its terminal.
-                guard holdsTab(reach.process, nil) else {
+                guard let process = reach.process, holdsTab(process, nil) else {
                     fail(head, .claudeNotRunning)
                     continue
                 }
                 start(head, session: session, isSuperset: true) { [superset, asking, holdsTab] in
                     superset(workspace, terminal, head.text) {
-                        AgentStore.onMain { holdsTab(reach.process, nil) && !asking(session) }
+                        AgentStore.onMain { holdsTab(process, nil) && !asking(session) }
                     }
                 }
             }

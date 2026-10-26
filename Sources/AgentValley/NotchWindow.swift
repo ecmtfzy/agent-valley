@@ -460,6 +460,7 @@ final class NotchWindowController: NSObject {
     private var islandFrame = CGRect.zero
     private var settle: DispatchWorkItem?
     private let limits: PlanLimitsClient
+    private let codexLimits: PlanLimitsClient
     private let answers: AnswerStore
     /// For the "Token use" switch, which History hangs on.
     private let settings: Settings
@@ -483,9 +484,10 @@ final class NotchWindowController: NSObject {
     /// Takes the panel back from the settings to the agents some time after it has shut.
     private var leaveSettings: DispatchWorkItem?
 
-    init(store: AgentStore, settings: Settings, limits: PlanLimitsClient, answers: AnswerStore, sound: SoundPlayer, usage: UsageLedger, updates: Updates,
+    init(store: AgentStore, settings: Settings, limits: PlanLimitsClient, codexLimits: PlanLimitsClient, answers: AnswerStore, sound: SoundPlayer, usage: UsageLedger, updates: Updates,
          away: AwayWatch = AwayWatch(desk: StopDesk(), lastInput: { .distantPast }), desk: StopDesk = StopDesk()) {
         self.limits = limits
+        self.codexLimits = codexLimits
         self.answers = answers
         self.settings = settings
         self.updates = updates
@@ -518,7 +520,7 @@ final class NotchWindowController: NSObject {
         // This app is never the active one, and its buttons' only explanations are their tooltips.
         panel.allowsToolTipsWhenApplicationIsInactive = true
 
-        let host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: limits, answers: answers, sound: sound, usage: usage, updates: updates, away: away, desk: desk))
+        let host = NSHostingView(rootView: PanelView(store: store, state: state, settings: settings, limits: limits, codexLimits: codexLimits, answers: answers, sound: sound, usage: usage, updates: updates, away: away, desk: desk))
         host.sizingOptions = []
         host.translatesAutoresizingMaskIntoConstraints = false
         let container = HoverView()
@@ -579,6 +581,7 @@ final class NotchWindowController: NSObject {
             guard !self.isExpanded, NotchGeometry.isOver(self.barFrame, cursor: NSEvent.mouseLocation) else { return }
             self.setExpanded(true)
             self.limits.refreshIfStale()
+            self.codexLimits.refreshIfStale()
             self.watchForExit(outside: 0)
         }
         entering = work
@@ -642,6 +645,7 @@ final class NotchWindowController: NSObject {
         if !isExpanded {
             setExpanded(true)
             limits.refreshIfStale()
+            codexLimits.refreshIfStale()
             watchForExit(outside: 0)
         }
         panel.takesKeys = true

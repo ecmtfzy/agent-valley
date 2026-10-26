@@ -6,6 +6,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 DEST="${1:-build}"
+# Optional override for toolchains whose default swiftbuild engine needs full Xcode.
+SWIFT_BUILD=(swift build --disable-keychain)
+if [ -n "${SWIFT_BUILD_SYSTEM:-}" ]; then SWIFT_BUILD+=(--build-system "$SWIFT_BUILD_SYSTEM"); fi
 
 # Since the macOS 27 SDK, SwiftUI's @State is a macro, and the plugin that expands it comes with
 # Xcode, not with the Command Line Tools. Without it, build against the newest older SDK at hand.
@@ -20,11 +23,11 @@ fi
 # Both kinds of Mac in one program. That takes Xcode's build system; with the Command Line
 # Tools alone, the build is for this Mac's kind only. The packages are public: SwiftPM has no
 # reason to look in the Keychain, and once sat waiting on a prompt there.
-if swift build -c release --disable-keychain --arch arm64 --arch x86_64; then
-    BIN="$(swift build -c release --disable-keychain --arch arm64 --arch x86_64 --show-bin-path)"
+if "${SWIFT_BUILD[@]}" -c release --arch arm64 --arch x86_64; then
+    BIN="$("${SWIFT_BUILD[@]}" -c release --arch arm64 --arch x86_64 --show-bin-path)"
 else
-    swift build -c release --disable-keychain
-    BIN="$(swift build -c release --disable-keychain --show-bin-path)"
+    "${SWIFT_BUILD[@]}" -c release
+    BIN="$("${SWIFT_BUILD[@]}" -c release --show-bin-path)"
 fi
 
 APP="$DEST/AgentValley.app"
@@ -41,6 +44,10 @@ install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS
 # The Claude Code plugin the person installs themselves, from the path the settings view shows.
 mkdir -p "$APP/Contents/Resources"
 cp -R plugin "$APP/Contents/Resources/claude-plugin"
+# Stable hook and read-only daemon helpers survive moving the source checkout.
+mkdir -p "$APP/Contents/Resources/codex"
+cp integrations/codex/bridge.py "$APP/Contents/Resources/codex/bridge.py"
+cp testing/probe-codex-runtime.py "$APP/Contents/Resources/codex/runtime_probe.py"
 # The icon Finder shows; testing/site.sh icon makes it from the website's crew mark.
 cp AppIcon.icns "$APP/Contents/Resources/"
 # The crew's faces for Claude Code's terminal; the user installs the font themselves.

@@ -26,6 +26,7 @@ struct SettingsView: View {
     @ObservedObject var settings: Settings
     @ObservedObject var answers: AnswerStore
     @ObservedObject var limits: PlanLimitsClient
+    @ObservedObject var codexLimits: PlanLimitsClient
     @ObservedObject var updates: Updates
     /// Why the shortcut does nothing although it is switched on, when that is so.
     var shortcutNote: String? = nil
@@ -91,8 +92,11 @@ struct SettingsView: View {
             }
         }
         SettingGroup {
-            SettingRow(title: "Plan limits", caption: Format.limitsCaption, note: limitsNote) {
-                Switch(title: "Plan limits", isOn: $settings.planLimits)
+            SettingRow(title: "Claude plan limits", caption: Format.limitsCaption, note: limitsNote(limits, provider: .claude)) {
+                Switch(title: "Claude plan limits", isOn: $settings.planLimits)
+            }
+            SettingRow(title: "Codex plan limits", caption: Format.codexLimitsCaption, note: limitsNote(codexLimits, provider: .codex)) {
+                Switch(title: "Codex plan limits", isOn: $settings.codexPlanLimits)
             }
             SettingRow(title: "Token use", caption: Format.usageCaption) {
                 Switch(title: "Token use", isOn: $settings.tokenUse)
@@ -137,9 +141,9 @@ struct SettingsView: View {
             SettingRow(title: "Remind again", caption: Format.remindCaption) {
                 ChoiceBar(title: "Remind again", choices: Settings.remindChoices, label: { $0 == 0 ? "Off" : "\($0)m" }, selection: $settings.remindMinutes)
             }
-            SettingRow(title: "When the crew leaves and comes back", caption: settings.planLimits ? nil : Format.scenesCaption) {
+            SettingRow(title: "When the crew leaves and comes back", caption: settings.planLimits || settings.codexPlanLimits ? nil : Format.scenesCaption) {
                 Switch(title: "When the crew leaves and comes back", isOn: $settings.soundScenes)
-                    .dimmed(!settings.planLimits || settings.soundStyle == .chimes)
+                    .dimmed(!(settings.planLimits || settings.codexPlanLimits) || settings.soundStyle == .chimes)
             }
         }
         .dimmed(!settings.sounds)
@@ -323,8 +327,8 @@ struct SettingsView: View {
     }
 
     /// Why the limits are missing, under their switch: the status row only has room to say that they are.
-    private var limitsNote: String? {
-        if case .unavailable(let reason) = limits.display { return Format.limitsReason(reason) }
+    private func limitsNote(_ client: PlanLimitsClient, provider: PlanLimitsProvider) -> String? {
+        if case .unavailable(let reason) = client.display { return Format.limitsReason(reason, provider: provider) }
         return nil
     }
 

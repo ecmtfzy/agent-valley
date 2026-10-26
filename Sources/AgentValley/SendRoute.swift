@@ -27,7 +27,8 @@ enum SendRoute: Equatable {
 
 /// What it takes to tell one session something: its process, the way, and whether it waits on the person.
 struct SessionReach: Equatable {
-    let process: SessionProcess
+    /// A daemon-backed session can use its Stop hook without owning a terminal process.
+    let process: SessionProcess?
     let route: SendRoute
     let waitingOnPerson: Bool
 }

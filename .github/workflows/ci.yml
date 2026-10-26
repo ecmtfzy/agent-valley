@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, codex-support]
   pull_request:
 permissions:
   contents: read
@@ -10,6 +10,10 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+      - name: Test Codex hook bridge and read-only runtime helper
+        run: |
+          python3 -m unittest discover -s integrations/codex -p 'test_*.py'
+          python3 testing/test-probe-codex-runtime.py
       - name: Test
         run: swift test
       - name: Build the app

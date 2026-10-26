@@ -1,3 +1,14 @@
+## Codex support fork
+
+This fork adds Codex sessions, approvals, navigation, token history, and account
+plan limits to AgentValley's existing Claude interface. See the
+[Codex setup and maintenance guide](integrations/codex/README.md) to build and
+configure it. The upstream downloads below do not include this fork's Codex adapter.
+
+`codex-support` contains the integration; `main` follows
+[morsechimwai/agent-valley](https://github.com/morsechimwai/agent-valley).
+Upstream changes can be merged into `codex-support` without discarding the adapter.
+
 <div align="center">
 
 <picture>
