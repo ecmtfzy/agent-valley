@@ -139,6 +139,25 @@ only `initialize`, `initialized`, and `thread/read` with `includeTurns: false`
 for session status. With Codex plan limits enabled, a separate bounded fetch uses
 `account/rateLimits/read`. Neither mode approves a request or resumes a session.
 
+Some desktop runtimes keep their active conversation outside that shared daemon
+and do not deliver command hooks for it. When the journal has opted the app into
+Codex monitoring, `CodexLiveRollouts` also discovers indexed local plain rollouts.
+It verifies the session identity, then reads bounded lifecycle and model metadata
+to populate the same cards. It never writes synthetic hook events. Existing hook
+cards take priority for the same ID; archived files and subagent rollouts are not
+added as independent cards. A daemon response of `notLoaded` does not erase this
+local evidence of an active turn.
+
+Discovery and incremental reads run on a separate serial worker. Each refresh
+reads at most 4 MiB of rollout data across 128 candidates; initial reads use a
+1 MiB tail instead of replaying a large conversation. The shared session store
+uses the last snapshot and still applies current hook exclusions and expiry.
+
+The local fallback retains no prompt or tool-output text and creates no approval
+requests or message route. Allow/Deny and Stop-hook messages still require the
+real hook transport. A local card can show work without claiming those controls
+are available in a runtime that does not emit the corresponding hooks.
+
 | Event | Result |
 | --- | --- |
 | SessionStart | Session present, initially quiet |
@@ -286,6 +305,7 @@ python3 testing/codex-metadata-smoke.py
 python3 testing/codex-usage-smoke.py
 python3 testing/codex-message-smoke.py
 python3 testing/codex-limits-smoke.py
+python3 testing/codex-live-smoke.py
 ```
 
 The Swift smoke runners discover the compiler and SDK through the shared test
@@ -368,8 +388,10 @@ upstream pull request. Track Codex-adapter work in this fork.
   was checked against Codex CLI `0.164.0-alpha.11.1`. Existing sessions may
   need a new turn/session to load changed definitions.
 - Cloud orchestration and hosted tools do not necessarily emit local hooks. No
-  cloud-task coverage is claimed. Independent embedded runtimes are not assumed
-  observable through the desktop daemon.
+  cloud-task coverage is claimed. Independent desktop runtimes can be displayed
+  when they write indexed plain local rollouts with recognized lifecycle records;
+  they are not assumed observable through the shared daemon. Local fallback
+  cards do not infer permission requests or enable message sending.
 - Exact-thread navigation requires the verified desktop bundle and its registered
   `codex` URL scheme. Missing metadata does not invent a destination, title, child
   model, or message route.

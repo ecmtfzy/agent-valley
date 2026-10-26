@@ -20,11 +20,27 @@ if CommandLine.arguments.count > 1, CommandLine.arguments[1] == "codex-status" {
     exit(0)
 }
 
+// Inspect local rollout discovery without opening a second UI or writing any hook events.
+if CommandLine.arguments.count > 1, CommandLine.arguments[1] == "codex-live-status" {
+    guard CommandLine.arguments.count == 3, CommandLine.arguments[2].hasPrefix("/") else {
+        fputs("Usage: AgentValley codex-live-status /absolute/path/codex-home\n", stderr)
+        exit(2)
+    }
+    let reader = CodexLiveRollouts(home: URL(fileURLWithPath: CommandLine.arguments[2]))
+    let now = Date()
+    var cards: [SessionCard] = []
+    for _ in 0..<8 { cards = reader.readCards(now: now) }
+    if let data = try? JSONSerialization.data(withJSONObject: CodexEventStore.diagnostic(cards), options: [.prettyPrinted, .sortedKeys]),
+       let text = String(data: data, encoding: .utf8) { print(text) }
+    exit(0)
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = Settings()
     private let store = AgentStore(roster: CrewSetup.folder(FileManager.default.homeDirectoryForCurrentUser)
         .appendingPathComponent(CrewSetup.rosterName),
-        codexEvents: CodexEventStore.configuredJournal())
+        codexEvents: CodexEventStore.configuredJournal(),
+        codexRollouts: CodexLiveRollouts.configured())
     private let limits = PlanLimitsClient()
     private let codexLimits = PlanLimitsClient(source: CodexLimitsSource())
     private let answers = AnswerStore()

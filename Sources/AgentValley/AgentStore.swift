@@ -311,9 +311,13 @@ final class AgentStore: ObservableObject {
     /// Experimental, explicitly supplied journal. Codex events never enter Claude's parsers,
     /// approval transport, process records, or cost ledger.
     private let codexEvents: CodexEventStore?
+    /// Local desktop runtimes can write rollouts without emitting command hooks.
+    private let codexRollouts: CodexLiveSessions?
+    /// Only genuine hook cards can acquire the Stop-hook message route.
+    private var codexHookCardIDs: Set<String> = []
     private let codexRuntime = CodexRuntimeStatus()
     private let codexMetadata = CodexSessionMetadata()
-    var codexEnabled: Bool { codexEvents != nil }
+    var codexEnabled: Bool { codexEvents != nil || codexRollouts != nil }
     /// Where Claude Code keeps a record of each live session.
     let sessionsFolder: String
     private(set) var files: [String: TrackedFile] = [:]
@@ -362,8 +366,10 @@ final class AgentStore: ObservableObject {
          owner: @escaping (Int32) -> OwnerApp? = AgentStore.ownerApp(ofProcess:),
          tab: @escaping (Int32, OwnerApp) -> TabPlace? = AgentStore.tabPlace(ofProcess:in:),
          roster: URL? = nil,
-         codexEvents: URL? = nil) {
+         codexEvents: URL? = nil,
+         codexRollouts: CodexLiveRollouts? = nil) {
         self.codexEvents = codexEvents.map { CodexEventStore(path: $0.path) }
+        self.codexRollouts = codexRollouts.map(CodexLiveSessions.init(reader:))
         self.rosterFile = roster
         self.roster = roster.map(Roster.load) ?? Roster()
         self.owner = owner
@@ -1016,10 +1022,13 @@ final class AgentStore: ObservableObject {
         // ponytail: the disk is asked again for every card on every publish, a stat or two each; keep the answers by folder if that ever shows.
         let claude = Self.cards(from: files, now: now, visibleFor: visibleFor, states: states, owners: owners, worktree: Self.isWorktree, git: Self.gitPlace(of:),
                     running: keepsRecords ? runningSince : nil)
+        let hookCards = codexEvents?.readCards(now: now, visibleFor: visibleFor) ?? []
+        codexHookCardIDs = Set(hookCards.map(\.id))
         let codex = codexRuntime.adjust(
-            cards: codexEvents?.readCards(now: now, visibleFor: visibleFor) ?? [],
+            cards: hookCards,
             tokens: codexEvents?.pendingApprovalTokens ?? [:])
-        return (claude + codexMetadata.enrich(cards: codex)).sorted { ($0.startedAt, $0.id) > ($1.startedAt, $1.id) }
+        let local = codexRollouts?.cards(now: now, visibleFor: visibleFor, excluding: codexHookCardIDs) ?? []
+        return (claude + codexMetadata.enrich(cards: codex + local)).sorted { ($0.startedAt, $0.id) > ($1.startedAt, $1.id) }
     }
 
     /// Hands the cards to the main thread. Only called on `queue`, and by tests.
@@ -1041,6 +1050,7 @@ final class AgentStore: ObservableObject {
         let scanned = scanned
         var reach = reachNow
         for card in cards where card.id.hasPrefix("codex-") && !card.closed
+            && codexHookCardIDs.contains(card.id)
             && card.owner != nil && codexMetadata.canReceiveMessages(for: card.id) {
             reach[AnswerStore.sessionID(of: card)] = SessionReach(
                 process: nil, route: .stopHook,
