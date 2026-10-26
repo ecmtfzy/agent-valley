@@ -52,9 +52,14 @@ class BridgeTests(unittest.TestCase):
                 return self.emit(path, json.dumps({"hook_event_name": "Stop", "session_id": f"thread-{index}"}))
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
                 results = list(pool.map(emit, range(24)))
-            self.assertTrue(all(r.returncode == 0 and not r.stderr for r in results))
+            failures = [{"session_id": f"thread-{index}", "returncode": result.returncode,
+                         "stdout": result.stdout, "stderr": result.stderr}
+                        for index, result in enumerate(results)
+                        if result.returncode != 0 or result.stdout != "{}\n" or result.stderr]
+            self.assertFalse(failures, "Concurrent emit failures:\n" + json.dumps(failures, indent=2))
             records = [json.loads(line) for line in path.read_text().splitlines()]
-            self.assertEqual(len({r["session_id"] for r in records}), 24)
+            self.assertEqual(len(records), 24, "Concurrent emit produced missing or extra records")
+            self.assertEqual({r["session_id"] for r in records}, {f"thread-{index}" for index in range(24)})
 
     def test_symlink_and_shared_file_fail_open_without_writing(self):
         with tempfile.TemporaryDirectory() as folder:

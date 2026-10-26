@@ -3,10 +3,11 @@ on:
   push:
     branches: [main, codex-support]
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  test:
+  codex-python:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -14,6 +15,10 @@ jobs:
         run: |
           python3 -m unittest discover -s integrations/codex -p 'test_*.py'
           python3 testing/test-probe-codex-runtime.py
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
       - name: Test
         run: swift test
       - name: Build the app
