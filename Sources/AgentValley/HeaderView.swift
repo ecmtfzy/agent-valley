@@ -218,26 +218,51 @@ struct PlanLimitsReadout: View {
     }
 }
 
-/// How much of the 5-hour limit is used, on the shut bar: a ring, since a wing of the bar has
+/// How much of an account's plan window is used: a ring, since a wing of the bar has
 /// no room for a number and its name. Yellow near the end as the number in the panel is, and
 /// never red. Dim when the number is an old one: here there is no room to say its age.
 struct LimitRingView: View {
     let ring: LimitRing
-    static let size: CGFloat = 16
-    private static let line: CGFloat = 2.5
+    var size: CGFloat = 16
+    var lineWidth: CGFloat = 2.5
 
     var body: some View {
         ZStack {
-            Circle().inset(by: Self.line / 2).stroke(Color.white.opacity(0.2), lineWidth: Self.line)
-            Circle().inset(by: Self.line / 2).trim(from: 0, to: ring.limit.fraction)
-                .stroke(LimitMeter.color(ring.limit.level), style: StrokeStyle(lineWidth: Self.line, lineCap: .round))
+            Circle().inset(by: lineWidth / 2).stroke(Color.white.opacity(0.2), lineWidth: lineWidth)
+            Circle().inset(by: lineWidth / 2).trim(from: 0, to: ring.limit.fraction)
+                .stroke(LimitMeter.color(ring.limit.level), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 // From the top, clockwise, as a clock fills.
                 .rotationEffect(.degrees(-90))
         }
-        .frame(width: Self.size, height: Self.size)
+        .frame(width: size, height: size)
         .opacity(ring.stale ? 0.6 : 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: Format.ringLabel(ring)))
+    }
+}
+
+/// Account positions stay fixed even when one has no usable window: Claude outside,
+/// Codex inside. Each keeps its own usage color and stale-data opacity.
+struct AccountLimitRingsView: View {
+    let claude: LimitRing?
+    let codex: LimitRing?
+    static let size: CGFloat = 20
+
+    var body: some View {
+        let label = Format.accountRingsLabel(claude: claude, codex: codex)
+        ZStack {
+            if let claude {
+                LimitRingView(ring: claude, size: Self.size, lineWidth: 2)
+            }
+            if let codex {
+                LimitRingView(ring: codex, size: 12, lineWidth: 2)
+            }
+        }
+        .frame(width: Self.size, height: Self.size)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: label))
+        .accessibilityHidden(claude == nil && codex == nil)
+        .help(Text(verbatim: label))
     }
 }
 

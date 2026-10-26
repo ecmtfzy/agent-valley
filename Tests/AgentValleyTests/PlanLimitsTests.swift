@@ -211,18 +211,22 @@ final class PlanLimitsTests: XCTestCase {
         XCTAssertNil(resolve(nil, fetched: nil))
     }
 
-    // The ring on the shut bar is the 5-hour window and nothing else. Without that number there
-    // is no ring: an empty one would read as "nothing used".
-    func testTheRingIsTheFiveHourLimitOnceItIsKnown() {
+    // Prefer 5h, but keep weekly-only accounts visible without inventing a zero 5h value.
+    func testTheRingPrefersFiveHoursAndFallsBackToItsAccountsWeek() {
         typealias Display = PlanLimitsClient.Display
         let five = PlanLimit(usedPercent: 62, resetsAt: nil)
+        let week = PlanLimit(usedPercent: 18, resetsAt: nil)
         XCTAssertNil(Display.off.ring)
         XCTAssertNil(Display.loading.ring)
         XCTAssertNil(Display.unavailable(.offline).ring)
-        XCTAssertNil(Display.limits(PlanLimits(fiveHour: nil, week: five), asOf: nil).ring)
+        XCTAssertNil(Display.limits(PlanLimits(fiveHour: nil, week: nil), asOf: nil).ring)
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: nil, week: week), asOf: nil).ring, LimitRing(limit: week, stale: false, weekly: true))
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: week), asOf: nil).ring, LimitRing(limit: five, stale: false))
         XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: nil), asOf: nil).ring, LimitRing(limit: five, stale: false))
         // Numbers kept from before a refresh that failed: still drawn, and marked as old.
         XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: nil), asOf: Date()).ring, LimitRing(limit: five, stale: true))
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: nil, week: week, provider: .codex), asOf: Date()).ring,
+                       LimitRing(limit: week, stale: true, weekly: true))
     }
 
     // The crew goes fishing only while a window has run out, and is back with the later of two.

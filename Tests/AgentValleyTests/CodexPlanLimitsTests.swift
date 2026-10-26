@@ -32,7 +32,9 @@ final class CodexPlanLimitsTests: XCTestCase {
         let limits = try XCTUnwrap(CodexPlanLimitsReader.parse(reply(window(4, minutes: 10_080))))
         XCTAssertNil(limits.fiveHour)
         XCTAssertEqual(limits.week?.usedPercent, 4)
-        XCTAssertNil(PlanLimitsClient.Display.limits(limits, asOf: nil).ring)
+        let ring = try XCTUnwrap(PlanLimitsClient.Display.limits(limits, asOf: nil).ring)
+        XCTAssertEqual(ring.limit, limits.week)
+        XCTAssertTrue(ring.weekly)
     }
 
     func testUnknownPermissionCannotAnnounceRecoveryFromOldBlockedNumbers() throws {

@@ -246,6 +246,13 @@ permission status also resets the availability-sound baseline rather than
 announcing a recovery. Global exhausted scenes are suppressed for mixed-provider
 sessions, since one account cannot describe every agent.
 
+The collapsed bar uses concentric quota rings: Claude stays on the outside and
+Codex on the inside, including with mixed sessions or no active sessions. Each
+account uses its 5-hour window when available, otherwise its weekly window; the
+tooltip and accessibility label name the account, ring position, window and
+percentage. Missing or disabled account data hides only that account's ring.
+The existing longest-wait reminder still takes priority over the rings.
+
 ## Verification
 
 Run the Python regressions and isolated hook-discovery check from the repository

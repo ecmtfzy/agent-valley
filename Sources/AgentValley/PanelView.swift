@@ -627,11 +627,19 @@ enum Format {
     static let shortcutCaption = "Opens the panel from any app. ↑ ↓ move between sessions, return goes to the session's app, ⌘return and ⌘delete answer a request, esc closes. The ? lists every key."
     static let barCaption = "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet."
     static let waitCaption = "Once an agent has waited a minute for you, the longest wait shows in red where the ring is."
-    static let ringCaption = "The ring shows how much of your 5-hour limit is used. It turns yellow at 80%. It is shown when that account's plan limits are on and the sessions use one provider."
+    static let ringCaption = "Outer ring: Claude. Inner ring: Codex. Each shows 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. Missing account data hides its ring."
 
     /// The ring on the bar, read out: it has no room for a word of its own.
     static func ringLabel(_ ring: LimitRing) -> String {
-        "5-hour limit \(ring.limit.percentLabel) used" + (ring.stale ? ", from before the last check failed" : "")
+        (ring.weekly ? "Weekly limit " : "5-hour limit ") + "\(ring.limit.percentLabel) used"
+            + (ring.stale ? ", from before the last check failed" : "")
+    }
+
+    static func accountRingsLabel(claude: LimitRing?, codex: LimitRing?) -> String {
+        var parts: [String] = []
+        if let claude { parts.append("Claude (outer): " + ringLabel(claude)) }
+        if let codex { parts.append("Codex (inner): " + ringLabel(codex)) }
+        return parts.joined(separator: "; ")
     }
     /// Under the shortcut's switch when the system would not give the chord.
     static let shortcutTaken = "This shortcut could not be registered: another app may hold it. Pick another below."
@@ -828,6 +836,10 @@ struct PanelView: View {
     }
 
     private var globalLimitsDisplay: PlanLimitsClient.Display { limitsDisplay(for: limitsScope.global) }
+
+    // Fixed positions identify each account even with mixed sessions or no sessions.
+    private var claudeRing: LimitRing? { settings.planLimits ? limits.display.ring : nil }
+    private var codexRing: LimitRing? { settings.codexPlanLimits ? codexLimits.display.ring : nil }
 
     /// A single account fits beside the counts. With two, both use matching rows
     /// in the measured content, rather than giving either account a different column.
@@ -1275,11 +1287,9 @@ struct PanelView: View {
                         .opacity(state.expanded ? 0 : 1)
                         .animation(motion.reveal(index: 0), value: state.expanded)
                         .accessibilityLabel(Text(verbatim: Format.waitedAloud(wait)))
-                } else if let ring = globalLimitsDisplay.ring {
-                    // How much of the 5-hour limit is used, when that is known. Gone with the panel
-                    // open, as the number is: the line under the bar has both limits in full.
-                    LimitRingView(ring: ring)
-                        .help(limitsScope.global.map { Format.limitsProvider($0) + ": " + Format.ringLabel(ring) } ?? Format.ringLabel(ring))
+                } else if claudeRing != nil || codexRing != nil {
+                    // The outer circle always belongs to Claude, the inner one to Codex.
+                    AccountLimitRingsView(claude: claudeRing, codex: codexRing)
                         .opacity(state.expanded ? 0 : 1)
                         .animation(motion.reveal(index: 0), value: state.expanded)
                 }

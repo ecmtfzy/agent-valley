@@ -201,6 +201,18 @@ final class FormatTests: XCTestCase {
         let limit = PlanLimit(usedPercent: 61.6, resetsAt: nil)
         XCTAssertEqual(Format.ringLabel(LimitRing(limit: limit, stale: false)), "5-hour limit 62% used")
         XCTAssertEqual(Format.ringLabel(LimitRing(limit: limit, stale: true)), "5-hour limit 62% used, from before the last check failed")
+        XCTAssertEqual(Format.ringLabel(LimitRing(limit: limit, stale: false, weekly: true)), "Weekly limit 62% used")
+    }
+
+    func testAccountRingsNameTheirFixedPositionsAndIndependentWindows() {
+        let claude = LimitRing(limit: PlanLimit(usedPercent: 62, resetsAt: nil), stale: false)
+        let codex = LimitRing(limit: PlanLimit(usedPercent: 11, resetsAt: nil), stale: true, weekly: true)
+        XCTAssertEqual(Format.accountRingsLabel(claude: claude, codex: codex),
+                       "Claude (outer): 5-hour limit 62% used; Codex (inner): Weekly limit 11% used, from before the last check failed")
+        XCTAssertEqual(Format.accountRingsLabel(claude: nil, codex: codex),
+                       "Codex (inner): Weekly limit 11% used, from before the last check failed")
+        XCTAssertEqual(Format.accountRingsLabel(claude: claude, codex: nil), "Claude (outer): 5-hour limit 62% used")
+        XCTAssertEqual(Format.accountRingsLabel(claude: nil, codex: nil), "")
     }
 
     // "5h" and "7d" are short for the row's sake. Resting the pointer on one says it in words.
@@ -717,7 +729,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.barMascotCaption, "The mascot on the bar is the agent to look at first.")
         XCTAssertEqual(Format.barCaption, "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet.")
         XCTAssertEqual(Format.waitCaption, "Once an agent has waited a minute for you, the longest wait shows in red where the ring is.")
-        XCTAssertEqual(Format.ringCaption, "The ring shows how much of your 5-hour limit is used. It turns yellow at 80%. It is shown when that account's plan limits are on and the sessions use one provider.")
+        XCTAssertEqual(Format.ringCaption, "Outer ring: Claude. Inner ring: Codex. Each shows 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. Missing account data hides its ring.")
         XCTAssertEqual(Format.beatCaption, "While an agent waits for you, the bar glows red every few seconds, until you open the panel.")
         // A label that was half a sentence, and "your login", which could have been a password.
         XCTAssertEqual(Format.keepTitle, "Keep idle and done listed for")

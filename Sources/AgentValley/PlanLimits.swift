@@ -71,11 +71,12 @@ struct RunOut: Equatable {
     let resetsAt: Date?
 }
 
-/// What the ring on the shut bar draws: the 5-hour window, the one that stops work soonest.
+/// An account's 5-hour window, or its weekly window when that is all it reports.
 struct LimitRing: Equatable {
     let limit: PlanLimit
     /// The latest refresh failed and this is the number from before it.
     let stale: Bool
+    var weekly = false
 }
 
 /// Why there are no numbers. It names a cause the person can act on and nothing else: no part
@@ -319,11 +320,13 @@ final class PlanLimitsClient: ObservableObject {
         /// `asOf`: set when the latest refresh failed, to the time these older numbers are from.
         case limits(PlanLimits, asOf: Date?)
 
-        /// The ring for the shut bar, or nil without a number for the 5-hour window: an empty
-        /// ring would say that nothing has been used.
+        /// Prefer the 5-hour window, falling back only to this account's weekly window.
+        /// Missing numbers stay absent: an empty ring would claim that nothing was used.
         var ring: LimitRing? {
-            guard case .limits(let limits, let asOf) = self, let limit = limits.fiveHour else { return nil }
-            return LimitRing(limit: limit, stale: asOf != nil)
+            guard case .limits(let limits, let asOf) = self else { return nil }
+            if let limit = limits.fiveHour { return LimitRing(limit: limit, stale: asOf != nil) }
+            if let limit = limits.week { return LimitRing(limit: limit, stale: asOf != nil, weekly: true) }
+            return nil
         }
 
         /// Whether the panel has numbers to go by.

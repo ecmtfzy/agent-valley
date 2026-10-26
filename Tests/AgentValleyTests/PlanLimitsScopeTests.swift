@@ -18,7 +18,7 @@ final class PlanLimitsScopeTests: XCTestCase {
         XCTAssertNil(disabled.global)
     }
 
-    func testMixedSessionsNeverUseOneAccountsGlobalScenesOrRing() {
+    func testMixedSessionsNeverUseOneAccountsGlobalScenes() {
         for enabled in [(true, true), (true, false), (false, true)] {
             let scope = PlanLimitsScope(sessionIDs: ["/project/claude-session", "codex-session"],
                                         claudeEnabled: enabled.0, codexEnabled: enabled.1)

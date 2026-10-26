@@ -3,7 +3,7 @@
 struct PlanLimitsScope: Equatable {
     let primary: PlanLimitsProvider?
     let secondary: PlanLimitsProvider?
-    /// A global scene or an unlabelled ring is meaningful only for one provider.
+    /// A global exhaustion scene is meaningful only for one provider.
     let global: PlanLimitsProvider?
 
     init(sessionIDs: [String], claudeEnabled: Bool, codexEnabled: Bool) {

@@ -517,8 +517,12 @@ struct Legend: View {
             mark("needs you") { BarBadge(count: 1) }
             mark("working") { Text(verbatim: "2").bold() }
             mark("quiet") { Text(verbatim: "2").foregroundStyle(.white.opacity(0.6)) }
-            // A ring as an example, two thirds used: the real one is on the bar.
-            mark("5h limit") { LimitRingView(ring: LimitRing(limit: PlanLimit(usedPercent: 65, resetsAt: nil), stale: false)).accessibilityHidden(true) }
+            mark("plan limits") {
+                AccountLimitRingsView(
+                    claude: LimitRing(limit: PlanLimit(usedPercent: 65, resetsAt: nil), stale: false),
+                    codex: LimitRing(limit: PlanLimit(usedPercent: 35, resetsAt: nil), stale: false)
+                ).accessibilityHidden(true)
+            }
             mark("longest wait") { Text(verbatim: "12m").bold().foregroundStyle(MascotFlag.red) }
         }
         caption(Format.barCaption)
