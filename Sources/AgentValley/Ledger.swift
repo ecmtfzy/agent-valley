@@ -90,9 +90,9 @@ final class UsageLedger: ObservableObject {
     /// What became of a database file that could not be read, said on every pass while the app runs.
     private var putAside: String?
     /// The folders git has been asked about since the database was opened, or whose checkout
-    /// it holds. nil until the first pass has asked about every folder in the history.
+    /// it holds. nil until the first pass has asked about every Claude folder in the history.
     private var asked: Set<String>?
-    /// The folders of the answers read in this pass.
+    /// The folders of the Claude answers read in this pass.
     private var fresh: Set<String> = []
 
     init(root: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects"),
@@ -180,7 +180,6 @@ final class UsageLedger: ObservableObject {
                     let batch = codexUsage.read(source, state: previous)
                     for answer in batch.answers {
                         try db.rows(Self.upsert, Self.values(answer))
-                        fresh.insert(answer.folder)
                         added = true
                     }
                     if batch.state != previous, let state = batch.state.json {
@@ -304,15 +303,15 @@ final class UsageLedger: ObservableObject {
         return found
     }
 
-    /// Asks git which checkout each folder not asked about yet is in: on the first pass every
-    /// folder in the history, then those of the answers just read. Most folders are gone by the
-    /// time History names them, and a Superset worktree's folder need not say whose it is.
+    /// Asks git which checkout each Claude folder not asked about yet is in: on the first
+    /// pass its historical folders, then those of the answers just read. Codex history can
+    /// name old cloud-backed projects, so it uses saved checkouts or path-based names only.
     private func learnCheckouts(_ db: SQLite) throws {
         var folders = fresh
         fresh = []
         if asked == nil {
             asked = Set(try db.rows("SELECT folder FROM checkouts").map { $0[0].text })
-            folders = Set(try db.rows("SELECT DISTINCT folder FROM answers").map { $0[0].text })
+            folders = Set(try db.rows("SELECT DISTINCT folder FROM answers WHERE session NOT LIKE 'codex-%'").map { $0[0].text })
         }
         for folder in folders where asked?.insert(folder).inserted == true {
             guard let place = AgentStore.gitPlace(of: folder) else { continue }

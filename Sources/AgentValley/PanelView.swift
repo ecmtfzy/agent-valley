@@ -829,6 +829,17 @@ struct PanelView: View {
 
     private var globalLimitsDisplay: PlanLimitsClient.Display { limitsDisplay(for: limitsScope.global) }
 
+    /// A single account fits beside the counts. With two, both use matching rows
+    /// in the measured content, rather than giving either account a different column.
+    private var contentLimitsProviders: [PlanLimitsProvider] {
+        guard let primary = limitsScope.primary, let secondary = limitsScope.secondary else { return [] }
+        return [primary, secondary]
+    }
+
+    private var headerLimitsProvider: PlanLimitsProvider? {
+        contentLimitsProviders.isEmpty ? limitsScope.primary : nil
+    }
+
     private var openLimitsSettings: (() -> Void)? {
         guard !state.showingSettings || state.settingsTab != .general else { return nil }
         return {
@@ -967,8 +978,8 @@ struct PanelView: View {
                 // Redrawn twice a minute so the times until reset keep counting down while open.
                 TimelineView(.periodic(from: .now, by: 30)) { timeline in
                     StatusRow(working: AgentStore.count(.working, in: sessions), quiet: AgentStore.count(.quiet, in: sessions),
-                              needsYou: AgentStore.count(.needsYou, in: sessions), display: limitsDisplay(for: limitsScope.primary),
-                              provider: limitsScope.primary, now: timeline.date,
+                              needsYou: AgentStore.count(.needsYou, in: sessions), display: limitsDisplay(for: headerLimitsProvider),
+                              provider: headerLimitsProvider, now: timeline.date,
                               // To the page that says why the limits are missing. A link to the
                               // page already open would go nowhere.
                               openSettings: openLimitsSettings,
@@ -1516,21 +1527,15 @@ struct PanelView: View {
     private func scroll(_ motion: Motion, viewport: CGFloat) -> some View {
         ScrollView {
             VStack(spacing: 0) {
-                // Measured with the page, so a second account never overlaps the fixed header.
-                // It remains available in settings and history as well as beside the sessions.
-                if let provider = limitsScope.secondary {
+                // Measured with the page, so the account rows never overlap the fixed header.
+                // They remain available in settings and history as well as beside the sessions.
+                if !contentLimitsProviders.isEmpty {
                     TimelineView(.periodic(from: .now, by: 30)) { timeline in
-                        HStack(spacing: 0) {
-                            Text(verbatim: Format.limitsProvider(provider))
-                                .foregroundStyle(.white.opacity(0.6)).fixedSize()
-                            Spacer(minLength: 24)
-                            PlanLimitsReadout(display: limitsDisplay(for: provider), now: timeline.date,
-                                              openSettings: openLimitsSettings)
-                        }
-                        .padding(.horizontal, 14)
-                        .frame(height: NotchGeometry.statusRowHeight)
-                        .overlay(alignment: .bottom) {
-                            Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+                        VStack(spacing: 0) {
+                            ForEach(contentLimitsProviders, id: \.self) { provider in
+                                AccountLimitsRow(provider: provider, display: limitsDisplay(for: provider),
+                                                 now: timeline.date, openSettings: openLimitsSettings)
+                            }
                         }
                     }
                     .modifier(Reveal(shown: state.expanded, index: 0, motion: motion, travels: false))
@@ -1559,7 +1564,7 @@ struct PanelView: View {
         // card; `.hidden` still allows that, `.never` does not. The fade at the bottom edge says
         // the list goes on.
         .scrollIndicators(.never)
-        .onChange(of: limitsScope.secondary) { _, _ in answers.noteLayoutChange() }
+        .onChange(of: contentLimitsProviders) { _, _ in answers.noteLayoutChange() }
     }
 
     private func sessions(_ motion: Motion, viewport: CGFloat) -> some View {
@@ -1869,7 +1874,7 @@ struct PanelView: View {
     /// The sessions to draw as one line: as few as it takes for the list to fit the panel.
     private func foldedRows(_ list: SessionList, headers: [String: String], oneLineAgents: Bool, under: CGFloat) -> Set<String> {
         // Less the list's padding and the lines under it.
-        let quotaHeight = limitsScope.secondary == nil ? 0 : NotchGeometry.statusRowHeight
+        let quotaHeight = CGFloat(contentLimitsProviders.count) * NotchGeometry.statusRowHeight
         let room = NotchGeometry.listRoom(screen: state.screenFrame, barHeight: state.barHeight) - ListFit.padding - under - quotaHeight
         let entries = list.cards.map { card in
             let session = AnswerStore.sessionID(of: card)

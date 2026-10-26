@@ -148,7 +148,7 @@ struct HistoryPage: View {
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 1) {
                 if report.ready {
-                    Text(verbatim: Format.dollars(report.total)).font(.system(size: 16, weight: .bold, design: .monospaced))
+                    Text(verbatim: Format.dollars(report.total, unpriced: report.unpriced)).font(.system(size: 16, weight: .bold, design: .monospaced))
                 } else {
                     // Not $0.00 while another stretch is read.
                     Block(width: 96).frame(height: 19).shimmer()
@@ -173,7 +173,11 @@ struct HistoryPage: View {
         }
         if report.focus != report.interval {
             HStack(spacing: 6) {
-                Text(verbatim: Format.pickTitle(report.focus, hourly: pick.hour != nil, calendar: calendar) + " · " + Format.dollars(report.focusCost))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: Format.pickTitle(report.focus, hourly: pick.hour != nil, calendar: calendar) + " · "
+                         + Format.dollars(report.focusCost, unpriced: report.focusUnpriced))
+                    if report.focusUnpriced > 0 { Text(verbatim: Format.unpricedTokens(report.focusUnpriced)).font(.system(size: 10, design: .monospaced)) }
+                }
                 Button(action: backOut) { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain)
                     .accessibilityLabel(Text(verbatim: Format.showAll(backTitle)))
@@ -184,6 +188,11 @@ struct HistoryPage: View {
             CostBars(bars: report.hours, picked: pick.hour, height: 34, hourly: true, calendar: calendar) { bar in
                 pick.hour = pick.hour == bar.interval.start ? nil : bar.interval.start
             }
+        }
+        if report.unpriced > 0 {
+            Text(verbatim: Format.unpricedChartNote)
+                .font(.system(size: 10, design: .monospaced)).foregroundStyle(.white.opacity(0.6))
+                .fixedSize(horizontal: false, vertical: true)
         }
         if pick.project == nil ? report.projects.isEmpty : report.sessions.isEmpty {
             Text(verbatim: Format.noUse).foregroundStyle(.white.opacity(0.6))
@@ -226,7 +235,7 @@ struct HistoryPage: View {
                         Text(verbatim: line.name).lineLimit(1)
                         Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
                         Spacer(minLength: 8)
-                        Text(verbatim: Format.dollars(line))
+                        amount(line)
                     }
                     .padding(.vertical, 4)
                     .padding(.horizontal, 6)
@@ -235,7 +244,7 @@ struct HistoryPage: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, -6)
-                .accessibilityLabel(Text(verbatim: "\(line.name), \(Format.dollars(line))"))
+                .accessibilityLabel(Text(verbatim: "\(line.name), \(Format.amountSummary(line))"))
                 .accessibilityHint(Text(verbatim: Format.showsSessions))
             }
         }
@@ -248,15 +257,26 @@ struct HistoryPage: View {
                 HStack(spacing: 6) {
                     Text(verbatim: line.name).lineLimit(1)
                     Spacer(minLength: 8)
-                    Text(verbatim: Format.dollars(line))
+                    amount(line)
                 }
                 .padding(.vertical, 4)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(verbatim: "\(line.name), \(Format.dollars(line))"))
+                .accessibilityLabel(Text(verbatim: "\(line.name), \(Format.amountSummary(line))"))
             }
         }
         SplitLine(lines: report.models)
         SplitLine(lines: report.agents)
+    }
+
+    private func amount(_ line: CostLine) -> some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(verbatim: Format.dollars(line))
+            if line.unpriced > 0 {
+                Text(verbatim: Format.unpricedTokens(line.unpriced))
+                    .font(.system(size: 10, design: .monospaced)).foregroundStyle(.white.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 
@@ -461,7 +481,7 @@ private struct SplitLine: View {
                 Text(verbatim: Format.splitLine(lines))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.6))
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: Format.splitLabel(lines)))

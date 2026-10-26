@@ -44,7 +44,7 @@ final class ReportPDFTests: XCTestCase {
     }
 
     private func pages(_ document: HistoryDocument) -> Int {
-        HistoryDocument.pages(lines: document.lines.count, first: ReportPDF.firstRows, later: ReportPDF.laterRows).count
+        ReportPDF.statementPages(document).count + ReportPDF.modelPages(document, parts: ReportPDF.modelParts(document)).count
     }
 
     func testEveryLineIsInThePDF() throws {
@@ -112,13 +112,12 @@ final class ReportPDFTests: XCTestCase {
     func testFootDoesNotCoverAnyRow() throws {
         let document = try crowded(ReportPDF.firstRows + 2 * ReportPDF.laterRows)
         XCTAssertEqual(document.crew.count, 5)
-        XCTAssertEqual(document.models.count, 3)
+        XCTAssertEqual(document.models.count, 4)
         XCTAssertGreaterThan(document.unpriced, 0)
         let pdf = try XCTUnwrap(PDFDocument(data: ReportPDF.data(document, calendar: utc)))
-        let ranges = HistoryDocument.pages(lines: document.lines.count, first: ReportPDF.firstRows, later: ReportPDF.laterRows)
-        // The first two pages are full; the total goes over to a page of its own.
-        XCTAssertEqual(ranges.map(\.count), [ReportPDF.firstRows, ReportPDF.laterRows, ReportPDF.laterRows, 0])
-        XCTAssertEqual(pdf.pageCount, ranges.count)
+        let ranges = ReportPDF.statementPages(document)
+        XCTAssertEqual(ranges.flatMap { Array($0) }, Array(document.lines.indices))
+        XCTAssertEqual(pdf.pageCount, pages(document))
         // Full or not, every page keeps the margins of a sheet with one line on it: a page too
         // full spills over both edges.
         func words(_ page: PDFPage) throws -> CGRect {
@@ -126,7 +125,7 @@ final class ReportPDFTests: XCTestCase {
         }
         let short = try XCTUnwrap(PDFDocument(data: ReportPDF.data(try work([("main", "claude-opus-5-5")]), calendar: utc))?.page(at: 0))
         let margins = try words(short)
-        for index in ranges.indices {
+        for index in 0..<pdf.pageCount {
             let all = try words(try XCTUnwrap(pdf.page(at: index)))
             XCTAssertGreaterThanOrEqual(all.minY, margins.minY - 1, "page \(index + 1)")
             XCTAssertLessThanOrEqual(all.maxY, margins.maxY + 1, "page \(index + 1)")
@@ -140,7 +139,7 @@ final class ReportPDFTests: XCTestCase {
             let note = try box("Amounts are what")
             // PDF space grows upwards.
             XCTAssertGreaterThan(last.minY, note.maxY + 4, "page \(index + 1)")
-            XCTAssertTrue(try XCTUnwrap(page.string).contains(Format.pageLabel(index + 1, of: ranges.count)), "page \(index + 1)")
+            XCTAssertTrue(try XCTUnwrap(page.string).contains(Format.pageLabel(index + 1, of: pdf.pageCount)), "page \(index + 1)")
         }
         XCTAssertTrue(try XCTUnwrap(pdf.page(at: ranges.count - 1)?.string).contains("Total"))
     }
@@ -156,6 +155,66 @@ final class ReportPDFTests: XCTestCase {
 
     func testUnpricedTokensAreStillSaid() throws {
         XCTAssertTrue(try text(work([("main", "claude-opus-5-5"), ("main", "claude-made-up-1")])).contains("tokens with no price"))
+    }
+
+
+    func testPureCodexPDFDoesNotPresentUnknownPriceAsZero() throws {
+        let document = try work([("main", "gpt-6.1")])
+        let content = try text(document)
+        XCTAssertTrue(content.contains("gpt-6.1"))
+        XCTAssertTrue(content.contains("50,000 tokens with no price"))
+        XCTAssertTrue(content.contains("—"))
+        XCTAssertFalse(content.contains("$0"))
+        XCTAssertTrue(content.contains(Format.unpricedChartNote))
+    }
+
+    func testMixedPDFNamesEveryModelAndShowsTheUnpricedPart() throws {
+        let document = try work([("main", "claude-opus-5-5"), ("main", "claude-sonnet-5-5"),
+                                 ("main", "claude-haiku-4-5"), ("main", "gpt-6.1")])
+        let content = try text(document)
+        for name in ["Opus 5.5", "Sonnet 5.5", "Haiku 4.5", "gpt-6.1"] {
+            XCTAssertTrue(content.contains(name), name)
+        }
+        XCTAssertTrue(content.contains("$1.75"))
+        XCTAssertTrue(content.contains("50,000 tokens with no price"))
+        XCTAssertFalse(document.models.contains { $0.name == "others" })
+        XCTAssertEqual(ReportPDF.modelParts(document).count, 4)
+        XCTAssertGreaterThan(pages(document), 1)
+    }
+
+    func testEveryLongModelNameFitsAcrossDetailPages() throws {
+        let names = (0..<55).map { String(format: "gpt-fixture-%02d-", $0) + String(repeating: "longmodel", count: 18) }
+        let document = try work(names.map { ("main", $0) })
+        let parts = ReportPDF.modelParts(document)
+        let ranges = ReportPDF.modelPages(document, parts: parts)
+        XCTAssertEqual(parts.map(\.name).joined(), document.models.map(\.name).joined())
+        XCTAssertEqual(parts.compactMap(\.line).count, names.count)
+        XCTAssertGreaterThan(ranges.count, 1)
+        for (index, range) in ranges.enumerated() {
+            let units = range.reduce(0) { $0 + parts[$1].units } + (index == ranges.count - 1 ? 2 : 0)
+            XCTAssertLessThanOrEqual(units, ReportPDF.laterRows)
+        }
+        let pdf = try XCTUnwrap(PDFDocument(data: ReportPDF.data(document, calendar: utc)))
+        let firstModelPage = ReportPDF.statementPages(document).count
+        var details = ""
+        for index in firstModelPage..<pdf.pageCount {
+            let page = try XCTUnwrap(pdf.page(at: index))
+            let content = try XCTUnwrap(page.string)
+            details += content.replacingOccurrences(of: "\n", with: "")
+            let words = try XCTUnwrap(page.selection(for: page.bounds(for: .mediaBox))).bounds(for: page)
+            XCTAssertGreaterThanOrEqual(words.minX, 45, "page \(index + 1)")
+            XCTAssertLessThanOrEqual(words.maxX, ReportPDF.page.width - 45, "page \(index + 1)")
+            let note = try XCTUnwrap(pdf.findString("Amounts are what", withOptions: []).first { $0.pages.contains(page) }).bounds(for: page)
+            for part in parts[ranges[index - firstModelPage]] {
+                let prefix = String(part.name.prefix(25))
+                let model = try XCTUnwrap(pdf.findString(prefix, withOptions: []).first { $0.pages.contains(page) }, prefix).bounds(for: page)
+                XCTAssertGreaterThan(model.minY, note.maxY + 4, "page \(index + 1)")
+            }
+            XCTAssertTrue(content.contains(Format.pageLabel(index + 1, of: pdf.pageCount)))
+        }
+        // Chunks may be separated by their amount or token note, but no chunk loses characters.
+        for part in parts { XCTAssertTrue(details.contains(part.name), part.name) }
+        XCTAssertFalse(details.contains("$0"))
     }
 
     func testPageLabel() {

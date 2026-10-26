@@ -119,7 +119,30 @@ struct StatusRow: View {
 
 }
 
-/// The same quota text and meters in the status row and the additional account row.
+/// One account's row when several accounts are shown together. The same leading
+/// inset keeps names aligned regardless of how many usage windows an account has.
+struct AccountLimitsRow: View {
+    let provider: PlanLimitsProvider
+    let display: PlanLimitsClient.Display
+    let now: Date
+    var openSettings: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(verbatim: Format.limitsProvider(provider))
+                .foregroundStyle(.white.opacity(0.6)).fixedSize()
+            Spacer(minLength: 24)
+            PlanLimitsReadout(display: display, now: now, openSettings: openSettings)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: NotchGeometry.statusRowHeight)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+        }
+    }
+}
+
+/// The same quota text and meters in the status row and the account rows.
 /// The caller names the account; this view never chooses or substitutes a source.
 struct PlanLimitsReadout: View {
     let display: PlanLimitsClient.Display

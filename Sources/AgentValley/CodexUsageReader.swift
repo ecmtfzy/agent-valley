@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-/// Usage from the local rollouts of sessions already known to AgentValley's hooks.
+/// Usage from local rollouts known to Codex's session index or AgentValley's hooks.
 /// No transcript text, credentials, or rate-limit/credit details are retained. The
 /// existing ledger and history render these answers, including its unknown-price state.
 final class CodexUsageReader {
@@ -83,25 +83,32 @@ final class CodexUsageReader {
     static let maxReadBytes = 2 * 1024 * 1024
     static let maxLineBytes = 1024 * 1024
     private let home: URL
-    private let journal: URL
+    private let journal: URL?
 
-    init(home: URL, journal: URL) {
+    init(home: URL, journal: URL? = nil) {
         self.home = home.standardizedFileURL
         self.journal = journal
     }
 
     static func configured(environment: [String: String] = ProcessInfo.processInfo.environment,
                            home: URL = FileManager.default.homeDirectoryForCurrentUser) -> CodexUsageReader? {
-        guard let journal = CodexEventStore.configuredJournal(environment: environment, home: home) else { return nil }
+        let journal = CodexEventStore.configuredJournal(environment: environment, home: home)
         let configured = environment["CODEX_HOME"].flatMap { $0.hasPrefix("/") ? URL(fileURLWithPath: $0) : nil }
-        return CodexUsageReader(home: configured ?? home.appendingPathComponent(".codex"), journal: journal)
+        let codexHome = configured ?? home.appendingPathComponent(".codex")
+        if journal == nil {
+            // Configuration only checks the file; usage-disabled launches need not read it.
+            var info = Darwin.stat()
+            guard lstat(codexHome.appendingPathComponent("session_index.jsonl").path, &info) == 0,
+                  info.st_mode & S_IFMT == S_IFREG, info.st_size >= 0, info.st_size <= 16 * 1024 * 1024 else { return nil }
+        }
+        return CodexUsageReader(home: codexHome, journal: journal)
     }
 
     /// UUID v7 encodes the creation date. Only three possible date folders for each known
     /// session are listed, rather than walking all of the user's conversation history.
     func snapshot() -> Snapshot {
-        guard let journalData = Self.privateData(journal, limit: 16 * 1024 * 1024) else { return Snapshot() }
-        let ids = Set(journalData.split(separator: 10).flatMap { line -> [String] in
+        let journalData = journal.flatMap { Self.privateData($0, limit: 16 * 1024 * 1024) } ?? Data()
+        var ids = Set(journalData.split(separator: 10).flatMap { line -> [String] in
             guard line.count <= 32 * 1024, let object = SafeJSON.object(Data(line)),
                   object["version"] as? Int == 1,
                   let session = Self.sessionID(object["session_id"] as? String) else { return [] }
@@ -109,6 +116,16 @@ final class CodexUsageReader {
                let child = Self.sessionID(object["agent_id"] as? String) { return [session, child] }
             return [session]
         })
+        var titles: [String: String] = [:]
+        if let index = Self.privateData(home.appendingPathComponent("session_index.jsonl"), limit: 16 * 1024 * 1024) {
+            for line in index.split(separator: 10) where line.count <= 32 * 1024 {
+                guard let object = SafeJSON.object(Data(line)), let id = Self.sessionID(object["id"] as? String) else { continue }
+                ids.insert(id)
+                if let title = object["thread_name"] as? String, !title.isEmpty {
+                    titles["codex-" + id] = TranscriptReader.clipped(title)
+                }
+            }
+        }
         guard !ids.isEmpty else { return Snapshot() }
         let manager = FileManager.default
         var wanted: [String: Set<String>] = [:]
@@ -124,10 +141,11 @@ final class CodexUsageReader {
             }
         }
         // Archived rollouts are flat in current Codex releases. Listing names does not read
-        // their contents; only an exact journal-known UUID can become a source.
+        // their contents; only an exact index- or journal-known UUID can become a source.
         wanted[home.appendingPathComponent("archived_sessions").path] = ids
         var sources: [String: Source] = [:]
         for (directory, allowed) in wanted.sorted(by: { $0.key < $1.key }) {
+            guard containedDirectory(directory) else { continue }
             guard let names = try? manager.contentsOfDirectory(atPath: directory) else { continue }
             for name in names.sorted() where name.hasPrefix("rollout-") && name.hasSuffix(".jsonl") {
                 guard name.count > 42, let id = Self.sessionID(String(name.dropLast(6).suffix(36))), allowed.contains(id) else { continue }
@@ -140,15 +158,21 @@ final class CodexUsageReader {
                 sources[id] = Source(id: id, path: url.path)
             }
         }
-        var titles: [String: String] = [:]
-        if let index = Self.privateData(home.appendingPathComponent("session_index.jsonl"), limit: 16 * 1024 * 1024) {
-            for line in index.split(separator: 10) where line.count <= 32 * 1024 {
-                guard let object = SafeJSON.object(Data(line)), let id = Self.sessionID(object["id"] as? String), ids.contains(id),
-                      let title = object["thread_name"] as? String, !title.isEmpty else { continue }
-                titles["codex-" + id] = TranscriptReader.clipped(title)
-            }
-        }
+        titles = titles.filter { sources[String($0.key.dropFirst("codex-".count))] != nil }
         return Snapshot(sources: sources.values.sorted { $0.id < $1.id }, titles: titles)
+    }
+
+    /// The selected Codex home is the boundary. Do not list a date/archive directory
+    /// reached through a symlink, even when that link points elsewhere within home.
+    private func containedDirectory(_ path: String) -> Bool {
+        guard path.hasPrefix(home.path + "/") else { return false }
+        var current = home
+        for component in path.dropFirst(home.path.count + 1).split(separator: "/") {
+            current.appendPathComponent(String(component))
+            var info = Darwin.stat()
+            guard lstat(current.path, &info) == 0, info.st_mode & S_IFMT == S_IFDIR else { return false }
+        }
+        return true
     }
 
     /// Bounded incremental reading. A partial line is read again next time, never persisted

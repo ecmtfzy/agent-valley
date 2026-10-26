@@ -7,6 +7,7 @@ struct HistoryCrewLine: Equatable {
     let who: Who
     let name: String
     var cost = 0.0
+    var unpriced = 0
 }
 
 /// Everything a PDF report of the History page holds: the whole stretch on the page, and the
@@ -64,6 +65,7 @@ struct HistoryDocument: Equatable {
             }
             var sum = rows[row.who] ?? row
             sum.cost += type.cost
+            sum.unpriced += type.unpriced
             rows[row.who] = sum
         }
         return rows.values.sorted { $0.cost != $1.cost ? $0.cost > $1.cost : $0.name < $1.name }
@@ -72,14 +74,26 @@ struct HistoryDocument: Equatable {
     /// Ranges of `lines` page by page. The row after the last line holds the total, and it must
     /// fit on the last page with them: a full last page sends it over to a page of its own.
     static func pages(lines: Int, first: Int, later: Int) -> [Range<Int>] {
+        pages(heights: Array(repeating: 1, count: lines), total: 1, first: first, later: later)
+    }
+
+    /// Token annotations occupy a second row; reserve the same space for the total.
+    static func pages(heights: [Int], total: Int, first: Int, later: Int) -> [Range<Int>] {
         precondition(first > 0 && later > 0)
+        precondition(total > 0 && total <= later && heights.allSatisfy { $0 > 0 && $0 <= later })
         var pages: [Range<Int>] = []
         var start = 0
         var room = first
         while true {
-            pages.append(start..<min(lines, start + room))
-            if lines + 1 - start <= room { return pages }
-            start = pages[pages.count - 1].upperBound
+            var end = start
+            var used = 0
+            while end < heights.count, used + heights[end] <= room {
+                used += heights[end]
+                end += 1
+            }
+            pages.append(start..<end)
+            if end == heights.count, used + total <= room { return pages }
+            start = end
             room = later
         }
     }
@@ -128,6 +142,6 @@ extension Format {
 
     /// Over the costliest bar: "Mon 12 · $734.43", and on a day's report "21:00 · $74.81".
     static func peakLabel(_ bar: CostBar, hourly: Bool, calendar: Calendar) -> String {
-        date(hourly ? "HH:mm" : "EEE d", bar.interval.start, calendar) + " · " + dollars(bar.cost)
+        date(hourly ? "HH:mm" : "EEE d", bar.interval.start, calendar) + " · " + dollars(bar.cost, unpriced: bar.unpriced)
     }
 }

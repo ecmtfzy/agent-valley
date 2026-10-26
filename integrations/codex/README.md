@@ -195,12 +195,15 @@ the existing SQLite ledger, not transcript text or account credentials.
 
 ## Token history
 
-`CodexUsageReader` reads only session IDs already present in AgentValley's journal,
-including UUIDs identified by parent subagent events. It looks in their possible
+`CodexUsageReader` reads session IDs from Codex's local session index and
+AgentValley's journal, including UUIDs identified by parent subagent events.
+Existing indexed history can be imported even if it predates the hooks. It looks in their possible
 date folders and archived-rollout names rather than scanning all conversation
 contents. A rollout must identify the expected session. Incremental offsets and
 usage context are stored in the ledger transaction so restarts do not recount
-cumulative usage. Session titles come from the local session index.
+cumulative usage. Session titles come from the local session index. Codex-only
+history does not open project Git files; existing checkout mappings and path
+formatting supply project names without accessing cloud placeholder repositories.
 
 Codex input totals include cached input; the adapter separates new input, cache
 reads, and reported cache writes. Reasoning tokens are already included in output
@@ -208,8 +211,10 @@ and are not added twice. Child usage is grouped with its parent session while
 retaining the child's actual model. Inherited usage predating a fork's creation is
 not charged to the fork.
 
-GPT models without a verified price-table entry use History's existing unknown-
-price state (`—` and unpriced token counts). Claude prices are never substituted.
+GPT models without a verified price-table entry display their names and actual
+unpriced token counts in History, including project and session rows. They are
+not hidden in the model summary's `others` category. Unknown totals use `—`, and
+the money chart explicitly excludes unpriced usage. Claude prices are never substituted.
 This is usage history, not the user's actual subscription bill.
 
 ## Codex plan limits

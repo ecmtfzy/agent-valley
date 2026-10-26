@@ -157,10 +157,10 @@ final class HistoryReportTests: XCTestCase {
         XCTAssertEqual(report.projects[0].last, date("2026-10-12T11:00:00.000Z"))
         // The first level has no sessions: they are a project's own, one level down.
         XCTAssertTrue(report.sessions.isEmpty)
-        // Two parts named and the rest as others: the panel is narrow.
-        XCTAssertEqual(report.models.map(\.name), ["Opus 5.5", "Sonnet 5.5", "others"])
+        // Every model keeps its name, including the model with no price.
+        XCTAssertEqual(report.models.map(\.name), ["Opus 5.5", "Sonnet 5.5", "Haiku 4.5", "Opus 5.7"])
         XCTAssertEqual(report.models[2].cost, 1, accuracy: 1e-9)
-        XCTAssertEqual(report.models[2].unpriced, 1000)
+        XCTAssertEqual(report.models[3].unpriced, 1000)
         // Three are shown as three.
         XCTAssertEqual(report.agents.map(\.name), ["main", "general-purpose", "poteto-agent"])
         XCTAssertEqual(report.agents[0].cost, 14, accuracy: 1e-9)
@@ -246,7 +246,63 @@ final class HistoryReportTests: XCTestCase {
         XCTAssertEqual(Format.splitLine([CostLine(id: "a", name: "Opus 5.5", cost: 4048.52), CostLine(id: "b", name: "Sonnet 5.5", cost: 159.02),
                                          CostLine(id: "others", name: "others", cost: 112.51)]),
                        "Opus 5.5 $4,049 · Sonnet 5.5 $159 · others $113")
-        XCTAssertEqual(Format.splitLine([CostLine(id: "x", name: "Opus 5.7", unpriced: 1000)]), "Opus 5.7 —")
+        XCTAssertEqual(Format.splitLine([CostLine(id: "x", name: "Opus 5.7", unpriced: 1000)]), "Opus 5.7 — · 1,000 tokens with no price")
+    }
+
+
+    func testCodexKeepsItsModelNameAlongsideThreePricedClaudeModels() throws {
+        let slice = LedgerSlice(answers: [
+            answer("opus", "2026-10-12T10:00:00.000Z", session: "mixed", output: 50_000),
+            answer("sonnet", "2026-10-12T10:01:00.000Z", model: "claude-sonnet-5-5", output: 50_000),
+            answer("haiku", "2026-10-12T10:02:00.000Z", model: "claude-haiku-4-5", output: 50_000),
+            answer("codex", "2026-10-12T10:03:00.000Z", session: "mixed", model: "gpt-6.1", output: 12_345),
+        ])
+        let report = HistoryReport.make(slice, pick: HistoryPick(span: .month, anchor: date("2026-10-15T12:00:00.000Z"), project: "app"),
+                                        calendar: utc, home: home)
+        XCTAssertEqual(report.models.map(\.name), ["Opus 5.5", "Sonnet 5.5", "Haiku 4.5", "gpt-6.1"])
+        XCTAssertFalse(report.models.contains { $0.name == "others" })
+        XCTAssertEqual(report.models.last?.unpriced, 12_345)
+        XCTAssertEqual(report.total, 1.75, accuracy: 1e-9)
+        XCTAssertEqual(report.unpriced, 12_345)
+        let mixed = try XCTUnwrap(report.sessions.first { $0.id == "mixed" })
+        XCTAssertEqual(Format.amountSummary(mixed), "$1.00 · 12,345 tokens with no price")
+        XCTAssertEqual(Format.amountSummary(try XCTUnwrap(report.projects.first)), "$1.75 · 12,345 tokens with no price")
+        XCTAssertTrue(Format.splitLine(report.models).contains("gpt-6.1 — · 12,345 tokens with no price"))
+    }
+
+    func testUnpricedTotalsBarsAndFocusFollowThePeriodAndProject() throws {
+        let slice = LedgerSlice(answers: [
+            answer("a", "2026-10-12T09:00:00.000Z", model: "gpt-6.1", output: 1_234),
+            answer("b", "2026-10-12T21:00:00.000Z", model: "gpt-6.1", output: 2_000),
+            answer("other", "2026-10-12T09:00:00.000Z", folder: "/Users/me/other", model: "gpt-6.1", output: 4_000),
+            answer("later", "2026-10-13T09:00:00.000Z", model: "gpt-6.1", output: 8_000),
+            answer("next-month", "2026-11-01T09:00:00.000Z", model: "gpt-6.1", output: 16_000),
+        ])
+        var pick = HistoryPick(span: .month, anchor: date("2026-10-15T12:00:00.000Z"),
+                               day: date("2026-10-12T00:00:00.000Z"), project: "app")
+        var report = HistoryReport.make(slice, pick: pick, calendar: utc, home: home)
+        XCTAssertEqual(report.total, 0)
+        XCTAssertEqual(report.unpriced, 11_234)
+        XCTAssertEqual(report.focusUnpriced, 3_234)
+        XCTAssertEqual(report.bars[11].unpriced, 3_234)
+        XCTAssertEqual(report.hours[9].unpriced, 1_234)
+        XCTAssertEqual(Format.dollars(report.total, unpriced: report.unpriced), "—")
+        XCTAssertEqual(Format.dollars(report.focusCost, unpriced: report.focusUnpriced), "—")
+        XCTAssertTrue(Format.barLabel(report.hours[9], hourly: true, calendar: utc).contains("— · 1,234 tokens with no price"))
+        pick.hour = date("2026-10-12T09:00:00.000Z")
+        report = HistoryReport.make(slice, pick: pick, calendar: utc, home: home)
+        XCTAssertEqual(report.focusUnpriced, 1_234)
+        XCTAssertEqual(report.sessions.first?.unpriced, 1_234)
+        pick.project = nil
+        report = HistoryReport.make(slice, pick: pick, calendar: utc, home: home)
+        XCTAssertEqual(report.focusUnpriced, 5_234)
+        XCTAssertEqual(report.unpriced, 15_234)
+        XCTAssertEqual(Format.dollars(0, unpriced: 0), "$0.00")
+        let day = HistoryReport.make(slice, pick: HistoryPick(span: .day, anchor: date("2026-10-12T12:00:00.000Z"), project: "app"),
+                                    calendar: utc, home: home)
+        XCTAssertEqual(day.unpriced, 3_234)
+        XCTAssertEqual(day.bars[9].unpriced, 1_234)
+        XCTAssertEqual(day.models.map(\.name), ["gpt-6.1"])
     }
 
     func testModelsByNameAndMoneyAndTheWindowsWords() {

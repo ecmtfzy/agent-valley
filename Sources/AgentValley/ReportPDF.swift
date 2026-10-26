@@ -6,13 +6,62 @@ import SwiftUI
 /// words: they can be picked out and searched.
 enum ReportPDF {
     static let page = CGSize(width: 595, height: 842)
-    /// Lines of the table on the first page, under the summary, and on each page after it. Rows
-    /// are one line each and all as tall, so this is known before anything is drawn: the most
-    /// that keep a page inside its margins with every By agent and model row in the summary
-    /// (tested; one more and the page spills over its top and bottom edges).
+    /// Table-row units available on the first and later pages. Token annotations
+    /// and wrapped model names consume additional units before pagination.
     static let firstRows = 23
     static let laterRows = 43
     static let row: CGFloat = 16
+    static let modelNameWidth: CGFloat = 350
+
+    struct ModelPart: Identifiable {
+        let id: Int
+        let name: String
+        /// Only the first piece of a long model name carries its amount.
+        let line: CostLine?
+        var units: Int {
+            let measured = (name as NSString).boundingRect(with: CGSize(width: ReportPDF.modelNameWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: NSFont.systemFont(ofSize: 9)])
+            return max(1, Int(ceil(measured.height / ReportPDF.row))) + ((line?.unpriced ?? 0) > 0 ? 1 : 0)
+        }
+    }
+
+    /// Keep the first page's compact summary. Longer model lists get complete,
+    /// separately paginated details rather than overflowing the fixed summary.
+    static func modelParts(_ document: HistoryDocument) -> [ModelPart] {
+        guard document.models.count > 3 || document.models.contains(where: {
+            ($0.name as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 9)]).width > 110
+        }) else { return [] }
+        var parts: [ModelPart] = []
+        for line in document.models {
+            var rest = line.name[...]
+            var first = true
+            repeat {
+                let name = String(rest.prefix(128))
+                parts.append(ModelPart(id: parts.count, name: name, line: first ? line : nil))
+                rest = rest.dropFirst(name.count)
+                first = false
+            } while !rest.isEmpty
+        }
+        return parts
+    }
+
+    static func statementPages(_ document: HistoryDocument) -> [Range<Int>] {
+        let crewHeight = document.crew.count * 18 + document.crew.filter { $0.unpriced > 0 }.count * 12
+        let models = Array(document.models.prefix(3))
+        let modelHeight = models.count * 18 + models.filter { $0.unpriced > 0 }.count * 12
+        // The original budget already allowed five 18-point summary rows.
+        let extra = Int(ceil(Double(max(0, max(crewHeight, modelHeight) - 90)) / Double(row)))
+            + (document.unpriced > 0 ? 1 : 0)
+        return HistoryDocument.pages(heights: document.lines.map { $0.unpriced > 0 ? 2 : 1 },
+                                     total: document.unpriced > 0 ? 2 : 1,
+                                     first: max(1, firstRows - extra), later: laterRows)
+    }
+
+    static func modelPages(_ document: HistoryDocument, parts: [ModelPart]) -> [Range<Int>] {
+        guard !parts.isEmpty else { return [] }
+        return HistoryDocument.pages(heights: parts.map(\.units), total: document.unpriced > 0 ? 2 : 1,
+                                     first: laterRows, later: laterRows)
+    }
 
     /// Where the words over the costliest bar sit: from the bar rightwards in the first quarter of
     /// the chart, leftwards in the last, centred between.
@@ -26,9 +75,15 @@ enum ReportPDF {
         var box = CGRect(origin: .zero, size: page)
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
               let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { return Data() }
-        let pages = HistoryDocument.pages(lines: document.lines.count, first: firstRows, later: laterRows)
+        let statements = statementPages(document)
+        let parts = modelParts(document)
+        let models = modelPages(document, parts: parts)
+        let pages = statements + models
         for (index, lines) in pages.enumerated() {
-            let sheet = ReportPage(document: document, calendar: calendar, lines: lines, number: index + 1, of: pages.count)
+            let modelPage = index >= statements.count
+            let sheet = ReportPage(document: document, calendar: calendar, lines: lines, number: index + 1, of: pages.count,
+                                   modelParts: modelPage ? parts : nil,
+                                   last: modelPage ? index == pages.count - 1 : index == statements.count - 1)
                 .frame(width: page.width, height: page.height)
                 .environment(\.colorScheme, .light)
                 // Fine enough that every cell of the logo and the faces lands on the same grid.
@@ -137,6 +192,8 @@ private struct ReportPage: View {
     let lines: Range<Int>
     let number: Int
     let of: Int
+    let modelParts: [ReportPDF.ModelPart]?
+    let last: Bool
 
     private var title: String { Format.spanTitle(document.span, document.interval, calendar: calendar) }
     private var subject: String { document.project ?? "All projects" }
@@ -144,7 +201,11 @@ private struct ReportPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if number == 1 { summary } else { runningHead }
-            LineTable(document: document, calendar: calendar, lines: lines, last: number == of)
+            if let modelParts {
+                ModelDetailTable(parts: Array(modelParts[lines]), document: document, last: last)
+            } else {
+                LineTable(document: document, calendar: calendar, lines: lines, last: last)
+            }
             Spacer(minLength: 0)
             foot
         }
@@ -189,7 +250,7 @@ private struct ReportPage: View {
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 5) {
                 Caps("Total at API prices")
-                Text(verbatim: Format.dollars(document.total)).font(.system(size: 26, weight: .bold, design: .monospaced)).fixedSize()
+                Text(verbatim: Format.dollars(document.total, unpriced: document.unpriced)).font(.system(size: 26, weight: .bold, design: .monospaced)).fixedSize()
             }
         }
         .padding(.top, 14)
@@ -202,7 +263,7 @@ private struct ReportPage: View {
 
         HStack(alignment: .top, spacing: 24) {
             AgentTable(crew: document.crew).frame(maxWidth: .infinity, alignment: .leading)
-            ModelTable(models: document.models).frame(width: 196)
+            ModelTable(models: document.models, continued: !ReportPDF.modelParts(document).isEmpty).frame(width: 196)
         }
         .padding(.bottom, 18)
     }
@@ -287,6 +348,10 @@ private struct Chart: View {
                 .font(.system(size: 6.5, design: .monospaced))
                 .foregroundStyle(Ink.faint)
             }
+            if document.unpriced > 0 {
+                Text(verbatim: Format.unpricedChartNote).font(.system(size: 7)).foregroundStyle(Ink.dim)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 }
@@ -304,9 +369,14 @@ private struct AgentTable: View {
                     HStack {
                         Text(verbatim: crew[index].name).lineLimit(1)
                         Spacer(minLength: 8)
-                        Text(verbatim: Format.dollars(crew[index].cost)).font(.figure)
+                        Text(verbatim: Format.dollars(crew[index].cost, unpriced: crew[index].unpriced)).font(.figure)
                     }
                     .frame(height: 18)
+                    if crew[index].unpriced > 0 {
+                        Text(verbatim: Format.unpricedTokens(crew[index].unpriced))
+                            .font(.system(size: 7)).foregroundStyle(Ink.dim)
+                            .frame(maxWidth: .infinity, alignment: .leading).frame(height: 12)
+                    }
                     Rule()
                 }
             }
@@ -316,11 +386,12 @@ private struct AgentTable: View {
 
 private struct ModelTable: View {
     let models: [CostLine]
+    let continued: Bool
 
     var body: some View {
         let total = models.reduce(0) { $0 + $1.cost }
         VStack(alignment: .leading, spacing: 0) {
-            Caps("By model").padding(.bottom, 9)
+            Caps(continued ? "By model · full list follows" : "By model").padding(.bottom, 9)
             GeometryReader { geometry in
                 HStack(spacing: 1) {
                     ForEach(models.indices, id: \.self) { index in
@@ -332,7 +403,7 @@ private struct ModelTable: View {
             .frame(height: 5)
             .clipShape(RoundedRectangle(cornerRadius: 2.5))
             .padding(.bottom, 4)
-            ForEach(models.indices, id: \.self) { index in
+            ForEach(Array(models.indices.prefix(3)), id: \.self) { index in
                 VStack(spacing: 0) {
                     HStack {
                         Text(verbatim: models[index].name).lineLimit(1)
@@ -340,7 +411,54 @@ private struct ModelTable: View {
                         Text(verbatim: Format.dollars(models[index])).font(.figure)
                     }
                     .frame(height: 18)
+                    if models[index].unpriced > 0 {
+                        Text(verbatim: Format.unpricedTokens(models[index].unpriced))
+                            .font(.system(size: 7)).foregroundStyle(Ink.dim)
+                            .frame(maxWidth: .infinity, alignment: .leading).frame(height: 12)
+                    }
                     Rule()
+                }
+            }
+        }
+    }
+}
+
+/// Full-width model names and measured unpriced use, on as many pages as needed.
+private struct ModelDetailTable: View {
+    let parts: [ReportPDF.ModelPart]
+    let document: HistoryDocument
+    let last: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack { Caps("By model"); Spacer(); Caps("Amount") }.frame(height: ReportPDF.row)
+            ForEach(parts) { part in
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(verbatim: part.name).fixedSize(horizontal: false, vertical: true)
+                            .frame(width: ReportPDF.modelNameWidth, alignment: .leading)
+                        Spacer(minLength: 0)
+                        if let line = part.line { Text(verbatim: Format.dollars(line)).font(.figure) }
+                    }
+                    .frame(maxHeight: .infinity, alignment: .center)
+                    if let line = part.line, line.unpriced > 0 {
+                        Text(verbatim: Format.unpricedTokens(line.unpriced)).font(.system(size: 8)).foregroundStyle(Ink.dim)
+                            .frame(height: ReportPDF.row)
+                    }
+                }
+                .frame(height: CGFloat(part.units) * ReportPDF.row)
+                .overlay(alignment: .bottom) { Rule() }
+            }
+            if last {
+                Rule(weight: 1, color: Ink.type)
+                HStack {
+                    Text(verbatim: "Total").bold()
+                    Spacer()
+                    Text(verbatim: Format.dollars(document.total, unpriced: document.unpriced)).font(.figure.bold())
+                }.frame(height: ReportPDF.row)
+                if document.unpriced > 0 {
+                    Text(verbatim: Format.unpricedTokens(document.unpriced)).font(.system(size: 8)).foregroundStyle(Ink.dim)
+                        .frame(height: ReportPDF.row)
                 }
             }
         }
@@ -367,23 +485,31 @@ private struct LineTable: View {
                 answers: Caps("Answers"), amount: Caps("Amount"))
             ForEach(Array(lines), id: \.self) { index in
                 let line = document.lines[index]
-                row(index: String(format: "%02d", index + 1),
+                VStack(alignment: .leading, spacing: 0) {
+                    row(index: String(format: "%02d", index + 1),
                     name: Text(verbatim: line.name),
                     middle: sessions
                         ? Text(verbatim: Format.reportDays(line, hourly: hourly, calendar: calendar)).font(.system(size: 8, design: .monospaced)).foregroundStyle(Ink.dim)
                         : Text(verbatim: Format.count(line.sessions)).font(.figure).foregroundStyle(Ink.type),
                     answers: Text(verbatim: Format.count(line.answers)).font(.figure),
-                    amount: Text(verbatim: Format.dollars(line)).font(.figure))
-                    .overlay(alignment: .bottom) { Rule() }
+                        amount: Text(verbatim: Format.dollars(line)).font(.figure))
+                    if line.unpriced > 0 { unpriced(line.unpriced) }
+                }.overlay(alignment: .bottom) { Rule() }
             }
             if last {
                 Rule(weight: 1, color: Ink.type)
                 row(index: "", name: Text(verbatim: "Total").bold(),
                     middle: sessions ? Text(verbatim: "") : Text(verbatim: Format.count(document.sessions)).font(.figure.bold()),
                     answers: Text(verbatim: Format.count(document.answers)).font(.figure.bold()),
-                    amount: Text(verbatim: Format.dollars(document.total)).font(.figure.bold()))
+                    amount: Text(verbatim: Format.dollars(document.total, unpriced: document.unpriced)).font(.figure.bold()))
+                if document.unpriced > 0 { unpriced(document.unpriced) }
             }
         }
+    }
+
+    private func unpriced(_ tokens: Int) -> some View {
+        Text(verbatim: Format.unpricedTokens(tokens)).font(.system(size: 8)).foregroundStyle(Ink.dim)
+            .padding(.leading, 29).frame(maxWidth: .infinity, alignment: .leading).frame(height: ReportPDF.row)
     }
 
     private func row(index: String, name: some View, middle: some View, answers: some View, amount: some View) -> some View {

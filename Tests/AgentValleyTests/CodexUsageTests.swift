@@ -105,6 +105,169 @@ final class CodexUsageTests: XCTestCase {
         return (base, CodexUsageReader(home: base, journal: journal), file)
     }
 
+    private func writeIndex(_ records: [[String: Any]], home: URL) throws {
+        var bytes = Data()
+        for record in records {
+            bytes += try JSONSerialization.data(withJSONObject: record)
+            bytes += Data([10])
+        }
+        try bytes.write(to: home.appendingPathComponent("session_index.jsonl"))
+    }
+
+    func testIndexOnlyHistoryWorksWithoutHooksAndImportsOnceAcrossRestarts() throws {
+        let (base, journalReader, _) = try fixture()
+        try FileManager.default.removeItem(at: base.appendingPathComponent("events.jsonl"))
+        try writeIndex([["id": id, "thread_name": "History before hooks"]], home: base)
+        XCTAssertEqual(journalReader.snapshot().sources.map(\.id), [id])
+        // Neither an environment journal nor the default AgentValley journal exists.
+        let reader = try XCTUnwrap(CodexUsageReader.configured(environment: ["CODEX_HOME": base.path],
+                                                              home: base.appendingPathComponent("unused-user-home")))
+        let snapshot = reader.snapshot()
+        XCTAssertEqual(snapshot.sources.map(\.id), [id])
+        XCTAssertEqual(snapshot.titles, ["codex-" + id: "History before hooks"])
+        func ledger() -> UsageLedger {
+            UsageLedger(root: base.appendingPathComponent("projects"), database: base.appendingPathComponent("support/history.sqlite"), codexUsage: reader)
+        }
+        var store = ledger()
+        let first = store.scan(now: now)
+        XCTAssertNil(first.problem)
+        XCTAssertTrue(first.added)
+        XCTAssertEqual(first.summary.fiveHours, TokenTotals(input: 40, cacheRead: 60, output: 30))
+        store = ledger()
+        let again = store.scan(now: now)
+        XCTAssertNil(again.problem)
+        XCTAssertFalse(again.added)
+        let entries = try store.slice(DateInterval(start: .distantPast, end: .distantFuture)).answers
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries.first?.session, "codex-" + id)
+        XCTAssertEqual(entries.first?.model, "gpt-6-astra")
+    }
+
+    func testIndexAndJournalUnionDeduplicatesAndPrefersActiveOverArchived() throws {
+        let (base, reader, active) = try fixture()
+        let archive = base.appendingPathComponent("archived_sessions")
+        try FileManager.default.createDirectory(at: archive, withIntermediateDirectories: true)
+        let archivedCopy = archive.appendingPathComponent(active.lastPathComponent)
+        try FileManager.default.copyItem(at: active, to: archivedCopy)
+        let archivedOther = archive.appendingPathComponent("rollout-2026-10-26T09-00-00-" + other + ".jsonl")
+        try (data("session_meta", ["id": other, "cwd": "/tmp/archived"]) + Data([10])
+             + data("turn_context", ["model": "gpt-6-sol"]) + Data([10])
+             + usage(total: counts(20, 0, 5)) + Data([10])).write(to: archivedOther)
+        try writeIndex([["id": id, "thread_name": "Old title"], ["id": other],
+                        ["id": id, "thread_name": "Latest title"], ["id": other]], home: base)
+        let snapshot = reader.snapshot()
+        XCTAssertEqual(snapshot.sources.map(\.id), [id, other])
+        XCTAssertEqual(snapshot.sources.first?.path, active.path)
+        XCTAssertEqual(snapshot.titles, ["codex-" + id: "Latest title"])
+        let old = try XCTUnwrap(snapshot.sources.last)
+        XCTAssertEqual(old.path, archivedOther.path)
+        XCTAssertEqual(reader.read(old, state: .init()).answers.first?.tokens, 25)
+    }
+
+    func testIndexCannotDiscoverUnknownIDsOrOverrideTranscriptIdentity() throws {
+        let (base, reader, file) = try fixture()
+        let unknown = "01a1705b-6400-7000-8000-000000000003"
+        let stranger = file.deletingLastPathComponent().appendingPathComponent("rollout-2026-10-26T09-00-00-" + unknown + ".jsonl")
+        try Data("private stranger content".utf8).write(to: stranger)
+        // The filename is index-known, but its actual metadata belongs to a different session.
+        let wrongIdentity = file.deletingLastPathComponent().appendingPathComponent("rollout-2026-10-26T09-00-00-" + other + ".jsonl")
+        try FileManager.default.copyItem(at: file, to: wrongIdentity)
+        try writeIndex([["id": other], ["id": "../" + unknown], ["id": true]], home: base)
+        let snapshot = reader.snapshot()
+        XCTAssertEqual(snapshot.sources.map(\.id), [id, other])
+        let source = try XCTUnwrap(snapshot.sources.last)
+        let rejected = reader.read(source, state: .init())
+        XCTAssertTrue(rejected.answers.isEmpty)
+        XCTAssertTrue(rejected.state.rejected)
+        XCTAssertFalse(rejected.state.verified)
+    }
+
+    func testNonV7IndexIDsOnlyDiscoverAnExactArchivedFilename() throws {
+        let (base, reader, file) = try fixture()
+        let legacy = "11111111-1111-4111-8111-111111111111"
+        let dateFile = file.deletingLastPathComponent().appendingPathComponent("rollout-2026-10-26T09-00-00-" + legacy + ".jsonl")
+        try Data().write(to: dateFile)
+        try writeIndex([["id": legacy]], home: base)
+        // A UUID without a date cannot request a recursive search of sessions/.
+        XCTAssertEqual(reader.snapshot().sources.map(\.id), [id])
+        let archive = base.appendingPathComponent("archived_sessions")
+        try FileManager.default.createDirectory(at: archive, withIntermediateDirectories: true)
+        let archived = archive.appendingPathComponent(dateFile.lastPathComponent)
+        try FileManager.default.copyItem(at: dateFile, to: archived)
+        let snapshot = reader.snapshot()
+        XCTAssertEqual(Set(snapshot.sources.map(\.id)), [id, legacy])
+        XCTAssertEqual(snapshot.sources.first { $0.id == legacy }?.path, archived.path)
+    }
+
+    func testCodexOnlyHistoryNeverLearnsGitCheckoutsButKeepsSavedMappings() throws {
+        let (base, reader, file) = try fixture()
+        let project = base.appendingPathComponent("old-project")
+        let nextProject = base.appendingPathComponent("another-old-project")
+        for folder in [project, nextProject] {
+            try FileManager.default.createDirectory(at: folder.appendingPathComponent(".git"), withIntermediateDirectories: true)
+        }
+        try (data("session_meta", ["id": id, "cwd": project.path]) + Data([10])
+             + data("turn_context", ["model": "gpt-6-astra"]) + Data([10])
+             + usage(total: counts(100, 60, 30)) + Data([10])).write(to: file)
+        let database = base.appendingPathComponent("support/history.sqlite")
+        func ledger() -> UsageLedger {
+            UsageLedger(root: base.appendingPathComponent("projects"), database: database, codexUsage: reader)
+        }
+        var store = ledger()
+        let all = DateInterval(start: .distantPast, end: .distantFuture)
+        XCTAssertTrue(store.scan(now: now).added)
+        let firstCheckouts = try store.slice(all).checkouts
+        XCTAssertTrue(firstCheckouts.isEmpty)
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: data("turn_context", ["model": "gpt-6-astra", "cwd": nextProject.path]) + Data([10])
+                         + usage(total: counts(250, 160, 50), at: "2026-10-25T23:52:02.000Z") + Data([10]))
+        try handle.close()
+        XCTAssertTrue(store.scan(now: now).added)
+        let nextCheckouts = try store.slice(all).checkouts
+        XCTAssertTrue(nextCheckouts.isEmpty)
+        do {
+            let db = try SQLite(path: database.path)
+            try db.rows("INSERT INTO checkouts VALUES (?, ?)", [.text(project.path), .text("/saved/checkout")])
+        }
+        store = ledger()
+        XCTAssertFalse(store.scan(now: now).added)
+        let savedCheckouts = try store.slice(all).checkouts
+        XCTAssertEqual(savedCheckouts, [project.path: "/saved/checkout"])
+    }
+
+    func testIndexMustBeARegularFileAndDoesNotEnableAnEmptyHome() throws {
+        let (base, _, _) = try fixture()
+        let userHome = base.appendingPathComponent("unused-user-home")
+        try FileManager.default.removeItem(at: base.appendingPathComponent("events.jsonl"))
+        XCTAssertNil(CodexUsageReader.configured(environment: ["CODEX_HOME": base.path], home: userHome))
+        let index = base.appendingPathComponent("session_index.jsonl")
+        let target = base.appendingPathComponent("index-target.jsonl")
+        try JSONSerialization.data(withJSONObject: ["id": id]).write(to: target)
+        try FileManager.default.createSymbolicLink(at: index, withDestinationURL: target)
+        XCTAssertNil(CodexUsageReader.configured(environment: ["CODEX_HOME": base.path], home: userHome))
+        XCTAssertTrue(CodexUsageReader(home: base).snapshot().sources.isEmpty)
+        try FileManager.default.removeItem(at: index)
+        try FileManager.default.createDirectory(at: index, withIntermediateDirectories: false)
+        XCTAssertNil(CodexUsageReader.configured(environment: ["CODEX_HOME": base.path], home: userHome))
+        XCTAssertTrue(CodexUsageReader(home: base).snapshot().sources.isEmpty)
+    }
+
+    func testDiscoveryRejectsRolloutFilesAndDateDirectoriesReachedThroughSymlinks() throws {
+        let (base, reader, file) = try fixture()
+        let target = base.appendingPathComponent("moved-transcript.jsonl")
+        try FileManager.default.moveItem(at: file, to: target)
+        try FileManager.default.createSymbolicLink(at: file, withDestinationURL: target)
+        XCTAssertTrue(reader.snapshot().sources.isEmpty)
+        try FileManager.default.removeItem(at: file)
+        try FileManager.default.moveItem(at: target, to: file)
+        let day = file.deletingLastPathComponent()
+        let movedDay = base.appendingPathComponent("moved-day")
+        try FileManager.default.moveItem(at: day, to: movedDay)
+        try FileManager.default.createSymbolicLink(at: day, withDestinationURL: movedDay)
+        XCTAssertTrue(reader.snapshot().sources.isEmpty)
+    }
+
     func testDiscoveryIsJournalScopedAndPartialLineWaitsForCompletion() throws {
         let (base, reader, file) = try fixture()
         let unrelated = file.deletingLastPathComponent().appendingPathComponent("rollout-2026-10-26T09-00-00-" + other + ".jsonl")

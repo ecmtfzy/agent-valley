@@ -29,7 +29,7 @@ struct GitPlace { let checkout: String }
 enum AgentStore {
     enum Kind { case main, sub }
     static func classify(_ path: String, root: String) -> Kind? { nil }
-    static func gitPlace(of folder: String) -> GitPlace? { nil }
+    static func gitPlace(of folder: String) -> GitPlace? { fatalError("Codex usage must not read project Git") }
 }
 enum TranscriptReader {
     static func clipped(_ text: String, limit: Int = 120) -> String { String(text.prefix(limit)) }

@@ -125,6 +125,43 @@ final class HistoryDocumentTests: XCTestCase {
         XCTAssertEqual(HistoryDocument.pages(lines: 8, first: 3, later: 5), [0..<3, 3..<8, 8..<8])
     }
 
+
+    func testUnpricedDocumentsRemainExportableAndStayInTheirProjectAndPeriod() throws {
+        let answers = [
+            LedgerAnswer(id: "codex", at: date("2026-10-12T10:00:00.000Z"), folder: "/Users/me/app", session: "codex-session",
+                         model: "gpt-6.1", input: 1_000, read: 200, output: 34),
+            LedgerAnswer(id: "other", at: date("2026-10-12T10:00:00.000Z"), folder: "/Users/me/other", session: "other-session",
+                         model: "gpt-6.2", output: 50_000),
+            LedgerAnswer(id: "next", at: date("2026-11-01T10:00:00.000Z"), folder: "/Users/me/app", session: "next-session",
+                         model: "gpt-6.3", output: 50_000),
+        ]
+        let slice = LedgerSlice(answers: answers, interval: october)
+        let pick = HistoryPick(span: .month, anchor: anchor, project: "app")
+        let document = try XCTUnwrap(document(pick, slice))
+        XCTAssertEqual(document.total, 0)
+        XCTAssertEqual(document.unpriced, 1_234)
+        XCTAssertEqual(document.models.map(\.name), ["gpt-6.1"])
+        XCTAssertEqual(document.lines.map(\.unpriced), [1_234])
+        XCTAssertEqual(document.crew.map(\.unpriced), [1_234])
+        XCTAssertEqual(document.bars.map(\.unpriced).reduce(0, +), 1_234)
+        XCTAssertEqual(Format.dollars(document.total, unpriced: document.unpriced), "—")
+        XCTAssertTrue(HistoryReport.make(slice, pick: pick, calendar: utc, home: home).exportable)
+    }
+
+    func testPagesReserveSpaceForTokenNotesAndWrappedRows() {
+        XCTAssertEqual(HistoryDocument.pages(heights: [2, 1, 2], total: 2, first: 4, later: 5), [0..<2, 2..<3])
+        XCTAssertEqual(HistoryDocument.pages(heights: [2, 2], total: 2, first: 4, later: 5), [0..<2, 2..<2])
+        // A long first model can move intact to a later page without losing its name.
+        XCTAssertEqual(HistoryDocument.pages(heights: [4, 2], total: 2, first: 3, later: 5), [0..<0, 0..<1, 1..<2])
+        let heights = [2, 1, 3, 2, 4, 1, 2]
+        let ranges = HistoryDocument.pages(heights: heights, total: 2, first: 4, later: 5)
+        XCTAssertEqual(ranges.flatMap { Array($0) }, Array(heights.indices))
+        for (index, range) in ranges.enumerated() {
+            let used = range.reduce(0) { $0 + heights[$1] } + (index == ranges.count - 1 ? 2 : 0)
+            XCTAssertLessThanOrEqual(used, index == 0 ? 4 : 5)
+        }
+    }
+
     func testAFileNameStaysInItsFolder() throws {
         let odd = LedgerSlice(answers: [answer("1", "2026-10-12T10:00:00.000Z", folder: "/Users/me/a:b", output: 50_000)], interval: october)
         let project = try XCTUnwrap(document(HistoryPick(span: .month, anchor: anchor, project: "a:b"), odd))

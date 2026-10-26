@@ -48,6 +48,7 @@ struct CostLine: Equatable, Identifiable {
 struct CostBar: Equatable, Identifiable {
     let interval: DateInterval
     var cost = 0.0
+    var unpriced = 0
     var id: Date { interval.start }
 }
 
@@ -66,6 +67,7 @@ struct HistoryReport: Equatable {
     /// What is picked: the hour, else the day, else the whole stretch.
     var focus = DateInterval()
     var focusCost = 0.0
+    var focusUnpriced = 0
     var projects: [CostLine] = []
     /// With a project picked, every one of its sessions. None on the level of every project.
     var sessions: [CostLine] = []
@@ -120,18 +122,20 @@ struct HistoryReport: Equatable {
         report.unpriced = scope.reduce(0) { $0 + ($1.cost == nil ? $1.answer.tokens : 0) }
         // Each answer added to its slot in one pass: the slots are in order, so its slot is found by halves.
         func bars(_ slots: [DateInterval]) -> [CostBar] {
-            var costs = [Double](repeating: 0, count: slots.count)
+            var result = slots.map { CostBar(interval: $0) }
             for item in scope {
-                guard let cost = item.cost else { continue }
                 var low = 0
                 var high = slots.count
                 while low < high {
                     let middle = (low + high) / 2
                     if slots[middle].end <= item.answer.at { low = middle + 1 } else { high = middle }
                 }
-                if low < slots.count, slots[low].start <= item.answer.at { costs[low] += cost }
+                if low < slots.count, slots[low].start <= item.answer.at {
+                    result[low].cost += item.cost ?? 0
+                    if item.cost == nil { result[low].unpriced += item.answer.tokens }
+                }
             }
-            return zip(slots, costs).map { CostBar(interval: $0, cost: $1) }
+            return result
         }
         report.bars = bars(slots(stretch, by: pick.span.bar, calendar: calendar))
         let day = pick.span == .day ? nil : pick.day.flatMap { calendar.dateInterval(of: .day, for: $0) }
@@ -141,13 +145,15 @@ struct HistoryReport: Equatable {
         let inFocus = { (item: Priced) in focus.start <= item.answer.at && item.answer.at < focus.end }
         let focused = scope.filter(inFocus)
         report.focusCost = sum(focused)
+        report.focusUnpriced = focused.reduce(0) { $0 + ($1.cost == nil ? $1.answer.tokens : 0) }
         report.projects = lines(priced.filter(inFocus), by: \.project)
         if pick.project != nil {
             report.sessions = lines(focused, by: \.answer.session, name: { id, group in
                 slice.titles[id] ?? untitled(group, calendar: calendar)
             })
         }
-        report.models = folded(lines(focused, by: { Format.model($0.answer.model) }))
+        // Folding by cost would hide unpriced models behind the priced ones.
+        report.models = lines(focused, by: { Format.model($0.answer.model) })
         report.agents = folded(lines(focused, by: { agentName($0.answer.agent) }))
         return report
     }
@@ -238,7 +244,7 @@ extension Format {
     /// A split in one line: "Opus 5.5 $4,049 · Sonnet 5.5 $159 · others $113". A part with no
     /// price has "—", as in a list.
     static func splitLine(_ lines: [CostLine]) -> String {
-        lines.map { "\($0.name) \($0.cost == 0 && $0.unpriced > 0 ? "—" : wholeDollars($0.cost))" }.joined(separator: " · ")
+        lines.map { "\($0.name) \(amountSummary($0, whole: true))" }.joined(separator: " · ")
     }
 
     static let atAPIPrices = "at API prices"
@@ -262,7 +268,17 @@ extension Format {
 
     /// A line's money, or "—" when all it holds has no price.
     static func dollars(_ line: CostLine) -> String {
-        line.cost == 0 && line.unpriced > 0 ? "—" : dollars(line.cost)
+        dollars(line.cost, unpriced: line.unpriced)
+    }
+
+    static func dollars(_ cost: Double, unpriced: Int) -> String {
+        cost == 0 && unpriced > 0 ? "—" : dollars(cost)
+    }
+
+    /// A partial known amount always names the measured use it excludes.
+    static func amountSummary(_ line: CostLine, whole: Bool = false) -> String {
+        let amount = line.cost == 0 && line.unpriced > 0 ? "—" : whole ? wholeDollars(line.cost) : dollars(line.cost)
+        return line.unpriced > 0 ? amount + " · " + unpricedTokens(line.unpriced) : amount
     }
 
     static func date(_ format: String, _ date: Date, _ calendar: Calendar) -> String {
@@ -295,7 +311,8 @@ extension Format {
 
     /// What a bar says to the pointer and to VoiceOver: "Oct 12, $739.25", "21:00, $74.81".
     static func barLabel(_ bar: CostBar, hourly: Bool, calendar: Calendar) -> String {
-        axisLabel(bar, hourly: hourly, calendar: calendar) + ", " + dollars(bar.cost)
+        let amount = amountSummary(CostLine(id: "", name: "", cost: bar.cost, unpriced: bar.unpriced))
+        return axisLabel(bar, hourly: hourly, calendar: calendar) + ", " + amount
     }
 
     /// Under the first and the last bar: "Oct 1", "00:00".
@@ -305,14 +322,16 @@ extension Format {
 
     /// A split read out whole: "Opus 5.5, $3,990.18; Sonnet 5.5, $186.35".
     static func splitLabel(_ lines: [CostLine]) -> String {
-        lines.map { "\($0.name), \(dollars($0))" }.joined(separator: "; ")
+        lines.map { "\($0.name), \(amountSummary($0))" }.joined(separator: "; ")
     }
 
     static func count(_ value: Int) -> String {
         value.formatted(.number.locale(Locale(identifier: "en_US")))
     }
 
-    static func unpriced(_ tokens: Int) -> String { "+ \(count(tokens)) tokens with no price" }
+    static func unpricedTokens(_ tokens: Int) -> String { "\(count(tokens)) tokens with no price" }
+    static func unpriced(_ tokens: Int) -> String { "+ " + unpricedTokens(tokens) }
+    static let unpricedChartNote = "Tokens with no price are excluded from dollar amounts."
 
     static func readingHistory(_ progress: ReadingProgress) -> String {
         "Reading history… \(count(progress.done)) of \(count(progress.of)) files"
