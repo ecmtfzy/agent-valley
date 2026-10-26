@@ -15,6 +15,11 @@ test('an email gets a link to confirm, and the box says to look', async ({ page 
   await box(page).getByRole('button', { name: 'Get updates' }).click();
   await expect(box(page).getByRole('status')).toHaveText("Check your inbox. One click there and you're on the list.");
   expect(new URLSearchParams(sent).get('email')).toBe('reader@example.com');
+  // Sunny pops up with the letter and names the address; Got it puts him away.
+  const letter = page.getByRole('dialog', { name: 'Check your inbox.' });
+  await expect(letter).toContainText('reader@example.com');
+  await letter.getByRole('button', { name: 'Got it' }).click();
+  await expect(letter).toBeHidden();
   await expect(box(page).getByRole('button', { name: 'Get updates' })).toBeDisabled();
 });
 
@@ -36,7 +41,9 @@ test("when the day's mail is gone, the box says come back tomorrow", async ({ pa
 });
 
 test.describe('without scripts', () => {
-  test.use({ javaScriptEnabled: false });
+  // Without reduced motion the page scrolls smoothly; with scripts off, Chrome can stall that
+  // scroll under load and the click waits for a button that never stops moving.
+  test.use({ javaScriptEnabled: false, reducedMotion: 'reduce' });
   // The page's own policy must let the form post here, or the browser drops the press.
   test('the form still posts to the list', async ({ page }) => {
     let sent = '';

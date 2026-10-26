@@ -32,6 +32,8 @@ const PAIRS = [
   ['term-dim', 'term-head'], ['red-text', 'term-head'], ['app-tab', 'app-fill'], ['app-dim', 'app-card'],
   // The notes in pen on the hero's sky: the notch's, and the spider's at Halloween.
   ['accent-text', 'sky'],
+  // The Download button over the office picture: cream on the building's rust wood.
+  ['sky-hi', 'hz4'],
   // Halloween: the band over the top bar.
   ['hw-fg', 'hw-bg'], ['hw-dim', 'hw-bg'],
 ];

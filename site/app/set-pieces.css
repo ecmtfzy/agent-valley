@@ -342,11 +342,36 @@ a.w:hover{text-decoration-style:solid}
 .words div:target dt{color:var(--accent-text)}
 .small code{font:400 .9em/1.5 var(--mono);color:var(--foreground)}
 
-/* The end: the whole crew waiting, and the install */
+/* The end: the crew outside their office, edge to edge, and the install on a plain white card in the very
+   middle of the picture. The groups leave 46.7% of the width between them, so the card keeps to 44vw.
+   Narrower, the picture fades down into the page and the words follow under it. */
+.office{display:grid;margin-inline:calc(50% - 50vw)}
+.office>*{grid-area:1/1}
+.office .room{width:100%;height:100%;object-fit:cover}
+.office .card{place-self:center;width:min(100% - 32px,560px,44vw);padding:clamp(28px,3vw,40px) clamp(20px,2.5vw,36px);background:var(--background);border:1px solid var(--border);border-radius:16px;box-shadow:0 18px 50px rgba(30,15,5,.28)}
+.office .card .small{text-wrap:balance}
+@media (width<1100px){
+  .office{display:block}
+  .office .room{height:auto}
+  .office .card{position:relative;isolation:isolate;width:min(100% - 32px,560px);margin:-72px auto 0;padding:64px 0 8px;background:none;border:0;border-radius:0;box-shadow:none}
+  .office .card::before{content:"";position:absolute;inset:0 calc(50% - 50vw);z-index:-1;background:var(--background);-webkit-mask:linear-gradient(transparent,#000 72px);mask:linear-gradient(transparent,#000 72px)}
+}
 
-.lineup{--s:clamp(36px,10vw,48px);display:flex;justify-content:center;gap:clamp(3px,1vw,6px);padding:10px 0 16px;margin-bottom:36px;background:var(--horizon) 0 calc(var(--s) + 2px)/100% 24px no-repeat}
-.lineup img,.lineup .m{width:var(--s);height:var(--s);image-rendering:pixelated}
-
+/* Get updates, sent: a card pops up and Sunny rises out of it with the letter, standing on a dark line as he does
+   in the confirm mail. The dialog is the dark round as well as the card, so the card is its div. */
+.letter{width:min(100% - 32px,440px);max-width:none;margin:auto;padding:0;border:0;background:none;color:var(--foreground);overflow:visible}
+.letter::backdrop{background:rgba(30,15,5,.5)}
+.letter>div{padding:28px 28px 24px;background:var(--background);border:1px solid var(--border);border-radius:16px;box-shadow:0 24px 60px rgba(30,15,5,.35)}
+.letter img{display:block;width:200px;height:auto;margin:0 auto}
+.letter .eyebrow{padding-top:24px;border-top:2px solid var(--foreground);color:var(--accent-text);font:600 .8125rem/1.5 var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.letter h2{margin-top:8px;font-size:1.75rem}
+.letter[open]{animation:letter-in .4s cubic-bezier(.3,1.4,.6,1)}
+.letter[open] img{animation:sunny-up .45s .1s cubic-bezier(.3,1.5,.6,1) backwards}
+.letter[open]::backdrop{animation:fade-in .25s}
+@keyframes letter-in{from{opacity:0;transform:translateY(28px) scale(.94)}}
+@keyframes sunny-up{from{opacity:0;transform:translateY(24px)}}
+@keyframes fade-in{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){.letter[open],.letter[open] img,.letter[open]::backdrop{animation:none}}
 .next ol{margin:18px 0 0;padding:0;list-style:none;counter-reset:step}
 .next li{position:relative;padding-left:2.4em;counter-increment:step}
 .next li+li{margin-top:18px}
@@ -406,8 +431,6 @@ a.w:hover{text-decoration-style:solid}
 /* A face standing still waves when a pointer comes by, as the crew does when one needs you. */
 .face{position:relative;display:inline-block;flex:none}
 .face img+img{position:absolute;inset:0;opacity:0}
-.lineup .face{width:var(--s);height:var(--s)}
-.lineup .face img{width:100%;height:100%}
 @media (hover:hover) and (prefers-reduced-motion:no-preference){
   html:not(.still) .face:hover img:first-child{opacity:0}
   html:not(.still) .face:hover img:nth-child(2){animation:first .8s steps(1) infinite}
@@ -491,3 +514,9 @@ a.w:hover{text-decoration-style:solid}
   .halloween .nav:has(.hunt-count) .brand img{visibility:visible;transform:none;transition:none}
 }
 }
+
+/* Outside the layer, so it wins over the Button's own colours: in the office the Download button is the
+   building's dark rust wood, raised on a darker edge like the letters on the roof, pressed when clicked. */
+.office a[href$=".dmg"]{background:var(--hz4);color:var(--sky-hi);box-shadow:0 4px 0 var(--hz5),0 8px 18px rgba(30,15,5,.3);transition:transform .08s,box-shadow .08s,background-color .15s}
+.office a[href$=".dmg"]:hover{background:var(--hz5);color:var(--sky-hi)}
+.office a[href$=".dmg"]:active{transform:translateY(3px);box-shadow:0 1px 0 var(--hz5),0 3px 8px rgba(30,15,5,.3)}

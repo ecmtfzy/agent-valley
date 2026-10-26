@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { track } from '@/lib/analytics';
 
 // The email box of Get updates. It posts to api/subscribe.py, which mails a link to confirm; only a
 // press on that link's page puts the address in Resend. With scripts the answer shows under the
 // box; without them the form posts and the function answers with a small page. `website` is a
-// field only a bot fills.
+// field only a bot fills. Once the mail is out, Sunny pops up holding the letter, as he does in
+// the mail itself, and says where to look.
 const SAID = {
   sent: "Check your inbox. One click there and you're on the list.",
   full: "We've sent all the mail we can for today. Try again tomorrow.",
@@ -17,10 +18,16 @@ type Said = keyof typeof SAID;
 
 export function UpdatesForm() {
   const [state, setState] = useState<'idle' | 'sending' | Said>('idle');
+  const [email, setEmail] = useState('');
+  const letter = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (state === 'sent') letter.current?.showModal();
+  }, [state]);
 
   async function send(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setState('sending');
+    setEmail(String(new FormData(event.currentTarget).get('email') ?? ''));
     let said: Said = 'failed';
     try {
       const res = await fetch('/api/subscribe', {
@@ -36,6 +43,7 @@ export function UpdatesForm() {
   }
 
   return (
+    <>
     <form action="/api/subscribe" method="post" onSubmit={send} className="mt-4">
       <label htmlFor="updates-email" className="block font-mono text-[.9375rem]">Your email</label>
       <div className="mt-2 flex flex-wrap gap-2">
@@ -64,5 +72,28 @@ export function UpdatesForm() {
         {state === 'idle' || state === 'sending' ? '' : SAID[state]}
       </p>
     </form>
+    {/* A click on the dark round it closes it, as Escape does; the card itself is the div. */}
+    <dialog
+      ref={letter}
+      className="letter"
+      aria-labelledby="letter-title"
+      onClick={(event) => event.target === event.currentTarget && event.currentTarget.close()}
+    >
+      <div>
+        <img src="/email/sunny-letter.png" width="560" height="580" loading="lazy" alt="Sunny holds out a sealed letter and waves." />
+        <p className="eyebrow">Get updates</p>
+        <h2 id="letter-title">Check your inbox.</h2>
+        <p className="mt-3">
+          Sunny is taking a letter to <b className="font-semibold [overflow-wrap:anywhere]">{email}</b>. Press “Yes, send me updates” in it, and we write when a new version is out. Nothing else.
+        </p>
+        <p className="small">Not there in a few minutes? Look in Spam or Promotions. The link works for 7 days.</p>
+        <form method="dialog">
+          <Button autoFocus className="mt-6 h-12 rounded-lg px-5 font-mono text-base font-semibold text-primary-foreground hover:bg-primary/85">
+            Got it
+          </Button>
+        </form>
+      </div>
+    </dialog>
+    </>
   );
 }

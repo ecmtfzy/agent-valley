@@ -1,29 +1,32 @@
-import { Face } from '@/components/face';
-import { Mascot } from '@/components/mascot';
 import { GetIt, OnPhone, Terms } from '@/components/sections/hero';
 import { Updates } from '@/components/updates';
 import { Word } from '@/components/word';
 
-// The end: the whole crew waiting, and the install.
+// The end: the crew outside their office, and the install laid over it.
 export function Install() {
   return (
-    <section className="wrap section final text-center" id="install">
-      <div className="lineup" aria-hidden="true">
-        <Face who="walrus" />
-        <Face who="coder" />
-        <Face who="engineer" />
-        <Mascot who="guru" pose="wave" />
-        <Face who="pearls" />
-        <Face who="afro" />
-        <Face who="beatnik" />
+    <section className="wrap section final text-center pt-0!" id="install">
+      <div className="office">
+        <img
+          className="room"
+          src="/hq.webp"
+          srcSet="/hq-1440.webp 1440w, /hq.webp 2880w"
+          sizes="100vw"
+          width="2880"
+          height="1608"
+          loading="lazy"
+          alt="The crew outside their 1970s office under big AGENT VALLEY letters, a camper van and two old cars in the lot. Judy, Norm and Faye stand on the left; Sunny waves with his mug beside Walt, Felix and Pearl on the right."
+        />
+        <div className="card">
+          <h2>Put the valley in your notch.</h2>
+          <div className="mt-[30px] flex flex-col items-center text-left [&>.command]:w-full">
+            <GetIt>
+              <Terms needs={false} />
+            </GetIt>
+          </div>
+          <p className="small mx-auto">Needs macOS 15 or later and Claude Code. Made for MacBooks with a notch.</p>
+        </div>
       </div>
-      <h2>Put the valley in your notch.</h2>
-      <div className="mt-[30px] flex flex-col items-center text-left [&>.command]:w-full">
-        <GetIt>
-          <Terms needs={false} />
-        </GetIt>
-      </div>
-      <p className="small mx-auto">Needs macOS 15 or later and Claude Code. Made for MacBooks with a notch.</p>
       <div className="next mx-auto mt-14 max-w-[540px] text-left">
         <h3 className="font-mono text-[1.3125rem] leading-[1.3]">After you download it</h3>
         <ol role="list">
