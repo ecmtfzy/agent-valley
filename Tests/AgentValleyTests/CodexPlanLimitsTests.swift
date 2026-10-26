@@ -214,7 +214,9 @@ final class CodexPlanLimitsTests: XCTestCase {
             var result: Result<PlanLimits, LimitsFailure>?
             let cancel = source.fetch { result = $0 }
             defer { cancel() }
-            XCTAssertTrue(wait { result != nil })
+            // This checks failure classification, not process-launch latency on a busy runner.
+            // Let the source finish within its own timeout before inspecting the exact result.
+            XCTAssertTrue(wait(timeout: CodexLimitsSource.timeout + 2) { result != nil })
             XCTAssertEqual(result, .failure(expected))
         }
     }
