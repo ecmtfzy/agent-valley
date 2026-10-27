@@ -205,13 +205,13 @@ final class FormatTests: XCTestCase {
     }
 
     func testAccountRingsNameTheirFixedPositionsAndIndependentWindows() {
-        let claude = LimitRing(limit: PlanLimit(usedPercent: 62, resetsAt: nil), stale: false)
+        let claude = LimitRing(limit: PlanLimit(usedPercent: 62, resetsAt: nil), stale: false, weekly: true)
         let codex = LimitRing(limit: PlanLimit(usedPercent: 11, resetsAt: nil), stale: true, weekly: true)
         XCTAssertEqual(Format.accountRingsLabel(claude: .value(claude), codex: .value(codex)),
-                       "Claude (outer): 5-hour limit 62% used; Codex (inner): Weekly limit 11% used, from before the last check failed")
+                       "Claude (outer): Weekly limit 62% used; Codex (inner): Weekly limit 11% used, from before the last check failed")
         XCTAssertEqual(Format.accountRingsLabel(claude: nil, codex: .value(codex)),
                        "Codex (inner): Weekly limit 11% used, from before the last check failed")
-        XCTAssertEqual(Format.accountRingsLabel(claude: .value(claude), codex: nil), "Claude (outer): 5-hour limit 62% used")
+        XCTAssertEqual(Format.accountRingsLabel(claude: .value(claude), codex: nil), "Claude (outer): Weekly limit 62% used")
         XCTAssertEqual(Format.accountRingsLabel(claude: nil, codex: nil), "")
     }
 
@@ -739,7 +739,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.barMascotCaption, "The mascot on the bar is the agent to look at first.")
         XCTAssertEqual(Format.barCaption, "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet.")
         XCTAssertEqual(Format.waitCaption, "Once an agent has waited a minute for you, the longest wait shows in red where the ring is.")
-        XCTAssertEqual(Format.ringCaption, "Outer ring: Claude. Inner ring: Codex. Each shows 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. A dashed ring means usage is unknown.")
+        XCTAssertEqual(Format.ringCaption, "Outer ring: Claude weekly usage. Inner ring: Codex 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. A dashed ring means usage is unknown.")
         XCTAssertEqual(Format.beatCaption, "While an agent waits for you, the bar glows red every few seconds, until you open the panel.")
         // A label that was half a sentence, and "your login", which could have been a password.
         XCTAssertEqual(Format.keepTitle, "Keep idle and done listed for")

@@ -211,8 +211,8 @@ final class PlanLimitsTests: XCTestCase {
         XCTAssertNil(resolve(nil, fetched: nil))
     }
 
-    // Prefer 5h, but keep weekly-only accounts visible without inventing a zero 5h value.
-    func testTheRingPrefersFiveHoursAndFallsBackToItsAccountsWeek() {
+    // Claude stays weekly; Codex keeps its existing 5h preference and weekly fallback.
+    func testTheRingSelectsClaudeWeekAndPreservesCodexWindowSelection() {
         typealias Display = PlanLimitsClient.Display
         let five = PlanLimit(usedPercent: 62, resetsAt: nil)
         let week = PlanLimit(usedPercent: 18, resetsAt: nil)
@@ -221,10 +221,12 @@ final class PlanLimitsTests: XCTestCase {
         XCTAssertNil(Display.unavailable(.offline).ring)
         XCTAssertNil(Display.limits(PlanLimits(fiveHour: nil, week: nil), asOf: nil).ring)
         XCTAssertEqual(Display.limits(PlanLimits(fiveHour: nil, week: week), asOf: nil).ring, LimitRing(limit: week, stale: false, weekly: true))
-        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: week), asOf: nil).ring, LimitRing(limit: five, stale: false))
-        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: nil), asOf: nil).ring, LimitRing(limit: five, stale: false))
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: week), asOf: nil).ring, LimitRing(limit: week, stale: false, weekly: true))
+        XCTAssertNil(Display.limits(PlanLimits(fiveHour: five, week: nil), asOf: nil).ring)
         // Numbers kept from before a refresh that failed: still drawn, and marked as old.
-        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: nil), asOf: Date()).ring, LimitRing(limit: five, stale: true))
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: week), asOf: Date()).ring, LimitRing(limit: week, stale: true, weekly: true))
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: five, week: week, provider: .codex), asOf: nil).ring,
+                       LimitRing(limit: five, stale: false))
         XCTAssertEqual(Display.limits(PlanLimits(fiveHour: nil, week: week, provider: .codex), asOf: Date()).ring,
                        LimitRing(limit: week, stale: true, weekly: true))
     }
@@ -238,7 +240,9 @@ final class PlanLimitsTests: XCTestCase {
                        .unavailable(.unreadable))
         let zero = PlanLimit(usedPercent: 0, resetsAt: nil)
         XCTAssertEqual(Display.limits(PlanLimits(fiveHour: zero, week: nil), asOf: nil).ringState,
-                       .value(LimitRing(limit: zero, stale: false)))
+                       .unavailable(.unreadable))
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: zero, week: zero), asOf: nil).ringState,
+                       .value(LimitRing(limit: zero, stale: false, weekly: true)))
         XCTAssertEqual(Display.limits(PlanLimits(fiveHour: nil, week: zero, provider: .codex), asOf: nil).ringState,
                        .value(LimitRing(limit: zero, stale: false, weekly: true)))
     }

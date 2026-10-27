@@ -627,7 +627,7 @@ enum Format {
     static let shortcutCaption = "Opens the panel from any app. ↑ ↓ move between sessions, return goes to the session's app, ⌘return and ⌘delete answer a request, esc closes. The ? lists every key."
     static let barCaption = "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet."
     static let waitCaption = "Once an agent has waited a minute for you, the longest wait shows in red where the ring is."
-    static let ringCaption = "Outer ring: Claude. Inner ring: Codex. Each shows 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. A dashed ring means usage is unknown."
+    static let ringCaption = "Outer ring: Claude weekly usage. Inner ring: Codex 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. A dashed ring means usage is unknown."
 
     /// The ring on the bar, read out: it has no room for a word of its own.
     static func ringLabel(_ ring: LimitRing) -> String {

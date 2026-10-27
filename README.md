@@ -9,8 +9,9 @@ configure it. The upstream downloads below do not include this fork's Codex adap
 [morsechimwai/agent-valley](https://github.com/morsechimwai/agent-valley).
 Upstream changes can be merged into `codex-support` without discarding the adapter.
 
-The collapsed notch shows Claude usage in the outer ring and Codex usage in the
-inner ring. Enabled rings stay visible as grey dashed outlines while loading or
+The collapsed notch shows Claude weekly usage in the outer ring and Codex usage
+(5-hour, or weekly when no 5-hour window is available) in the inner ring.
+Enabled rings stay visible as grey dashed outlines while loading or
 unavailable; their help text explains the state. Unlocking or waking the Mac
 refreshes both accounts, with bounded retries for temporary network failures.
 

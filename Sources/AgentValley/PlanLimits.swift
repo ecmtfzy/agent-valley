@@ -71,7 +71,7 @@ struct RunOut: Equatable {
     let resetsAt: Date?
 }
 
-/// An account's 5-hour window, or its weekly window when that is all it reports.
+/// The account window selected for the collapsed notch ring.
 struct LimitRing: Equatable {
     let limit: PlanLimit
     /// The latest refresh failed and this is the number from before it.
@@ -337,10 +337,13 @@ final class PlanLimitsClient: ObservableObject {
         /// `asOf`: set when the latest refresh failed, to the time these older numbers are from.
         case limits(PlanLimits, asOf: Date?)
 
-        /// Prefer the 5-hour window, falling back only to this account's weekly window.
-        /// Missing numbers stay absent: an empty ring would claim that nothing was used.
+        /// Claude shows its weekly window. Codex prefers 5 hours, then its weekly window.
+        /// A missing selected window stays unknown instead of changing what the ring means.
         var ring: LimitRing? {
             guard case .limits(let limits, let asOf) = self else { return nil }
+            if limits.provider == .claude {
+                return limits.week.map { LimitRing(limit: $0, stale: asOf != nil, weekly: true) }
+            }
             if let limit = limits.fiveHour { return LimitRing(limit: limit, stale: asOf != nil) }
             if let limit = limits.week { return LimitRing(limit: limit, stale: asOf != nil, weekly: true) }
             return nil
