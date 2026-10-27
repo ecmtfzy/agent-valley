@@ -186,7 +186,12 @@ final class ClaudeUsageSourceTests: XCTestCase {
         let source = ClaudeCLIUsageSource(command: { fixture.command }, terminationGrace: 0.1)
         var answered = false
         let cancel = source.fetch { _ in answered = true }
-        XCTAssertTrue(wait { fixture.pid != nil })
+        defer { cancel() }
+        // A cold Python launch on CI is setup, not part of cancellation latency.
+        // Only begin the strict timing checks once the owned child is ready.
+        let ready = wait(timeout: 15) { fixture.pid != nil }
+        XCTAssertTrue(ready, "Fixture Python process did not report readiness within 15 seconds")
+        guard ready else { return }
         let before = ProcessInfo.processInfo.systemUptime
         cancel()
         XCTAssertTrue(ProcessInfo.processInfo.systemUptime - before < 0.1)
