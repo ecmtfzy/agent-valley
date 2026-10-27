@@ -233,11 +233,11 @@ enum Format {
         }
         switch failure {
         case .noLogin: return "No Claude Code login in Keychain. Sign in with Claude Code first."
-        case .loginExpired: return "The Claude Code login has expired. Use Claude Code once to renew it."
+        case .loginExpired: return "Claude Code could not renew your login. Sign in with Claude Code again."
         case .offline: return "No connection to api.anthropic.com. \(limitsRetry)"
         case .refused(let status): return "api.anthropic.com answered with error \(status). \(limitsRetry)"
         case .unreadable: return "api.anthropic.com sent an answer this version does not understand. A newer version of the app may."
-        case .noAnswer: return "No answer after a minute. It will try again."
+        case .noAnswer: return "The usage check timed out. It will try again."
         }
     }
 
@@ -604,7 +604,7 @@ enum Format {
 
     /// Under the Plan limits switch. What is read is named for what it is: "your login" left
     /// a reader to wonder whether that meant a password.
-    static let limitsCaption = "Reads the access token of your Claude Code login from Keychain, and sends it to api.anthropic.com to ask for your usage. It is never stored and never sent anywhere else."
+    static let limitsCaption = "Uses your Claude Code login to check usage with Anthropic. If it expires, the installed Claude Code app tries to renew it. AgentValley does not store your login or start a conversation."
     static let codexLimitsCaption = "Reads plan usage using your existing Codex login on this Mac."
 
     /// The name of the setting for how long what has stopped stays in the list.
@@ -627,7 +627,7 @@ enum Format {
     static let shortcutCaption = "Opens the panel from any app. ↑ ↓ move between sessions, return goes to the session's app, ⌘return and ⌘delete answer a request, esc closes. The ? lists every key."
     static let barCaption = "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet."
     static let waitCaption = "Once an agent has waited a minute for you, the longest wait shows in red where the ring is."
-    static let ringCaption = "Outer ring: Claude. Inner ring: Codex. Each shows 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. Missing account data hides its ring."
+    static let ringCaption = "Outer ring: Claude. Inner ring: Codex. Each shows 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. A dashed ring means usage is unknown."
 
     /// The ring on the bar, read out: it has no room for a word of its own.
     static func ringLabel(_ ring: LimitRing) -> String {
@@ -635,10 +635,17 @@ enum Format {
             + (ring.stale ? ", from before the last check failed" : "")
     }
 
-    static func accountRingsLabel(claude: LimitRing?, codex: LimitRing?) -> String {
+    static func accountRingsLabel(claude: PlanLimitsClient.RingState?, codex: PlanLimitsClient.RingState?) -> String {
         var parts: [String] = []
-        if let claude { parts.append("Claude (outer): " + ringLabel(claude)) }
-        if let codex { parts.append("Codex (inner): " + ringLabel(codex)) }
+        func label(_ state: PlanLimitsClient.RingState, provider: PlanLimitsProvider) -> String {
+            switch state {
+            case .value(let ring): return ringLabel(ring)
+            case .loading: return "Usage unknown. " + limitsLoading
+            case .unavailable(let reason): return "Usage unknown. " + limitsReason(reason, provider: provider)
+            }
+        }
+        if let claude { parts.append("Claude (outer): " + label(claude, provider: .claude)) }
+        if let codex { parts.append("Codex (inner): " + label(codex, provider: .codex)) }
         return parts.joined(separator: "; ")
     }
     /// Under the shortcut's switch when the system would not give the chord.
@@ -838,8 +845,8 @@ struct PanelView: View {
     private var globalLimitsDisplay: PlanLimitsClient.Display { limitsDisplay(for: limitsScope.global) }
 
     // Fixed positions identify each account even with mixed sessions or no sessions.
-    private var claudeRing: LimitRing? { settings.planLimits ? limits.display.ring : nil }
-    private var codexRing: LimitRing? { settings.codexPlanLimits ? codexLimits.display.ring : nil }
+    private var claudeRing: PlanLimitsClient.RingState? { settings.planLimits ? limits.display.ringState : nil }
+    private var codexRing: PlanLimitsClient.RingState? { settings.codexPlanLimits ? codexLimits.display.ringState : nil }
 
     /// A single account fits beside the counts. With two, both use matching rows
     /// in the measured content, rather than giving either account a different column.

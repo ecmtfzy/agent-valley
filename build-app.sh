@@ -48,6 +48,9 @@ cp -R plugin "$APP/Contents/Resources/claude-plugin"
 mkdir -p "$APP/Contents/Resources/codex"
 cp integrations/codex/bridge.py "$APP/Contents/Resources/codex/bridge.py"
 cp testing/probe-codex-runtime.py "$APP/Contents/Resources/codex/runtime_probe.py"
+# Usage-only recovery delegates expired Claude logins to the installed official CLI.
+mkdir -p "$APP/Contents/Resources/claude"
+cp integrations/claude/usage_probe.py "$APP/Contents/Resources/claude/usage_probe.py"
 # The icon Finder shows; testing/site.sh icon makes it from the website's crew mark.
 cp AppIcon.icns "$APP/Contents/Resources/"
 # The crew's faces for Claude Code's terminal; the user installs the font themselves.

@@ -244,18 +244,18 @@ struct LimitRingView: View {
 /// Account positions stay fixed even when one has no usable window: Claude outside,
 /// Codex inside. Each keeps its own usage color and stale-data opacity.
 struct AccountLimitRingsView: View {
-    let claude: LimitRing?
-    let codex: LimitRing?
+    let claude: PlanLimitsClient.RingState?
+    let codex: PlanLimitsClient.RingState?
     static let size: CGFloat = 20
 
     var body: some View {
         let label = Format.accountRingsLabel(claude: claude, codex: codex)
         ZStack {
             if let claude {
-                LimitRingView(ring: claude, size: Self.size, lineWidth: 2)
+                track(claude, size: Self.size)
             }
             if let codex {
-                LimitRingView(ring: codex, size: 12, lineWidth: 2)
+                track(codex, size: 12)
             }
         }
         .frame(width: Self.size, height: Self.size)
@@ -263,6 +263,18 @@ struct AccountLimitRingsView: View {
         .accessibilityLabel(Text(verbatim: label))
         .accessibilityHidden(claude == nil && codex == nil)
         .help(Text(verbatim: label))
+    }
+
+    @ViewBuilder private func track(_ state: PlanLimitsClient.RingState, size: CGFloat) -> some View {
+        switch state {
+        case .value(let ring):
+            LimitRingView(ring: ring, size: size, lineWidth: 2)
+        case .loading, .unavailable:
+            // A solid empty track means a known zero. Dashes mean there is no value yet.
+            Circle().inset(by: 1)
+                .stroke(Color.white.opacity(0.35), style: StrokeStyle(lineWidth: 2, dash: [2, 2]))
+                .frame(width: size, height: size)
+        }
     }
 }
 

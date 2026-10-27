@@ -229,6 +229,20 @@ final class PlanLimitsTests: XCTestCase {
                        LimitRing(limit: week, stale: true, weekly: true))
     }
 
+    func testUnknownRingStatesStayDistinctFromDisabledAndRealZeroUsage() {
+        typealias Display = PlanLimitsClient.Display
+        XCTAssertNil(Display.off.ringState)
+        XCTAssertEqual(Display.loading.ringState, .loading)
+        XCTAssertEqual(Display.unavailable(.loginExpired).ringState, .unavailable(.loginExpired))
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: nil, week: nil), asOf: nil).ringState,
+                       .unavailable(.unreadable))
+        let zero = PlanLimit(usedPercent: 0, resetsAt: nil)
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: zero, week: nil), asOf: nil).ringState,
+                       .value(LimitRing(limit: zero, stale: false)))
+        XCTAssertEqual(Display.limits(PlanLimits(fiveHour: nil, week: zero, provider: .codex), asOf: nil).ringState,
+                       .value(LimitRing(limit: zero, stale: false, weekly: true)))
+    }
+
     // The crew goes fishing only while a window has run out, and is back with the later of two.
     func testARunOutWindowIsTheOneThatComesBackLast() {
         let now = date("2026-10-21T08:00:00Z")

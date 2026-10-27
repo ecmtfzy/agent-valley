@@ -9,6 +9,19 @@ configure it. The upstream downloads below do not include this fork's Codex adap
 [morsechimwai/agent-valley](https://github.com/morsechimwai/agent-valley).
 Upstream changes can be merged into `codex-support` without discarding the adapter.
 
+The collapsed notch shows Claude usage in the outer ring and Codex usage in the
+inner ring. Enabled rings stay visible as grey dashed outlines while loading or
+unavailable; their help text explains the state. Unlocking or waking the Mac
+refreshes both accounts, with bounded retries for temporary network failures.
+
+Expired Claude logins are renewed through the installed official Claude Code CLI's
+usage-only control request. The helper sends no model prompt, saves no conversation,
+and leaves refresh-token rotation to Claude Code's own locking and credential
+storage. It disables project settings, hooks, tools and MCP servers; administrator
+policy still applies. This experimental CLI interface is bounded and fails closed
+if unsupported. Revoked refresh credentials require signing in to Claude Code
+again; an unavailable ring remains visible in the meantime.
+
 <div align="center">
 
 <picture>

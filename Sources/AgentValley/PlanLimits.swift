@@ -84,7 +84,7 @@ struct LimitRing: Equatable {
 enum LimitsFailure: Error, Equatable {
     /// No Claude Code item in the Keychain, or it could not be read.
     case noLogin
-    /// The login in it has run out. Only Claude Code renews it; this app never does.
+    /// The login in it has run out. Recovery delegates renewal to official Claude Code.
     case loginExpired
     /// No answer from the usage endpoint.
     case offline
@@ -92,7 +92,7 @@ enum LimitsFailure: Error, Equatable {
     case refused(Int)
     /// It answered with something that holds no limits.
     case unreadable
-    /// A fetch was given up on after a minute.
+    /// A fetch exceeded its source's bounded waiting time.
     case noAnswer
 }
 
@@ -182,11 +182,17 @@ final class NoRedirects: NSObject, URLSessionTaskDelegate {
 /// Where the limits come from. `fetch` answers on the main thread, once, unless it is cancelled
 /// first; it returns the way to cancel.
 protocol PlanLimitsSource {
+    /// The maximum time needed for a complete read, including any bounded recovery.
+    var fetchTimeout: TimeInterval { get }
     func fetch(_ done: @escaping (Result<PlanLimits, LimitsFailure>) -> Void) -> () -> Void
 }
 
+extension PlanLimitsSource {
+    var fetchTimeout: TimeInterval { 60 }
+}
+
 /// The real source: the Claude Code login in the Keychain, then Anthropic's usage endpoint.
-/// The only code that runs `security` and touches the network.
+/// Reads the login and sends only the usage GET; renewal belongs to ClaudeUsageSource.
 final class KeychainLimitsSource: PlanLimitsSource {
     static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
     static let keychainService = "Claude Code-credentials"
@@ -220,7 +226,8 @@ final class KeychainLimitsSource: PlanLimitsSource {
         }
         DispatchQueue.global(qos: .utility).async { [session] in
             // The token exists only inside this closure: read, used for one request, gone.
-            // It is never refreshed here; that would sign Claude Code out.
+            // This source only reads. ClaudeUsageSource delegates renewal to the
+            // official CLI so its credential rotation and locking stay coordinated.
             let token: String
             switch Self.readToken(for: flight) {
             case .success(let read): token = read
@@ -238,7 +245,7 @@ final class KeychainLimitsSource: PlanLimitsSource {
     /// most a status code; nothing of the reply's content is kept.
     static func outcome(data: Data?, response: URLResponse?, failed: Bool) -> Result<PlanLimits, LimitsFailure> {
         guard !failed, let status = (response as? HTTPURLResponse)?.statusCode else { return .failure(.offline) }
-        // Only Claude Code can renew its login, so a refused login is the person's to fix there.
+        // The wrapper can ask official Claude Code to renew a refused login.
         if status == 401 { return .failure(.loginExpired) }
         guard status == 200 else { return .failure(.refused(status)) }
         return data.flatMap(PlanLimitsReader.parse).map(Result.success) ?? .failure(.unreadable)
@@ -307,8 +314,18 @@ final class PlanLimitsClient: ObservableObject {
     static let staleAfter: TimeInterval = 60
     /// A failed fetch keeps showing the last numbers for this long.
     static let keepLastFor: TimeInterval = 900
-    /// A fetch still unanswered after this long is abandoned so the next one can start.
+    /// Minimum waiting budget; a source may declare a longer bounded recovery.
     static let giveUpAfter: TimeInterval = 60
+    static let retryDelays: [TimeInterval] = [10, 30, 60]
+    /// Wake and unlock can arrive separately for the same return to the Mac.
+    static let resumeRefreshInterval: TimeInterval = 10
+
+    /// Unknown usage has its own track; it must never become a zero-percent value.
+    enum RingState: Equatable {
+        case loading
+        case unavailable(LimitsFailure)
+        case value(LimitRing)
+    }
 
     /// What the status row shows where the limits go.
     enum Display: Equatable {
@@ -327,6 +344,15 @@ final class PlanLimitsClient: ObservableObject {
             if let limit = limits.fiveHour { return LimitRing(limit: limit, stale: asOf != nil) }
             if let limit = limits.week { return LimitRing(limit: limit, stale: asOf != nil, weekly: true) }
             return nil
+        }
+
+        var ringState: RingState? {
+            switch self {
+            case .off: return nil
+            case .loading: return .loading
+            case .unavailable(let reason): return .unavailable(reason)
+            case .limits: return ring.map(RingState.value) ?? .unavailable(.unreadable)
+            }
         }
 
         /// Whether the panel has numbers to go by.
@@ -362,6 +388,7 @@ final class PlanLimitsClient: ObservableObject {
     }
 
     private let source: PlanLimitsSource
+    private var flightTimeout: TimeInterval { max(Self.giveUpAfter, source.fetchTimeout) }
     private let now: () -> Date
     private var inFlight = false
     private var cancelFlight: (() -> Void)?
@@ -370,14 +397,27 @@ final class PlanLimitsClient: ObservableObject {
     private var attemptedAt: Date?
     private var fetchedAt: Date?
     private var timer: Timer?
+    typealias Schedule = (TimeInterval, @escaping () -> Void) -> () -> Void
+    private let schedule: Schedule
+    private var cancelRetry: (() -> Void)?
+    private var retryIndex = 0
+    private var retryGeneration = 0
+    private var resumedAt: Date?
+    private var cancelResumeCheck: (() -> Void)?
+    private var resumeGeneration = 0
+    private var checkAfterFlight = false
 
-    init(source: PlanLimitsSource = KeychainLimitsSource(), now: @escaping () -> Date = Date.init) {
+    init(source: PlanLimitsSource = ClaudeUsageSource(), now: @escaping () -> Date = Date.init,
+         schedule: @escaping Schedule = PlanLimitsClient.scheduleOnMain) {
         self.source = source
         self.now = now
+        self.schedule = schedule
     }
 
     deinit {
         timer?.invalidate()
+        cancelRetry?()
+        cancelResumeCheck?()
     }
 
     func setEnabled(_ on: Bool) {
@@ -386,11 +426,14 @@ final class PlanLimitsClient: ObservableObject {
         timer?.invalidate()
         timer = nil
         guard on else {
+            resetRetries()
+            resetResumeCheck()
             abandonFlight()
             limits = nil
             failure = nil
             fetchedAt = nil
             attemptedAt = nil
+            resumedAt = nil
             return
         }
         timer = Timer.scheduledTimer(withTimeInterval: Self.refreshEvery, repeats: true) { [weak self] _ in
@@ -402,6 +445,36 @@ final class PlanLimitsClient: ObservableObject {
     /// Called when the panel opens: current numbers without polling harder than needed.
     func refreshIfStale() {
         if let attemptedAt, now().timeIntervalSince(attemptedAt) < Self.staleAfter { return }
+        refresh()
+    }
+
+    /// A returned Mac gets one prompt check, even if the last attempt was recent.
+    /// The app also coalesces notifications; this guard covers later duplicate events.
+    func refreshAfterResume() {
+        guard enabled else { return }
+        let time = now()
+        if inFlight, let attemptedAt, time.timeIntervalSince(attemptedAt) < flightTimeout {
+            // An official account reader may still be recovering a login when unlock
+            // arrives. Keep the request until its answer; success makes another read needless.
+            checkAfterFlight = true
+            return
+        }
+        if let resumedAt, time.timeIntervalSince(resumedAt) < Self.resumeRefreshInterval {
+            // Wake may precede unlock. If that read failed (or is still running), keep
+            // one check after the rate limit, so a locked Keychain need not cost five minutes.
+            if failure != nil || inFlight, cancelResumeCheck == nil {
+                let mine = resumeGeneration
+                cancelResumeCheck = schedule(Self.resumeRefreshInterval - time.timeIntervalSince(resumedAt)) { [weak self] in
+                    guard let self, self.enabled, self.resumeGeneration == mine else { return }
+                    self.cancelResumeCheck = nil
+                    if self.inFlight || self.failure != nil { self.refreshAfterResume() }
+                }
+            }
+            return
+        }
+        resetResumeCheck()
+        resumedAt = time
+        show(Self.resolve(result: nil, last: limits, lastFetchedAt: fetchedAt, now: time))
         refresh()
     }
 
@@ -419,13 +492,15 @@ final class PlanLimitsClient: ObservableObject {
         return last
     }
 
-    private func refresh() {
+    private func refresh(resetRetrySequence: Bool = true) {
         guard enabled else { return }
-        if inFlight, let attemptedAt, now().timeIntervalSince(attemptedAt) >= Self.giveUpAfter {
+        if inFlight, let attemptedAt, now().timeIntervalSince(attemptedAt) >= flightTimeout {
             abandonFlight()
             failure = .noAnswer
         }
         guard !inFlight else { return }
+        if resetRetrySequence { resetRetries() }
+        checkAfterFlight = false
         inFlight = true
         attemptedAt = now()
         flight += 1
@@ -446,6 +521,58 @@ final class PlanLimitsClient: ObservableObject {
         var reason: LimitsFailure?
         if case .failure(let why) = outcome { reason = why }
         if failure != reason { failure = reason }
+        if let reason {
+            if checkAfterFlight {
+                checkAfterFlight = false
+                refreshAfterResume()
+            } else {
+                retry(after: reason)
+            }
+        } else {
+            resetRetries()
+            resetResumeCheck()
+        }
+    }
+
+    /// Only transport/server failures get a short retry sequence. A missing or expired
+    /// login, a rejected request, or an unknown schema waits for the regular check.
+    private func retry(after failure: LimitsFailure) {
+        let transient: Bool
+        switch failure {
+        case .offline, .noAnswer: transient = true
+        case .refused(let status): transient = (500...599).contains(status)
+        default: transient = false
+        }
+        guard transient, retryIndex < Self.retryDelays.count else { return }
+        let delay = Self.retryDelays[retryIndex]
+        retryIndex += 1
+        retryGeneration += 1
+        let mine = retryGeneration
+        cancelRetry = schedule(delay) { [weak self] in
+            guard let self, self.enabled, self.retryGeneration == mine else { return }
+            self.cancelRetry = nil
+            self.refresh(resetRetrySequence: false)
+        }
+    }
+
+    private func resetRetries() {
+        cancelRetry?()
+        cancelRetry = nil
+        retryIndex = 0
+        retryGeneration += 1
+    }
+
+    private func resetResumeCheck() {
+        cancelResumeCheck?()
+        cancelResumeCheck = nil
+        resumeGeneration += 1
+        checkAfterFlight = false
+    }
+
+    static func scheduleOnMain(after delay: TimeInterval, _ action: @escaping () -> Void) -> () -> Void {
+        let work = DispatchWorkItem(block: action)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        return { work.cancel() }
     }
 
     /// Stops the fetch under way and disowns it, so an answer already on its way changes nothing.

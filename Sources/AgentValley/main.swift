@@ -95,6 +95,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.$codexPlanLimits
             .sink { [codexLimits] on in codexLimits.setEnabled(on) }
             .store(in: &watches)
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
+            .merge(with: DistributedNotificationCenter.default().publisher(for: .init("com.apple.screenIsUnlocked")))
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { [limits, codexLimits] _ in
+                limits.refreshAfterResume()
+                codexLimits.refreshAfterResume()
+            }
+            .store(in: &watches)
         settings.$answers
             .sink { [answers] on in answers.setEnabled(on); answers.checkPlugin() }
             .store(in: &watches)

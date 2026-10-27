@@ -164,11 +164,11 @@ final class FormatTests: XCTestCase {
     // Each reason says what the person can do, and none carries anything from the login or the reply.
     func testLimitsReasonsSayWhatToDo() {
         XCTAssertEqual(Format.limitsReason(.noLogin), "No Claude Code login in Keychain. Sign in with Claude Code first.")
-        XCTAssertEqual(Format.limitsReason(.loginExpired), "The Claude Code login has expired. Use Claude Code once to renew it.")
+        XCTAssertEqual(Format.limitsReason(.loginExpired), "Claude Code could not renew your login. Sign in with Claude Code again.")
         XCTAssertEqual(Format.limitsReason(.offline), "No connection to api.anthropic.com. It tries again every 5 minutes.")
         XCTAssertEqual(Format.limitsReason(.refused(529)), "api.anthropic.com answered with error 529. It tries again every 5 minutes.")
         XCTAssertEqual(Format.limitsReason(.unreadable), "api.anthropic.com sent an answer this version does not understand. A newer version of the app may.")
-        XCTAssertEqual(Format.limitsReason(.noAnswer), "No answer after a minute. It will try again.")
+        XCTAssertEqual(Format.limitsReason(.noAnswer), "The usage check timed out. It will try again.")
         XCTAssertEqual(Format.limitsLoading, "Checking limits…")
     }
 
@@ -207,12 +207,22 @@ final class FormatTests: XCTestCase {
     func testAccountRingsNameTheirFixedPositionsAndIndependentWindows() {
         let claude = LimitRing(limit: PlanLimit(usedPercent: 62, resetsAt: nil), stale: false)
         let codex = LimitRing(limit: PlanLimit(usedPercent: 11, resetsAt: nil), stale: true, weekly: true)
-        XCTAssertEqual(Format.accountRingsLabel(claude: claude, codex: codex),
+        XCTAssertEqual(Format.accountRingsLabel(claude: .value(claude), codex: .value(codex)),
                        "Claude (outer): 5-hour limit 62% used; Codex (inner): Weekly limit 11% used, from before the last check failed")
-        XCTAssertEqual(Format.accountRingsLabel(claude: nil, codex: codex),
+        XCTAssertEqual(Format.accountRingsLabel(claude: nil, codex: .value(codex)),
                        "Codex (inner): Weekly limit 11% used, from before the last check failed")
-        XCTAssertEqual(Format.accountRingsLabel(claude: claude, codex: nil), "Claude (outer): 5-hour limit 62% used")
+        XCTAssertEqual(Format.accountRingsLabel(claude: .value(claude), codex: nil), "Claude (outer): 5-hour limit 62% used")
         XCTAssertEqual(Format.accountRingsLabel(claude: nil, codex: nil), "")
+    }
+
+    func testUnknownRingsNameTheCauseWithoutClaimingZeroUsage() {
+        XCTAssertEqual(Format.accountRingsLabel(claude: .loading, codex: nil),
+                       "Claude (outer): Usage unknown. Checking limits…")
+        XCTAssertEqual(Format.accountRingsLabel(claude: .unavailable(.loginExpired), codex: .loading),
+                       "Claude (outer): Usage unknown. Claude Code could not renew your login. Sign in with Claude Code again.; Codex (inner): Usage unknown. Checking limits…")
+        XCTAssertEqual(Format.accountRingsLabel(claude: nil, codex: .unavailable(.noAnswer)),
+                       "Codex (inner): Usage unknown. Codex did not respond. It tries again every 5 minutes.")
+        XCTAssertFalse(Format.accountRingsLabel(claude: .loading, codex: .unavailable(.offline)).contains("0%"))
     }
 
     // "5h" and "7d" are short for the row's sake. Resting the pointer on one says it in words.
@@ -729,11 +739,11 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.barMascotCaption, "The mascot on the bar is the agent to look at first.")
         XCTAssertEqual(Format.barCaption, "The number on the bar: red is how many agents need you, white how many are working, grey how many are quiet.")
         XCTAssertEqual(Format.waitCaption, "Once an agent has waited a minute for you, the longest wait shows in red where the ring is.")
-        XCTAssertEqual(Format.ringCaption, "Outer ring: Claude. Inner ring: Codex. Each shows 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. Missing account data hides its ring.")
+        XCTAssertEqual(Format.ringCaption, "Outer ring: Claude. Inner ring: Codex. Each shows 5-hour usage, or weekly usage when no 5-hour limit is available. Yellow at 80%. A dashed ring means usage is unknown.")
         XCTAssertEqual(Format.beatCaption, "While an agent waits for you, the bar glows red every few seconds, until you open the panel.")
         // A label that was half a sentence, and "your login", which could have been a password.
         XCTAssertEqual(Format.keepTitle, "Keep idle and done listed for")
-        XCTAssertEqual(Format.limitsCaption, "Reads the access token of your Claude Code login from Keychain, and sends it to api.anthropic.com to ask for your usage. It is never stored and never sent anywhere else.")
+        XCTAssertEqual(Format.limitsCaption, "Uses your Claude Code login to check usage with Anthropic. If it expires, the installed Claude Code app tries to renew it. AgentValley does not store your login or start a conversation.")
     }
 
     // The ring the arrow keys move was a picture and nothing else. A tester on a screen reader

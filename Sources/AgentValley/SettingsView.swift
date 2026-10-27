@@ -519,8 +519,8 @@ struct Legend: View {
             mark("quiet") { Text(verbatim: "2").foregroundStyle(.white.opacity(0.6)) }
             mark("plan limits") {
                 AccountLimitRingsView(
-                    claude: LimitRing(limit: PlanLimit(usedPercent: 65, resetsAt: nil), stale: false),
-                    codex: LimitRing(limit: PlanLimit(usedPercent: 35, resetsAt: nil), stale: false)
+                    claude: .value(LimitRing(limit: PlanLimit(usedPercent: 65, resetsAt: nil), stale: false)),
+                    codex: .value(LimitRing(limit: PlanLimit(usedPercent: 35, resetsAt: nil), stale: false))
                 ).accessibilityHidden(true)
             }
             mark("longest wait") { Text(verbatim: "12m").bold().foregroundStyle(MascotFlag.red) }

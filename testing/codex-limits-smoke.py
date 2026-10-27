@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build/codex-prototype/limits-smoke"
 SOURCE = ROOT / "Sources/AgentValley/CodexPlanLimits.swift"
 CLIENT = ROOT / "Sources/AgentValley/PlanLimits.swift"
+CLAUDE_SOURCE = ROOT / "Sources/AgentValley/ClaudeUsageSource.swift"
 SCOPE = ROOT / "Sources/AgentValley/PlanLimitsScope.swift"
 TESTS = ROOT / "Tests/AgentValleyTests/CodexPlanLimitsTests.swift"
 LEGACY_TESTS = [ROOT / "Tests/AgentValleyTests/PlanLimitsTests.swift",
@@ -29,7 +30,7 @@ LEGACY_TESTS = [ROOT / "Tests/AgentValleyTests/PlanLimitsTests.swift",
 
 
 def main():
-    original = {path: path.read_bytes() for path in [SOURCE, CLIENT, SCOPE, TESTS] + LEGACY_TESTS}
+    original = {path: path.read_bytes() for path in [SOURCE, CLIENT, CLAUDE_SOURCE, SCOPE, TESTS] + LEGACY_TESTS}
     header = ROOT / "Sources/AgentValley/HeaderView.swift"
     reset_enum = re.search(r"enum LimitResets: Hashable \{.*?\n\}", header.read_text(), re.S).group(0)
     assertions = runpy.run_path(str(ROOT / "testing/codex-runtime-smoke.py"))["ASSERTIONS"]
@@ -110,7 +111,7 @@ exit(failed == 0 ? 0 : 1)
     compiler, sdk, environment = swift_toolchain()
     binary = OUT / "limits-smoke"
     command = [compiler, "-sdk", sdk, "-target", f"{platform.machine()}-apple-macosx15.0",
-               "-module-cache-path", str(OUT / "module-cache"), str(SOURCE), str(CLIENT), str(SCOPE),
+               "-module-cache-path", str(OUT / "module-cache"), str(SOURCE), str(CLIENT), str(CLAUDE_SOURCE), str(SCOPE),
                str(ROOT / "Sources/AgentValley/SafeJSON.swift"), str(OUT / "ObservationStubs.swift"),
                str(OUT / "Assertions.swift"), str(OUT / "LimitResets.swift"),
                *[str(OUT / path.name) for path in [TESTS] + LEGACY_TESTS], str(OUT / "main.swift"),
